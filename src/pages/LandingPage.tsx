@@ -8,8 +8,8 @@ const LandingPage = () => {
   const waitlistMode = isWaitlistModeEnabled();
   const ctaHref = waitlistMode ? '/waitlist' : '/signup';
   const ctaLabel = waitlistMode ? 'Waitlist Signup' : 'Get Started (Free)';
-  const headerHref = waitlistMode ? '/waitlist' : '/signin';
-  const headerLabel = waitlistMode ? 'Waitlist Signup' : 'Sign In';
+  const headerHref = waitlistMode ? '/peter' : '/signin';
+  const headerLabel = waitlistMode ? 'View Public Demo' : 'Sign In';
 
   // Analytics tracking helper
   const trackCTA = (location: string) => {
@@ -32,7 +32,7 @@ const LandingPage = () => {
             {/* Left: Logo + Wordmark */}
             <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
               <img 
-                src="/narrata-logo.svg" 
+                src="/assets/narrata-logo.svg" 
                 alt="Narrata" 
                 className="h-12 w-auto"
               />
@@ -80,25 +80,25 @@ const LandingPage = () => {
               {/* Mobile: Fade in/out carousel */}
               <div className="block md:hidden relative rounded-lg">
                 <img 
-                  src="/docs/marketing/screenshots/dashboard.png" 
+                  src="/assets/screenshots/dashboard.png" 
                   alt="Narrata dashboard showing personalized insights and quick actions"
                   className="w-full h-auto animate-hero-mobile-1"
                   loading="eager"
                 />
                 <img 
-                  src="/docs/marketing/screenshots/pm-levels-3.png" 
+                  src="/assets/screenshots/pm-levels-3.png" 
                   alt="PM Levels analysis showing role fit and career progression"
                   className="w-full h-auto absolute top-0 left-0 animate-hero-mobile-2"
                   loading="eager"
                 />
                 <img 
-                  src="/docs/marketing/screenshots/work-history-2.png" 
+                  src="/assets/screenshots/work-history-2.png" 
                   alt="Work history with structured stories and achievements"
                   className="w-full h-auto absolute top-0 left-0 animate-hero-mobile-3"
                   loading="eager"
                 />
                 <img 
-                  src="/docs/marketing/screenshots/template.png" 
+                  src="/assets/screenshots/template.png" 
                   alt="Cover letter template with dynamic story matching"
                   className="w-full h-auto absolute top-0 left-0 animate-hero-mobile-4"
                   loading="eager"
@@ -107,25 +107,25 @@ const LandingPage = () => {
               {/* Desktop: Vertical scroll animation */}
               <div className="hidden md:block h-[500px] lg:h-[600px] overflow-hidden relative rounded-lg">
                 <img 
-                  src="/docs/marketing/screenshots/dashboard.png" 
+                  src="/assets/screenshots/dashboard.png" 
                   alt="Narrata dashboard showing personalized insights and quick actions"
                   className="w-full h-auto absolute top-0 left-0 animate-hero-1"
                   loading="eager"
                 />
                 <img 
-                  src="/docs/marketing/screenshots/pm-levels-3.png" 
+                  src="/assets/screenshots/pm-levels-3.png" 
                   alt="PM Levels analysis showing role fit and career progression"
                   className="w-full h-auto absolute top-0 left-0 animate-hero-2"
                   loading="eager"
                 />
                 <img 
-                  src="/docs/marketing/screenshots/work-history-2.png" 
+                  src="/assets/screenshots/work-history-2.png" 
                   alt="Work history with structured stories and achievements"
                   className="w-full h-auto absolute top-0 left-0 animate-hero-3"
                   loading="eager"
                 />
                 <img 
-                  src="/docs/marketing/screenshots/template.png" 
+                  src="/assets/screenshots/template.png" 
                   alt="Cover letter template with dynamic story matching"
                   className="w-full h-auto absolute top-0 left-0 animate-hero-4"
                   loading="eager"
@@ -461,7 +461,7 @@ const LandingPage = () => {
               </div>
               <div>
                 <img 
-                  src="/docs/marketing/screenshots/metrics-toolbar.png" 
+                  src="/assets/screenshots/metrics-toolbar.png" 
                   alt="Intelligent job matching with real scores before drafting"
                   className="w-full h-auto rounded-lg shadow-medium"
                   loading="lazy"
@@ -475,7 +475,7 @@ const LandingPage = () => {
                 <Card className="shadow-medium">
                   <CardContent className="p-0">
                     <img 
-                      src="/docs/marketing/screenshots/HIL.png" 
+                      src="/assets/screenshots/HIL.png" 
                       alt="Actionable improvement suggestions during drafting"
                       className="w-full h-auto rounded-lg"
                       loading="lazy"
@@ -533,7 +533,7 @@ const LandingPage = () => {
               </div>
               <div>
                 <img 
-                  src="/docs/marketing/screenshots/work-history.png" 
+                  src="/assets/screenshots/work-history.png" 
                   alt="Reusable content library that grows with every application"
                   className="w-full h-auto rounded-lg shadow-medium"
                   loading="lazy"
@@ -566,7 +566,7 @@ const LandingPage = () => {
                     </p>
                   </div>
                   <img 
-                    src="/docs/marketing/screenshots/my-data.png" 
+                    src="/assets/screenshots/my-data.png" 
                     alt="Upload your work history and experience data"
                     className="w-full h-auto rounded-lg"
                     loading="lazy"
@@ -587,7 +587,7 @@ const LandingPage = () => {
                     </p>
                   </div>
                   <img 
-                    src="/docs/marketing/screenshots/my-goals.png" 
+                    src="/assets/screenshots/my-goals.png" 
                     alt="Define your career goals and preferences"
                     className="w-full h-auto rounded-lg"
                     loading="lazy"
@@ -608,7 +608,7 @@ const LandingPage = () => {
                     </p>
                   </div>
                   <img 
-                    src="/docs/marketing/screenshots/match-with-strengths.png" 
+                    src="/assets/screenshots/match-with-strengths.png" 
                     alt="Intelligent job-to-profile matching showing strengths alignment"
                     className="w-full h-auto rounded-lg"
                     loading="lazy"
@@ -629,7 +629,7 @@ const LandingPage = () => {
                     </p>
                   </div>
                   <img 
-                    src="/docs/marketing/screenshots/HIL.png" 
+                    src="/assets/screenshots/HIL.png" 
                     alt="Human-in-the-loop editing with AI-powered improvement suggestions"
                     className="w-full h-auto rounded-lg"
                     loading="lazy"

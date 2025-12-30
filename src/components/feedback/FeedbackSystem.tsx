@@ -12,7 +12,7 @@ const isTouchDevice = () => {
   return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 };
 
-export const FeedbackSystem: React.FC = () => {
+export const FeedbackSystem: React.FC<{ hideFloatingButton?: boolean }> = ({ hideFloatingButton = false }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [screenshot, setScreenshot] = useState<string>('');
   const [clickLocation, setClickLocation] = useState<{ x: number; y: number } | null>(null);
@@ -75,6 +75,15 @@ export const FeedbackSystem: React.FC = () => {
     }
   };
 
+  // Allow other UI surfaces (e.g., demo banner) to trigger feedback.
+  useEffect(() => {
+    const handler = () => {
+      handleFeedbackButtonClick();
+    };
+    window.addEventListener('narrata:open-feedback', handler as EventListener);
+    return () => window.removeEventListener('narrata:open-feedback', handler as EventListener);
+  }, []);
+
   const closeFeedbackModal = () => {
     setIsModalOpen(false);
     setScreenshot('');
@@ -118,10 +127,12 @@ export const FeedbackSystem: React.FC = () => {
 
   return (
     <>
-      <FloatingFeedbackButton
-        onClick={handleFeedbackButtonClick}
-        isOpen={isInspectModeActive || isModalOpen}
-      />
+      {!hideFloatingButton && (
+        <FloatingFeedbackButton
+          onClick={handleFeedbackButtonClick}
+          isOpen={isInspectModeActive || isModalOpen}
+        />
+      )}
       
       {/* Show pin when element is pinned */}
       {pinnedLocation && (

@@ -1,12 +1,14 @@
 import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { GrammarInput } from "@/components/ui/grammar-input";
+import { TagAutocompleteInput } from "@/components/ui/TagAutocompleteInput";
+import { GrammarTextarea } from "@/components/ui/grammar-textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { X, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { addUserTag, removeUserTag } from "@/lib/userTags";
 import { AddLinkToBlurbModal } from "./AddLinkToBlurbModal";
 import type { ExternalLink } from "@/types/workHistory";
 
@@ -28,14 +30,14 @@ export function AddBlurbModal({ open, onOpenChange, roleId, existingLinks, onBlu
   const { toast } = useToast();
 
   const handleAddTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
-      setTagInput("");
-    }
+    const nextTags = addUserTag(tags, tagInput);
+    if (nextTags === tags) return;
+    setTags(nextTags);
+    setTagInput("");
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
+    setTags(removeUserTag(tags, tagToRemove));
   };
 
   const handleInsertLink = (linkText: string) => {
@@ -104,7 +106,7 @@ export function AddBlurbModal({ open, onOpenChange, roleId, existingLinks, onBlu
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
-            <Input
+            <GrammarInput
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -125,7 +127,7 @@ export function AddBlurbModal({ open, onOpenChange, roleId, existingLinks, onBlu
                 Add Link
               </Button>
             </div>
-            <Textarea
+            <GrammarTextarea
               ref={textareaRef}
               id="content"
               value={content}
@@ -138,12 +140,15 @@ export function AddBlurbModal({ open, onOpenChange, roleId, existingLinks, onBlu
           <div className="space-y-2">
             <Label htmlFor="tags">Tags</Label>
             <div className="flex gap-2">
-              <Input
+              <TagAutocompleteInput
                 id="tags"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 placeholder="Add a tag and press Enter"
+                category="story"
+                localTags={tags}
+                useGrammarInput
               />
               <Button type="button" onClick={handleAddTag} size="sm">
                 Add

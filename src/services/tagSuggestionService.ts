@@ -53,12 +53,21 @@ export interface SavedSectionTagSuggestionRequest extends BaseTagSuggestionReque
 }
 
 /**
+ * Story tag suggestion request
+ */
+export interface StoryTagSuggestionRequest extends BaseTagSuggestionRequest {
+  contentType: 'story';
+  companyName?: string; // Optional context for story tags
+}
+
+/**
  * Discriminated union type for type-safe tag suggestion requests
  */
 export type TagSuggestionRequest =
   | CompanyTagSuggestionRequest
   | RoleTagSuggestionRequest
-  | SavedSectionTagSuggestionRequest;
+  | SavedSectionTagSuggestionRequest
+  | StoryTagSuggestionRequest;
 
 export class TagSuggestionService {
   private static llmService = new LLMAnalysisService();
@@ -340,4 +349,3 @@ export class TagSuggestionService {
     return content;
   }
 }
-

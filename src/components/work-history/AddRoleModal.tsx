@@ -13,15 +13,20 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { GrammarInput } from "@/components/ui/grammar-input";
+import { TagAutocompleteInput } from "@/components/ui/TagAutocompleteInput";
+import { GrammarTextarea } from "@/components/ui/grammar-textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { X, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { addUserTag, mergeUserTags, removeUserTag } from "@/lib/userTags";
 import { GapDetectionService } from "@/services/gapDetectionService";
+import { UserTagService } from "@/services/userTagService";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/localDraft";
 
 interface AddRoleModalProps {
   open: boolean;
@@ -48,6 +53,14 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
   const { toast } = useToast();
 
   const isEditing = !!editingRole;
+  const draftKey = `draft:edit-role:${user?.id ?? 'anon'}:${editingRole?.id ?? company?.id ?? 'new'}`;
+
+  const baseTitle = editingRole?.title || "";
+  const baseStartDate = editingRole?.startDate ? editingRole.startDate.substring(0, 7) : "";
+  const baseEndDate = editingRole?.endDate ? editingRole.endDate.substring(0, 7) : "";
+  const baseDescription = editingRole?.description || "";
+  const baseTags = editingRole?.tags || [];
+  const baseOutcomeMetrics = editingRole?.outcomeMetrics || [];
 
   // Populate form with editing role data
   useEffect(() => {
@@ -59,7 +72,7 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
       setDescription(editingRole.description || "");
       setTags(editingRole.tags || []);
       setOutcomeMetrics(editingRole.outcomeMetrics || []);
-    } else {
+	      } else {
       // Reset form when not editing
       setTitle("");
       setStartDate("");
@@ -71,6 +84,96 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
       setOutcomeMetricInput("");
     }
   }, [editingRole, open]);
+
+  const persistDraftIfDirty = () => {
+    const dirty =
+      title !== baseTitle ||
+      startDate !== baseStartDate ||
+      endDate !== baseEndDate ||
+      description !== baseDescription ||
+      JSON.stringify(tags) !== JSON.stringify(baseTags) ||
+      JSON.stringify(outcomeMetrics) !== JSON.stringify(baseOutcomeMetrics);
+
+    if (!dirty) {
+      clearDraft(draftKey);
+      return;
+    }
+
+    saveDraft(draftKey, { title, startDate, endDate, description, tags, outcomeMetrics });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const draft = loadDraft<{
+      title?: string;
+      startDate?: string;
+      endDate?: string;
+      description?: string;
+      tags?: string[];
+      outcomeMetrics?: string[];
+    }>(draftKey);
+    if (!draft?.data) return;
+
+    const pristine =
+      title === baseTitle &&
+      startDate === baseStartDate &&
+      endDate === baseEndDate &&
+      description === baseDescription &&
+      JSON.stringify(tags) === JSON.stringify(baseTags) &&
+      JSON.stringify(outcomeMetrics) === JSON.stringify(baseOutcomeMetrics);
+
+    if (!pristine) return;
+
+    setTitle(draft.data.title ?? title);
+    setStartDate(draft.data.startDate ?? startDate);
+    setEndDate(draft.data.endDate ?? endDate);
+    setDescription(draft.data.description ?? description);
+    setTags(Array.isArray(draft.data.tags) ? draft.data.tags : tags);
+    setOutcomeMetrics(Array.isArray(draft.data.outcomeMetrics) ? draft.data.outcomeMetrics : outcomeMetrics);
+    toast({ title: "Restored draft", description: "Recovered your unsaved role edits." });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, draftKey]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = () => persistDraftIfDirty();
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, title, startDate, endDate, description, tags, outcomeMetrics]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onVisibilityChange = () => {
+      if (document.hidden) persistDraftIfDirty();
+    };
+    const onPageHide = () => persistDraftIfDirty();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, title, startDate, endDate, description, tags, outcomeMetrics]);
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => {
+      persistDraftIfDirty();
+    }, 500);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, title, startDate, endDate, description, tags, outcomeMetrics]);
+
+  const handleModalOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      // Ignore Radix dismiss attempts caused by switching browser tabs (focus-loss).
+      if (typeof document !== "undefined" && document.hidden) return;
+      persistDraftIfDirty();
+    }
+    onOpenChange(nextOpen);
+  };
 
   // Fetch delete stats when editing
   useEffect(() => {
@@ -101,14 +204,14 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
   }, [editingRole, user]);
 
   const handleAddTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
-      setTagInput("");
-    }
+    const nextTags = addUserTag(tags, tagInput);
+    if (nextTags === tags) return;
+    setTags(nextTags);
+    setTagInput("");
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
+    setTags(removeUserTag(tags, tagToRemove));
   };
 
   const handleAddOutcomeMetric = () => {
@@ -161,6 +264,7 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
 
       // Convert outcomeMetrics strings to the expected format
       const metricsJson = outcomeMetrics.map(m => ({ value: m, context: '', type: 'absolute' as const }));
+      const normalizedTags = mergeUserTags(tags);
 
       if (isEditing && editingRole) {
         // Update existing role - get the first work_item ID
@@ -173,7 +277,7 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
             start_date: startDateFull,
             end_date: endDateFull,
             description: description.trim(),
-            tags,
+            tags: normalizedTags,
             metrics: metricsJson,
             achievements: outcomeMetrics,
             updated_at: new Date().toISOString(),
@@ -188,6 +292,10 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
           workItemId,
           metrics: metricsJson,
         });
+
+        if (normalizedTags.length > 0) {
+          await UserTagService.upsertTags(user.id, normalizedTags, 'role');
+        }
 
         toast({
           title: "Role updated",
@@ -204,24 +312,29 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
             start_date: startDateFull,
             end_date: endDateFull,
             description: description.trim(),
-            tags,
+            tags: normalizedTags,
             metrics: metricsJson,
             achievements: outcomeMetrics,
           });
 
         if (error) throw error;
 
-        toast({
-          title: "Role added",
-          description: "Your new role has been added successfully.",
-        });
-      }
+        if (normalizedTags.length > 0) {
+          await UserTagService.upsertTags(user.id, normalizedTags, 'role');
+        }
 
-      // Reset form
-      setTitle("");
-      setStartDate("");
-      setEndDate("");
-      setDescription("");
+	        toast({
+	          title: "Role added",
+	          description: "Your new role has been added successfully.",
+	        });
+	      }
+
+	      clearDraft(draftKey);
+	      // Reset form
+	      setTitle("");
+	      setStartDate("");
+	      setEndDate("");
+	      setDescription("");
       setTags([]);
       setTagInput("");
       setOutcomeMetrics([]);
@@ -271,14 +384,15 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
 
       if (error) throw error;
 
-      toast({
-        title: "Role deleted",
-        description: `${editingRole.title} and all associated data has been deleted.`,
-      });
+	      toast({
+	        title: "Role deleted",
+	        description: `${editingRole.title} and all associated data has been deleted.`,
+	      });
 
-      onRoleDeleted?.();
-      onOpenChange(false);
-    } catch (error) {
+	      clearDraft(draftKey);
+	      onRoleDeleted?.();
+	      onOpenChange(false);
+	    } catch (error) {
       console.error('Error deleting role:', error);
       toast({
         title: "Error",
@@ -298,8 +412,14 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleModalOpenChange}>
+      <DialogContent
+        className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto"
+        onFocusOutside={(e) => {
+          // Prevent the dialog from closing when the browser window/tab loses focus.
+          e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Role" : "Add New Role"}</DialogTitle>
           <DialogDescription>
@@ -313,7 +433,7 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Job Title</Label>
-            <Input
+            <GrammarInput
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -346,7 +466,7 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
           
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
+            <GrammarTextarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -358,12 +478,15 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
           <div className="space-y-2">
             <Label htmlFor="tags">Tags</Label>
             <div className="flex gap-2">
-              <Input
+              <TagAutocompleteInput
                 id="tags"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 placeholder="Add a tag and press Enter"
+                category="role"
+                localTags={tags}
+                useGrammarInput
               />
               <Button type="button" onClick={handleAddTag} size="sm">
                 Add
@@ -390,19 +513,21 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
 
           <div className="space-y-2">
             <Label htmlFor="outcomeMetrics">Outcome Metrics</Label>
-            <div className="flex gap-2">
-              <Input
-                id="outcomeMetrics"
-                value={outcomeMetricInput}
-                onChange={(e) => setOutcomeMetricInput(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleAddOutcomeMetric();
-                  }
-                }}
-                placeholder="Add an outcome metric and press Enter"
-              />
+            <div className="flex w-full gap-2">
+              <div className="flex-1">
+                <GrammarInput
+                  id="outcomeMetrics"
+                  value={outcomeMetricInput}
+                  onChange={(e) => setOutcomeMetricInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAddOutcomeMetric();
+                    }
+                  }}
+                  placeholder="Add an outcome metric and press Enter"
+                />
+              </div>
               <Button type="button" onClick={handleAddOutcomeMetric} size="sm">
                 Add
               </Button>
@@ -463,7 +588,7 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
             {!isEditing && <div />}
             
             <div className="flex gap-2">
-              <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={isSubmitting || isDeleting}>
+              <Button type="button" variant="secondary" onClick={() => handleModalOpenChange(false)} disabled={isSubmitting || isDeleting}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting || isDeleting}>

@@ -2,15 +2,17 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { GrammarInput } from "@/components/ui/grammar-input";
+import { TagAutocompleteInput } from "@/components/ui/TagAutocompleteInput";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { GrammarTextarea } from "@/components/ui/grammar-textarea";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { StoryCard } from "@/components/work-history/StoryCard";
 import { LinkCard } from "@/components/work-history/LinkCard";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { cn } from "@/lib/utils";
+import { addUserTag, removeUserTag } from "@/lib/userTags";
 import { 
   Building2, 
   Calendar, 
@@ -44,7 +46,7 @@ import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { GapDetectionService, type Gap } from "@/services/gapDetectionService";
 import { TagSuggestionService, type TagSuggestion } from "@/services/tagSuggestionService";
 import { TagService } from "@/services/tagService";
-import { isExternalLinksEnabled } from "@/lib/flags";
+import { isExternalLinksEnabled, isLinkedInScrapingEnabled } from "@/lib/flags";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -64,13 +66,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
 import { useContentGeneration } from "@/hooks/useContentGeneration";
-import { supabase } from "@/lib/supabase";
+	import { supabase } from "@/lib/supabase";
+import type { ContentVariationInsert } from "@/types/variations";
 
 interface WorkHistoryDetailProps {
   selectedCompany: WorkHistoryCompany | null;
   selectedRole: WorkHistoryRole | null;
   companies: WorkHistoryCompany[]; // Add companies to find role's company
-  initialTab?: 'role' | 'stories' | 'links';
+  initialTab?: 'role' | 'stories' | 'links'; // uncontrolled fallback
+  activeTab?: 'role' | 'stories' | 'links'; // controlled
+  onTabChange?: (tab: 'role' | 'stories' | 'links') => void;
   resolvedGaps: Set<string>;
   onResolvedGapsChange: (gaps: Set<string>) => void;
   onRoleSelect?: (role: WorkHistoryRole) => void;
@@ -95,6 +100,8 @@ export const WorkHistoryDetail = ({
   selectedRole,
   companies,
   initialTab = 'role',
+  activeTab,
+  onTabChange,
   resolvedGaps,
   onResolvedGapsChange,
   onRoleSelect,
@@ -114,7 +121,7 @@ export const WorkHistoryDetail = ({
   const { user } = useAuth();
   const { goals } = useUserGoals();
   const ENABLE_EXTERNAL_LINKS = isExternalLinksEnabled();
-  const [detailView, setDetailView] = useState<DetailView>(initialTab);
+  const [detailView, setDetailView] = useState<DetailView>(activeTab ?? initialTab);
   const [isEditingRole, setIsEditingRole] = useState(false);
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
   const [isEditingStory, setIsEditingStory] = useState(false);
@@ -148,7 +155,7 @@ export const WorkHistoryDetail = ({
   const [otherTags, setOtherTags] = useState<TagSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [tagContentType, setTagContentType] = useState<'company' | 'role' | 'saved_section'>('company');
+  const [tagContentType, setTagContentType] = useState<'company' | 'role' | 'saved_section' | 'story'>('company');
   const [tagEntityId, setTagEntityId] = useState<string | undefined>();
 
   const {
@@ -157,29 +164,7 @@ export const WorkHistoryDetail = ({
     isLoadingContext: isContentGenerationLoading,
     openModal: openContentGenerationModal,
     closeModal: closeContentGenerationModal,
-  } = useContentGeneration({
-    onContentApplied: () => {
-      if (activeGapContext) {
-        const gapId = activeGapContext.gap.id ?? activeGapContext.entityId;
-        const gapKey = activeGapContext.entityType === 'approved_content'
-          ? `story-content-gap-${activeGapContext.entityId}`
-          : gapId;
-        const generatedKey = activeGapContext.entityType === 'approved_content'
-          ? `story-content-generated-${activeGapContext.entityId}`
-          : `${gapId}-generated`;
-        const nextResolved = new Set(resolvedGaps);
-        nextResolved.add(gapKey);
-        nextResolved.add(generatedKey);
-        onResolvedGapsChange(nextResolved);
-        setTimeout(() => {
-          setDismissedSuccessCards(prev => new Set(prev).add(generatedKey));
-        }, 3000);
-      }
-      setActiveGapContext(null);
-      setGapsRefreshKey(prev => prev + 1);
-      onRefresh?.();
-    },
-  });
+  } = useContentGeneration();
 
   const contentGenerationGap = useMemo(() => {
     const gap = activeGapContext?.gap;
@@ -390,16 +375,53 @@ export const WorkHistoryDetail = ({
   const [companyDescriptionDraft, setCompanyDescriptionDraft] = useState('');
 
   // Handlers for company description editing
-  const handleSaveCompanyDescription = () => {
-    if (roleCompany) {
-      // Update the company description
-      roleCompany.description = companyDescriptionDraft;
+  const handleSaveCompanyDescription = async () => {
+    // Get roleCompany from companies array (same as the render logic does)
+    const roleCompany = selectedRole ? companies.find(c => c.id === selectedRole.companyId) : null;
+    
+    if (!roleCompany || !user) {
+      toast({
+        title: 'Unable to save',
+        description: 'Company information not available.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('companies')
+        .update({
+          description: companyDescriptionDraft.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', roleCompany.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Close edit mode
       setIsEditingCompanyDescription(false);
-      // TODO: Save to database via API call
+
+      toast({
+        title: 'Description saved',
+        description: 'Company description has been updated.',
+      });
+
+      // Trigger parent refresh to get updated data
+      onRefresh?.();
+    } catch (error) {
+      console.error('[CompanyDescription] Error saving:', error);
+      toast({
+        title: 'Save failed',
+        description: error instanceof Error ? error.message : 'Failed to save company description.',
+        variant: 'destructive',
+      });
     }
   };
 
   const handleCancelEditCompanyDescription = () => {
+    const roleCompany = selectedRole ? companies.find(c => c.id === selectedRole.companyId) : null;
     setIsEditingCompanyDescription(false);
     setCompanyDescriptionDraft(roleCompany?.description || '');
   };
@@ -415,58 +437,232 @@ export const WorkHistoryDetail = ({
     }
   }, [selectedRole?.companyId, companies]);
 
-  const handleApplyContent = async (content: string) => {
-    if (!user || !activeGapContext) return;
-    
-    console.log('Applied generated content:', content);
-    
-    // Resolve gap in database with 'content_added' reason (not 'user_override')
-    // This distinguishes content-generated resolution from manual dismissal
-    const gapId = activeGapContext.gap.id;
-    const isDatabaseId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(gapId);
-    
+	  const handleApplyContent = async (content: string) => {
+	    if (!user || !activeGapContext) return;
+	    
+	    const entityType = activeGapContext.entityType;
+	    const entityId = activeGapContext.entityId;
+	    const trimmedContent = content.trim();
+	    const gapId = String(activeGapContext.gap.id || '');
+	    const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+	    const entityIdIsUuid = isUuid(entityId);
+	    const gapIdIsUuid = isUuid(gapId);
+
+	    if (!trimmedContent) {
+	      toast({
+	        title: 'Nothing to apply',
+        description: 'Generated content is empty.',
+        variant: 'destructive',
+      });
+      return;
+	    }
+
+	    // Persist the updated content first. Do not show success UI unless save succeeds.
+	    try {
+	      if (entityType === 'approved_content') {
+	        if (!entityIdIsUuid) {
+	          toast({
+	            title: 'Save failed',
+	            description:
+	              'This story is not saved to your database yet, so it cannot be updated. Duplicate it (or create a new story) to save a copy first.',
+	            variant: 'destructive',
+	          });
+	          return;
+	        }
+	        const { error } = await supabase
+	          .from('stories')
+	          .update({
+	            content: trimmedContent,
+	            updated_at: new Date().toISOString(),
+	            ...(gapIdIsUuid ? { addressed_gap_id: gapId } : {}),
+	          })
+	          .eq('id', entityId)
+	          .eq('user_id', user.id);
+	        if (error) throw error;
+
+        const storyForVariation = selectedRole?.blurbs?.find((b) => b.id === entityId);
+        const previousContent =
+          String((contentGenerationModalProps as any)?.existingContent ?? storyForVariation?.content ?? '').trim();
+        const shouldCreateVariation = previousContent && previousContent !== trimmedContent && entityIdIsUuid;
+
+        if (shouldCreateVariation) {
+          try {
+            const { data: existingVariation } = await supabase
+              .from('content_variations')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('parent_entity_type', 'approved_content')
+              .eq('parent_entity_id', entityId)
+              .eq('content', trimmedContent)
+              .limit(1)
+              .maybeSingle();
+
+            if (!existingVariation?.id) {
+              const variationInsert: ContentVariationInsert = {
+                user_id: user.id,
+                parent_entity_type: 'approved_content',
+                parent_entity_id: entityId,
+                title: `${storyForVariation?.title ?? 'Story'} (HIL edit)`,
+                content: trimmedContent,
+                created_by: 'user',
+                times_used: 0,
+              };
+
+              const { error: variationError } = await supabase
+                .from('content_variations')
+                .insert(variationInsert as any);
+              if (variationError) {
+                console.warn('[WorkHistoryDetail] Failed to create story variation (non-blocking):', variationError);
+              }
+            }
+          } catch (variationError) {
+            console.warn('[WorkHistoryDetail] Exception creating story variation (non-blocking):', variationError);
+          }
+        }
+
+        // Update UI immediately if possible (avoid waiting for parent refresh).
+        if (selectedRole && onRoleSelect) {
+          onRoleSelect({
+            ...selectedRole,
+            blurbs: (selectedRole.blurbs || []).map((b) => (b.id === entityId ? { ...b, content: trimmedContent } : b)),
+          });
+	        }
+	      } else if (entityType === 'work_item') {
+	        if (!entityIdIsUuid) {
+	          toast({
+	            title: 'Save failed',
+	            description:
+	              'This role is not saved to your database yet, so it cannot be updated. Create a role entry (manual import) to save a copy first.',
+	            variant: 'destructive',
+	          });
+	          return;
+	        }
+	        const { error } = await supabase
+	          .from('work_items')
+	          .update({
+	            description: trimmedContent,
+	            updated_at: new Date().toISOString(),
+	            ...(gapIdIsUuid ? { addressed_gap_id: gapId } : {}),
+	          })
+	          .eq('id', entityId)
+	          .eq('user_id', user.id);
+	        if (error) throw error;
+	      } else if (entityType === 'saved_section') {
+	        if (!entityIdIsUuid) {
+	          toast({
+	            title: 'Save failed',
+	            description: 'This saved section is not saved to your database yet, so it cannot be updated.',
+	            variant: 'destructive',
+	          });
+	          return;
+	        }
+	        const { error } = await supabase
+	          .from('saved_sections')
+	          .update({
+	            content: trimmedContent,
+	            updated_at: new Date().toISOString(),
+	            ...(gapIdIsUuid ? { addressed_gap_id: gapId } : {}),
+	          })
+	          .eq('id', entityId)
+	          .eq('user_id', user.id);
+	        if (error) throw error;
+	      }
+	    } catch (error) {
+	      console.error('Error applying generated content:', { error, entityType, entityId, gapId });
+	      const message =
+	        error instanceof Error
+	          ? error.message
+	          : typeof (error as any)?.message === 'string'
+	            ? String((error as any).message)
+	            : typeof (error as any)?.details === 'string'
+	              ? String((error as any).details)
+	              : undefined;
+	      toast({
+	        title: 'Save failed',
+	        description: message ? `Unable to apply content: ${message}` : 'Unable to apply content. Please try again.',
+	        variant: 'destructive',
+	      });
+	      return;
+	    }
+
+	    // Resolve gap in database with 'content_added' reason (not 'user_override')
+	    // This distinguishes content-generated resolution from manual dismissal
+	    const gapCategory = activeGapContext.gap.gap_category;
+	    const isDatabaseId = gapIdIsUuid;
+	    let didResolveGap = false;
+
     if (isDatabaseId) {
       try {
-        // TODO: Get the actual content ID after saving content to database
-        // For now, we resolve without linking content (will be updated when content saving is implemented)
-        // Persist gap resolution with 'content_added' reason
-        // When content saving is implemented, pass the content ID as 4th parameter:
-        // await GapDetectionService.resolveGap(gapId, user.id, 'content_added', contentId);
-        await GapDetectionService.resolveGap(gapId, user.id, 'content_added');
-        
-        // Trigger parent refresh to update data
-        if (onRefresh) {
-          onRefresh();
+        if (entityType === 'approved_content' && gapCategory === 'missing_metrics') {
+          const shouldResolve = GapDetectionService.storyHasMetrics({ content: trimmedContent, metrics: [] });
+          if (shouldResolve) {
+            await GapDetectionService.resolveSatisfiedStoryMetricsGaps({
+              userId: user.id,
+              storyId: entityId,
+              content: trimmedContent,
+              metrics: [],
+            });
+            didResolveGap = true;
+          }
+        } else if (entityType === 'approved_content' && gapCategory === 'story_needs_specifics') {
+          const shouldResolve = GapDetectionService.storyMeetsSpecificity(trimmedContent);
+          if (shouldResolve) {
+            await GapDetectionService.resolveSatisfiedStorySpecificsGaps({
+              userId: user.id,
+              storyId: entityId,
+              content: trimmedContent,
+            });
+            didResolveGap = true;
+          }
+        } else {
+          const addressingContentId = entityType === 'approved_content' ? entityId : undefined;
+          await GapDetectionService.resolveGap(gapId, user.id, 'content_added', addressingContentId);
+          didResolveGap = true;
         }
       } catch (error) {
         console.error('Error resolving gap after content generation:', error);
-        // Continue with local state update even if DB update fails
+        // Non-blocking: content was saved, so continue.
       }
     }
     
-    // Mark this gap as resolved AND track that content was generated (not just dismissed)
-      const gapKey = activeGapContext.entityType === 'approved_content'
-        ? `story-content-gap-${activeGapContext.entityId}`
-        : activeGapContext.gap.id;
-      const generatedKey = activeGapContext.entityType === 'approved_content'
-        ? `story-content-generated-${activeGapContext.entityId}`
-        : `${activeGapContext.gap.id}-generated`;
-      
+    // Track that content was generated (not just dismissed); only mark as "resolved" if it was actually resolved.
+    const gapKey = activeGapContext.entityType === 'approved_content'
+      ? `story-content-gap-${activeGapContext.entityId}`
+      : activeGapContext.gap.id;
+    const generatedKey = activeGapContext.entityType === 'approved_content'
+      ? `story-content-generated-${activeGapContext.entityId}`
+      : `${activeGapContext.gap.id}-generated`;
+
+    if (activeGapContext.entityType === 'approved_content' && !didResolveGap && isDatabaseId) {
+      if (gapCategory === 'missing_metrics') {
+        toast({
+          title: 'Content saved',
+          description: 'This story still appears to be missing quantified metrics.',
+        });
+      } else if (gapCategory === 'story_needs_specifics') {
+        toast({
+          title: 'Content saved',
+          description: 'This story still appears to need more specific details and outcomes.',
+        });
+      }
+    }
+
     // Update local state (for immediate UI feedback)
-      onResolvedGapsChange(new Set([...resolvedGaps, gapKey, generatedKey]));
+    onResolvedGapsChange(
+      new Set([...resolvedGaps, ...(didResolveGap ? [gapKey] : []), generatedKey])
+    );
     
-    // TODO: Implement content application logic (save content to database)
+    // Trigger parent refresh to ensure lists/gaps are up to date.
+    onRefresh?.();
       
       // Auto-dismiss success card after 3 seconds
       setTimeout(() => {
         setDismissedSuccessCards(prev => new Set([...prev, generatedKey]));
       }, 3000);
     
-    // Show temporary success state
-    setTimeout(() => {
-      closeContentGenerationModal();
-      setActiveGapContext(null);
-    }, 1000);
+    setGapsRefreshKey(prev => prev + 1);
+
+    handleCloseContentGenerationModal();
   };
 
   const handleDismissSuccessCard = (gapId: string) => {
@@ -501,6 +697,11 @@ export const WorkHistoryDetail = ({
     onResolvedGapsChange(new Set([...resolvedGaps, stateKey]));
   };
 
+  const handleCloseContentGenerationModal = () => {
+    setActiveGapContext(null);
+    closeContentGenerationModal();
+  };
+
   // NOTE: Role-level tag suggestions removed
   // Tags are now extracted during onboarding from resume + cover letter in a single LLM call
   // This avoids sending the same data to LLM twice
@@ -529,7 +730,7 @@ export const WorkHistoryDetail = ({
     try {
       if (tagContentType === 'company') {
         // Find company by ID
-        const targetCompany = selectedCompany || companies.find(c => c.id === tagEntityId);
+        const targetCompany = companies.find(c => c.id === tagEntityId) || selectedCompany;
         console.log('🏷️ Target company:', { 
           targetCompany: targetCompany?.name, 
           selectedCompany: selectedCompany?.name,
@@ -566,6 +767,25 @@ export const WorkHistoryDetail = ({
         
         await TagService.updateWorkItemTags(tagEntityId, allTags, user.id);
         console.log('🏷️ Role tags updated successfully');
+      } else if (tagContentType === 'story') {
+        const story = selectedRole?.blurbs?.find((b) => b.id === tagEntityId);
+        const allTags = [...new Set([...(story?.tags || []), ...selectedTags])];
+        console.log('🏷️ Updating story tags:', {
+          storyId: tagEntityId,
+          existingTags: story?.tags,
+          selectedTags,
+          allTags,
+        });
+
+        await TagService.updateStoryTags(tagEntityId, allTags, user.id);
+        console.log('🏷️ Story tags updated successfully');
+
+        if (selectedRole && onRoleSelect) {
+          onRoleSelect({
+            ...selectedRole,
+            blurbs: (selectedRole.blurbs || []).map((b) => (b.id === tagEntityId ? { ...b, tags: allTags } : b)),
+          });
+        }
       }
       
       // Refresh work history
@@ -664,6 +884,42 @@ export const WorkHistoryDetail = ({
     }
   };
 
+  const handleStoryTagSuggestions = async (story: WorkHistoryBlurb) => {
+    if (!story) return;
+
+    const content = `${story.title}: ${story.content}`;
+    setTagContent(content);
+    setTagContentType('story');
+    setTagEntityId(story.id);
+    setSuggestedTags([]);
+    setOtherTags([]);
+    setSearchError(null);
+    setIsSearching(true);
+    setIsTagModalOpen(true);
+
+    try {
+      const suggestions = await TagSuggestionService.suggestTags(
+        {
+          content,
+          contentType: 'story',
+          userGoals: goals ? { industries: goals.industries, businessModels: goals.businessModels } : undefined,
+          existingTags: story.tags || [],
+        },
+        user?.id
+      );
+
+      const highConfidence = suggestions.filter((t) => t.confidence === 'high');
+      const otherConfidence = suggestions.filter((t) => t.confidence !== 'high');
+      setSuggestedTags(highConfidence);
+      setOtherTags(otherConfidence);
+      setIsSearching(false);
+    } catch (error) {
+      console.error('🏷️ Error generating story tag suggestions:', error);
+      setIsSearching(false);
+      setSearchError(error instanceof Error ? error.message : 'Failed to suggest tags. Please try again.');
+    }
+  };
+
   // Retry handler for company tag suggestions
   const handleRetryCompanyTags = () => {
     handleCompanyTagSuggestions();
@@ -673,10 +929,16 @@ export const WorkHistoryDetail = ({
   // Story tags are auto-generated when creating content to address gaps (using gapContext)
   // Link tags are not needed - links are supporting evidence, not primary content
 
-  // Update detail view when initialTab prop changes
+  const setTab = useCallback((tab: DetailView) => {
+    setDetailView(tab);
+    onTabChange?.(tab);
+  }, [onTabChange]);
+
+  // Keep internal state in sync with controlled prop (or initialTab for legacy/uncontrolled).
   useEffect(() => {
-    setDetailView(initialTab);
-  }, [initialTab]);
+    const next = activeTab ?? initialTab;
+    setDetailView(next);
+  }, [activeTab, initialTab]);
   
   const formatDateRange = (startDate: string, endDate?: string) => {
     // Parse date strings without timezone conversion issues
@@ -949,20 +1211,21 @@ export const WorkHistoryDetail = ({
   };
 
   const handleAddRoleTag = () => {
-    if (roleTagInput.trim() && editingRole && !editingRole.tags?.includes(roleTagInput.trim())) {
-      setEditingRole({
-        ...editingRole,
-        tags: [...(editingRole.tags || []), roleTagInput.trim()]
-      });
-      setRoleTagInput('');
-    }
+    if (!editingRole) return;
+    const nextTags = addUserTag(editingRole.tags || [], roleTagInput);
+    if (nextTags === editingRole.tags) return;
+    setEditingRole({
+      ...editingRole,
+      tags: nextTags,
+    });
+    setRoleTagInput('');
   };
 
   const handleRemoveRoleTag = (tagToRemove: string) => {
     if (editingRole) {
       setEditingRole({
         ...editingRole,
-        tags: (editingRole.tags || []).filter(tag => tag !== tagToRemove)
+        tags: removeUserTag(editingRole.tags || [], tagToRemove)
       });
     }
   };
@@ -990,20 +1253,21 @@ export const WorkHistoryDetail = ({
   };
 
   const handleAddStoryTag = () => {
-    if (storyTagInput.trim() && editingStory && !editingStory.tags?.includes(storyTagInput.trim())) {
-      setEditingStory({
-        ...editingStory,
-        tags: [...(editingStory.tags || []), storyTagInput.trim()]
-      });
-      setStoryTagInput('');
-    }
+    if (!editingStory) return;
+    const nextTags = addUserTag(editingStory.tags || [], storyTagInput);
+    if (nextTags === editingStory.tags) return;
+    setEditingStory({
+      ...editingStory,
+      tags: nextTags,
+    });
+    setStoryTagInput('');
   };
 
   const handleRemoveStoryTag = (tagToRemove: string) => {
     if (editingStory) {
       setEditingStory({
         ...editingStory,
-        tags: (editingStory.tags || []).filter(tag => tag !== tagToRemove)
+        tags: removeUserTag(editingStory.tags || [], tagToRemove)
       });
     }
   };
@@ -1050,7 +1314,7 @@ export const WorkHistoryDetail = ({
             <div className="space-y-4">
               <div>
                 <Label htmlFor="title">Title</Label>
-                <Input
+                <GrammarInput
                   id="title"
                   value={editingRole.title}
                   onChange={(e) => setEditingRole({ ...editingRole, title: e.target.value })}
@@ -1058,7 +1322,7 @@ export const WorkHistoryDetail = ({
               </div>
               <div>
                 <Label htmlFor="description">Description</Label>
-                <Textarea
+                <GrammarTextarea
                   id="description"
                   value={editingRole.description || ''}
                   onChange={(e) => setEditingRole({ ...editingRole, description: e.target.value })}
@@ -1075,15 +1339,17 @@ export const WorkHistoryDetail = ({
                 <div className="space-y-2 mt-2">
                   {editingRole.outcomeMetrics.map((metric, index) => (
                     <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={metric}
-                        onChange={(e) => {
-                          const updatedMetrics = [...editingRole.outcomeMetrics];
-                          updatedMetrics[index] = e.target.value;
-                          setEditingRole({ ...editingRole, outcomeMetrics: updatedMetrics });
-                        }}
-                        placeholder="Enter outcome metric..."
-                      />
+                      <div className="flex-1">
+                        <GrammarInput
+                          value={metric}
+                          onChange={(e) => {
+                            const updatedMetrics = [...editingRole.outcomeMetrics];
+                            updatedMetrics[index] = e.target.value;
+                            setEditingRole({ ...editingRole, outcomeMetrics: updatedMetrics });
+                          }}
+                          placeholder="Enter outcome metric..."
+                        />
+                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1118,17 +1384,20 @@ export const WorkHistoryDetail = ({
               <div className="space-y-2">
                 <Label htmlFor="roleTags">Tags</Label>
                 <div className="flex gap-2">
-                  <Input
+                  <TagAutocompleteInput
                     id="roleTags"
                     value={roleTagInput}
                     onChange={(e) => setRoleTagInput(e.target.value)}
-                    onKeyPress={(e) => {
+                    onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         handleAddRoleTag();
                       }
                     }}
                     placeholder="Add a tag and press Enter"
+                    category="role"
+                    localTags={editingRole?.tags || []}
+                    useGrammarInput
                   />
                   <Button type="button" onClick={handleAddRoleTag} size="sm">
                     Add
@@ -1190,7 +1459,7 @@ export const WorkHistoryDetail = ({
             <div className="space-y-4">
               <div>
                 <Label htmlFor="storyTitle">Title</Label>
-                <Input
+                <GrammarInput
                   id="storyTitle"
                   value={editingStory.title}
                   onChange={(e) => setEditingStory({ ...editingStory, title: e.target.value })}
@@ -1198,7 +1467,7 @@ export const WorkHistoryDetail = ({
               </div>
               <div>
                 <Label htmlFor="storyContent">Content</Label>
-                <Textarea
+                <GrammarTextarea
                   id="storyContent"
                   value={editingStory.content}
                   onChange={(e) => setEditingStory({ ...editingStory, content: e.target.value })}
@@ -1216,15 +1485,17 @@ export const WorkHistoryDetail = ({
                 <div className="space-y-2 mt-2">
                   {editingStory.outcomeMetrics.map((metric, index) => (
                     <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={metric}
-                        onChange={(e) => {
-                          const updatedMetrics = [...editingStory.outcomeMetrics];
-                          updatedMetrics[index] = e.target.value;
-                          setEditingStory({ ...editingStory, outcomeMetrics: updatedMetrics });
-                        }}
-                        placeholder="Enter outcome metric..."
-                      />
+                      <div className="flex-1">
+                        <GrammarInput
+                          value={metric}
+                          onChange={(e) => {
+                            const updatedMetrics = [...editingStory.outcomeMetrics];
+                            updatedMetrics[index] = e.target.value;
+                            setEditingStory({ ...editingStory, outcomeMetrics: updatedMetrics });
+                          }}
+                          placeholder="Enter outcome metric..."
+                        />
+                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1259,17 +1530,20 @@ export const WorkHistoryDetail = ({
               <div className="space-y-2">
                 <Label htmlFor="storyTags">Tags</Label>
                 <div className="flex gap-2">
-                  <Input
+                  <TagAutocompleteInput
                     id="storyTags"
                     value={storyTagInput}
                     onChange={(e) => setStoryTagInput(e.target.value)}
-                    onKeyPress={(e) => {
+                    onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         handleAddStoryTag();
                       }
                     }}
                     placeholder="Add a tag and press Enter"
+                    category="story"
+                    localTags={editingStory?.tags || []}
+                    useGrammarInput
                   />
                   <Button type="button" onClick={handleAddStoryTag} size="sm">
                     Add
@@ -1308,12 +1582,12 @@ export const WorkHistoryDetail = ({
   }
 
   // Handle different data sources FIRST - before any other checks
-  if (selectedDataSource === 'linkedin') {
+  if (selectedDataSource === 'linkedin' && isLinkedInScrapingEnabled()) {
     return (
       <div className="h-full">
         <LinkedInDataSource 
           onConnectLinkedIn={() => console.log('Connect LinkedIn')}
-          onRefresh={() => window.location.reload()}
+          onRefresh={onRefresh}
         />
       </div>
     );
@@ -1360,12 +1634,13 @@ export const WorkHistoryDetail = ({
           const isRoleLevelDescription = (desc: string | null | undefined): boolean => {
             if (!desc) return false;
             const descLower = desc.trim().toLowerCase();
-            // Role-level descriptions typically start with action verbs or contain role-specific language
+            // Role-level descriptions typically START with first-person action verbs
+            // Company descriptions describe what the company does (third-person or neutral)
             const roleLevelIndicators = [
-              /^(led|owned|delivered|managed|built|designed|developed|created|improved|increased|reduced|launched|defined|scaled|drove|achieved|implemented|optimized|established|overhauled|enhanced)/i,
-              /\b(scaling|improving|driving|reducing|enhancing|optimizing|building|delivering|managing|owning)\b/i,
-              // Phrases that indicate role-level (first-person actions)
-              /\b(owned|led|delivered|managed)\b.*\b(platform|product|system|feature|process|initiative|project|organization|team)\b/i
+              // Must start with action verb (first-person role description)
+              /^(led|owned|delivered|managed|built|designed|developed|created|improved|increased|reduced|launched|defined|scaled|drove|achieved|implemented|optimized|established|overhauled|enhanced)\b/i,
+              // Strong first-person indicators (owned X, led Y)
+              /^(owned|led|delivered|managed)\b.*\b(platform|product|system|feature|process|initiative|project|organization|team)\b/i
             ];
             return roleLevelIndicators.some(pattern => pattern.test(desc));
           };
@@ -1386,7 +1661,7 @@ export const WorkHistoryDetail = ({
                       <h1 className="text-3xl font-bold text-foreground mb-4">{roleCompany.name}</h1>
                       {isEditingCompanyDescription ? (
                         <div>
-                          <Textarea
+                          <GrammarTextarea
                             value={companyDescriptionDraft}
                             onChange={(e) => setCompanyDescriptionDraft(e.target.value)}
                             className="min-h-[60px] text-muted-foreground resize-none"
@@ -1462,18 +1737,15 @@ export const WorkHistoryDetail = ({
                   </div>
                   <div className="text-sm text-muted-foreground">
                     <span className="mr-2">No company tags available</span>
-                    <TagSuggestionButton
-                      content={`${roleCompany.name}: Company information`}
-                      onTagsSuggested={() => {}}
-                      variant="tertiary"
-                      onClick={() => {
-                        const actualCompany = companies.find(c => c.name === roleCompany.name);
-                        if (actualCompany) {
-                          handleCompanyTagSuggestions(actualCompany);
-                        }
-                      }}
-                      size="sm"
-                    />
+	                    <TagSuggestionButton
+	                      content={`${roleCompany.name}: Company information`}
+	                      onTagsSuggested={() => {}}
+	                      variant="tertiary"
+	                      onClick={() => {
+	                        handleCompanyTagSuggestions(roleCompany);
+	                      }}
+	                      size="sm"
+	                    />
                   </div>
                 </div>
               </div>
@@ -1489,7 +1761,7 @@ export const WorkHistoryDetail = ({
                     <h1 className="text-3xl font-bold text-foreground mb-4">{roleCompany.name}</h1>
                       {isEditingCompanyDescription ? (
                         <div>
-                          <Textarea
+                          <GrammarTextarea
                             value={companyDescriptionDraft}
                             onChange={(e) => setCompanyDescriptionDraft(e.target.value)}
                             className="min-h-[60px] text-muted-foreground resize-none"
@@ -1588,30 +1860,24 @@ export const WorkHistoryDetail = ({
                     </Badge>
                   ))}
                   {hasCompanyTags && (
-                    <TagSuggestionButton
-                      content={`${roleCompany.name}: ${hasCompanyDescription ? roleCompany.description : 'Company information'}`}
-                      onTagsSuggested={() => {}}
-                      onClick={() => {
-                        const actualCompany = companies.find(c => c.name === roleCompany.name);
-                        if (actualCompany) {
-                          handleCompanyTagSuggestions(actualCompany);
-                        }
-                      }}
-                      variant="tertiary"
-                      size="sm"
-                    />
+	                    <TagSuggestionButton
+	                      content={`${roleCompany.name}: ${hasCompanyDescription ? roleCompany.description : 'Company information'}`}
+	                      onTagsSuggested={() => {}}
+	                      onClick={() => {
+	                        handleCompanyTagSuggestions(roleCompany);
+	                      }}
+	                      variant="tertiary"
+	                      size="sm"
+	                    />
                   )}
                   {!hasCompanyTags && (
-                    <Badge 
-                      variant="outline" 
-                      className="text-xs cursor-pointer hover:bg-muted border-dashed"
-                      onClick={() => {
-                        const actualCompany = companies.find(c => c.name === roleCompany.name);
-                        if (actualCompany) {
-                          handleCompanyTagSuggestions(actualCompany);
-                        }
-                      }}
-                    >
+	                    <Badge 
+	                      variant="outline" 
+	                      className="text-xs cursor-pointer hover:bg-muted border-dashed"
+	                      onClick={() => {
+	                        handleCompanyTagSuggestions(roleCompany);
+	                      }}
+	                    >
                       <Plus className="h-3 w-3 mr-1" />
                       Add tag
                     </Badge>
@@ -1633,7 +1899,7 @@ export const WorkHistoryDetail = ({
                     ? "border-primary text-primary" 
                     : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
                 )}
-                onClick={() => setDetailView('role')}
+                onClick={() => setTab('role')}
               >
                 <User className="h-4 w-4" />
                 Role
@@ -1645,7 +1911,7 @@ export const WorkHistoryDetail = ({
                     ? "border-primary text-primary" 
                     : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
                 )}
-                onClick={() => setDetailView('stories')}
+                onClick={() => setTab('stories')}
               >
                 <FileText className="h-4 w-4" />
                 Stories ({selectedRole.blurbs.length})
@@ -1658,7 +1924,7 @@ export const WorkHistoryDetail = ({
                     ? "border-primary text-primary" 
                     : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
                 )}
-                onClick={() => setDetailView('links')}
+                onClick={() => setTab('links')}
               >
                 <LinkIcon className="h-4 w-4" />
                 Links ({selectedRole.externalLinks.length})
@@ -1900,17 +2166,20 @@ export const WorkHistoryDetail = ({
                       
                       return (
                         <div key={story.id} id={`story-${story.id}`} className={index > 0 ? "mt-6" : ""}>
-                          <StoryCard
-                            story={story}
-                            linkedLinks={linkedLinks}
-                            onEdit={() => handleEditStory(story)}
-                            onDuplicate={() => onDuplicateStory?.(story)}
-                            onDelete={() => handleDeleteStoryClick(story)}
-                            isGapResolved={resolvedGaps.has(`story-content-gap-${story.id}`)}
-                            hasGaps={(story as any).hasGaps}
-                            gaps={(story as any).gaps}
-                            onGenerateContent={() => {
-                              // Always open HIL workflow, even if no gaps
+	                          <StoryCard
+	                            story={story}
+	                            linkedLinks={linkedLinks}
+	                            onEdit={onEditStory}
+	                            onDuplicate={() => onDuplicateStory?.(story)}
+	                            onDelete={() => handleDeleteStoryClick(story)}
+	                            onTagSuggestions={(_tags) => {
+	                              handleStoryTagSuggestions(story);
+	                            }}
+	                            isGapResolved={resolvedGaps.has(`story-content-gap-${story.id}`)}
+	                            hasGaps={(story as any).hasGaps}
+	                            gaps={(story as any).gaps}
+	                            onGenerateContent={() => {
+	                              // Always open HIL workflow, even if no gaps
                               handleStoryContentGenerate(story);
                             }}
                             onDismissGap={(story as any).hasGaps && !resolvedGaps.has(`story-content-gap-${story.id}`) ? () => {
@@ -1992,20 +2261,21 @@ export const WorkHistoryDetail = ({
             )}
         
         {/* Gap Detection Modal */}
-        {hilV3BaselineOn && activeGapContext?.entityType !== 'company' ? (
-          <ContentGenerationModalV3Baseline
-            isOpen={isContentGenerationModalOpen}
-            onClose={closeContentGenerationModal}
-            gap={contentGenerationGap as any}
-            onApplyContent={handleApplyContent}
-            userId={user?.id}
-            entityType={activeGapContext?.entityType as any}
-            entityId={activeGapContext?.entityId}
-          />
-        ) : (
+	        {hilV3BaselineOn && activeGapContext?.entityType !== 'company' ? (
+	          <ContentGenerationModalV3Baseline
+	            isOpen={isContentGenerationModalOpen}
+	            onClose={handleCloseContentGenerationModal}
+	            gap={contentGenerationGap as any}
+	            onApplyContent={handleApplyContent}
+	            closeOnApply={false}
+	            userId={user?.id}
+	            entityType={activeGapContext?.entityType as any}
+	            entityId={activeGapContext?.entityId}
+	          />
+	        ) : (
           <ContentGenerationModal
             isOpen={isContentGenerationModalOpen}
-            onClose={closeContentGenerationModal}
+            onClose={handleCloseContentGenerationModal}
             gap={contentGenerationGap as any}
             onApplyContent={handleApplyContent}
             mode="gap-detection"
@@ -2027,13 +2297,15 @@ export const WorkHistoryDetail = ({
           content={tagContent}
           contentType={tagContentType}
           entityId={tagEntityId}
-          existingTags={
-            tagContentType === 'company' 
-              ? (selectedCompany?.tags || companies.find(c => c.id === tagEntityId)?.tags || [])
-              : tagContentType === 'role'
-              ? (selectedRole?.tags || [])
-              : []
-          }
+	          existingTags={
+	            tagContentType === 'company' 
+	              ? (selectedCompany?.tags || companies.find(c => c.id === tagEntityId)?.tags || [])
+	              : tagContentType === 'role'
+	              ? (selectedRole?.tags || [])
+	              : tagContentType === 'story'
+	              ? (selectedRole?.blurbs?.find((b) => b.id === tagEntityId)?.tags || [])
+	              : []
+	          }
           suggestedTags={suggestedTags}
           otherTags={otherTags}
           onApplyTags={handleApplyTags}

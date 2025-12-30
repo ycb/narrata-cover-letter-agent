@@ -28,8 +28,6 @@ const SignIn = () => {
   const from = location.state?.from?.pathname || "/dashboard";
   const redirectError = location.state?.error;
   const waitlistMode = isWaitlistModeEnabled();
-  const ctaHref = waitlistMode ? "/waitlist" : "/signup";
-  const ctaLabel = waitlistMode ? "Waitlist Signup" : "Get Started";
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -97,11 +95,7 @@ const SignIn = () => {
           <div className="flex items-center justify-between mb-2">
             <div className="flex-1"></div>
             <h1 className="text-2xl font-bold text-foreground">Narrata</h1>
-            <div className="flex-1 flex justify-end">
-              <Link to={ctaHref} className="text-sm text-accent hover:underline">
-                {ctaLabel}
-              </Link>
-            </div>
+            <div className="flex-1" />
           </div>
         </div>
         {/* Error Alert */}
@@ -242,23 +236,14 @@ const SignIn = () => {
               </Button>
             </form>
 
-            <div className="text-center text-sm text-muted-foreground">
-              {waitlistMode ? (
-                <>
-                  Want beta access?{" "}
-                  <Link to="/waitlist" className="text-accent hover:underline font-medium">
-                    Join the waitlist
-                  </Link>
-                </>
-              ) : (
-                <>
-                  Don't have an account?{" "}
-                  <Link to="/signup" className="text-accent hover:underline font-medium">
-                    Create account
-                  </Link>
-                </>
-              )}
-            </div>
+            {!waitlistMode && (
+              <div className="text-center text-sm text-muted-foreground">
+                Don't have an account?{" "}
+                <Link to="/signup" className="text-accent hover:underline font-medium">
+                  Create account
+                </Link>
+              </div>
+            )}
           </CardContent>
         </Card>
 

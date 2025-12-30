@@ -4,6 +4,37 @@ function readEnvFlag(key: string): string | undefined {
   return fromImportMeta ?? fromProcess;
 }
 
+function readHilV3EnvEnabled(): string | undefined {
+  // Use direct `import.meta.env.VITE_*` access so Vite can statically replace in builds.
+  const fromImportMeta = import.meta.env.VITE_ENABLE_HIL_V3 as string | undefined;
+  const fromProcess =
+    typeof process !== 'undefined' ? ((process as any)?.env?.VITE_ENABLE_HIL_V3 as string | undefined) : undefined;
+  return fromImportMeta ?? fromProcess;
+}
+
+function readHilV3CoverLetterAlias(): string | undefined {
+  const fromImportMeta = import.meta.env.VITE_HIL_COVER_LETTER_V3 as string | undefined;
+  const fromProcess =
+    typeof process !== 'undefined' ? ((process as any)?.env?.VITE_HIL_COVER_LETTER_V3 as string | undefined) : undefined;
+  return fromImportMeta ?? fromProcess;
+}
+
+function readHilV3BaselineAlias(): string | undefined {
+  const fromImportMeta = import.meta.env.VITE_ENABLE_HIL_V3_BASELINE as string | undefined;
+  const fromProcess =
+    typeof process !== 'undefined'
+      ? ((process as any)?.env?.VITE_ENABLE_HIL_V3_BASELINE as string | undefined)
+      : undefined;
+  return fromImportMeta ?? fromProcess;
+}
+
+function readHilForceLegacyEnv(): string | undefined {
+  const fromImportMeta = import.meta.env.VITE_FORCE_HIL_LEGACY as string | undefined;
+  const fromProcess =
+    typeof process !== 'undefined' ? ((process as any)?.env?.VITE_FORCE_HIL_LEGACY as string | undefined) : undefined;
+  return fromImportMeta ?? fromProcess;
+}
+
 export function isTruthyFlag(value: unknown): boolean {
   const v = String(value ?? '').trim().toLowerCase();
   return v === '1' || v === 'true' || v === 'yes' || v === 'on';
@@ -25,7 +56,7 @@ export function readLocalStorageFlag(key: string): string | undefined {
  * - Local override: `localStorage.hil_force_legacy = "1"`
  */
 export function isHilLegacyForced(): boolean {
-  return isTruthyFlag(readEnvFlag('VITE_FORCE_HIL_LEGACY')) || isTruthyFlag(readLocalStorageFlag('hil_force_legacy'));
+  return isTruthyFlag(readHilForceLegacyEnv()) || isTruthyFlag(readLocalStorageFlag('hil_force_legacy'));
 }
 
 /**
@@ -44,9 +75,7 @@ export function isHilV3Enabled(): boolean {
   if (isHilLegacyForced()) return false;
 
   const envEnabled =
-    isTruthyFlag(readEnvFlag('VITE_ENABLE_HIL_V3')) ||
-    isTruthyFlag(readEnvFlag('VITE_HIL_COVER_LETTER_V3')) ||
-    isTruthyFlag(readEnvFlag('VITE_ENABLE_HIL_V3_BASELINE'));
+    isTruthyFlag(readHilV3EnvEnabled()) || isTruthyFlag(readHilV3CoverLetterAlias()) || isTruthyFlag(readHilV3BaselineAlias());
 
   const lsEnabled =
     isTruthyFlag(readLocalStorageFlag('hil_v3')) ||

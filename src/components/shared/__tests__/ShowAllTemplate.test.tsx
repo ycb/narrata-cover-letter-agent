@@ -74,7 +74,8 @@ describe('ShowAllTemplate', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: /Filter/ })).toBeInTheDocument();
+    expect(screen.getByText('Filter')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Company' })).toBeInTheDocument();
   });
 
   it('displays correct item count', () => {

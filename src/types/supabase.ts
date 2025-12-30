@@ -96,6 +96,26 @@ export type Database = {
           updated_at?: string
         }
       }
+      user_dictionary_words: {
+        Row: {
+          id: string
+          user_id: string
+          word: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          word: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          word?: string
+          created_at?: string
+        }
+      }
       work_items: {
         Row: {
           id: string
@@ -182,6 +202,29 @@ export type Database = {
           embedding?: number[] | null
           created_at?: string
           updated_at?: string
+        }
+      }
+      public_demo_profiles: {
+        Row: {
+          slug: string
+          user_id: string
+          visitor_user_id: string | null
+          created_at: string
+          created_by: string | null
+        }
+        Insert: {
+          slug: string
+          user_id: string
+          visitor_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+        }
+        Update: {
+          slug?: string
+          user_id?: string
+          visitor_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
         }
       }
       external_links: {

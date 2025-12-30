@@ -24,7 +24,7 @@ import { isHilV3Enabled } from "@/utils/featureFlags";
 // Mock data has been moved to usability-test branch for future reference
 
 export default function ShowAllStories() {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const hilV3BaselineOn = isHilV3Enabled();
   const [stories, setStories] = useState<Story[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -130,6 +130,10 @@ export default function ShowAllStories() {
       const transformedStories: Story[] = filteredBlurbs.map((blurb: any) => {                                      
         const workItem = blurb.work_item || {};
         const company = workItem.company || {};
+        const content = (blurb.content || "").trim();
+        const previewLimit = 180;
+        const preview =
+          content.length > previewLimit ? `${content.slice(0, previewLimit).trim()}...` : content;
         
         return {
           id: blurb.id,
@@ -137,7 +141,7 @@ export default function ShowAllStories() {
           company: company.name || 'Unknown Company',
           role: workItem.title || 'Unknown Role',
           impact: blurb.confidence as 'high' | 'medium' | 'low' || 'medium',
-          metrics: blurb.content.substring(0, 100), // First 100 chars as preview
+          metrics: preview,
           date: blurb.created_at,
           tags: blurb.tags || [],
           hasGaps: gapsMap.get(blurb.id) || false
@@ -188,23 +192,25 @@ export default function ShowAllStories() {
     { label: 'No gaps', value: 'no-gaps', category: 'gap' as const },
     // Other options
     { label: 'Story', value: 'title', category: 'other' as const },
-    { label: 'Metrics', value: 'metrics', category: 'other' as const },
     { label: 'Date', value: 'date', category: 'other' as const }
   ];
 
   const handleAddNew = () => {
+    if (isDemo) return;
     setIsAddStoryModalOpen(true);
   };
 
 
 
   const handleEdit = (story: Story) => {
+    if (isDemo) return;
     setEditingStory(story);
     setIsViewModalOpen(false);
     setIsAddStoryModalOpen(true);
   };
 
   const handleDelete = (story: Story) => {
+    if (isDemo) return;
     setStories(stories.filter(s => s.id !== story.id));
   };
 
@@ -428,37 +434,25 @@ export default function ShowAllStories() {
           {getSortIcon('hasGaps')}
         </div>
       </th>
-      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('title')}>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors w-[44%]" onClick={() => handleSort('title')}>
         <div className="flex items-center gap-2">
           Story
           {getSortIcon('title')}
         </div>
       </th>
-      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('company')}>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors w-[22%]" onClick={() => handleSort('company')}>
         <div className="flex items-center gap-2">
-          Company
+          Context
           {getSortIcon('company')}
         </div>
       </th>
-      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('role')}>
-        <div className="flex items-center gap-2">
-          Role
-          {getSortIcon('role')}
-        </div>
-      </th>
-      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('metrics')}>
-        <div className="flex items-center gap-2">
-          Metrics
-          {getSortIcon('metrics')}
-        </div>
-      </th>
-      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('date')}>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors w-[12%]" onClick={() => handleSort('date')}>
         <div className="flex items-center gap-2">
           Date
           {getSortIcon('date')}
         </div>
       </th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Tags</th>
+      <th className="text-left p-4 font-medium text-muted-foreground w-[22%]">Tags</th>
     </tr>
   );
 
@@ -476,44 +470,40 @@ export default function ShowAllStories() {
           )}
         </td>
         <td className="p-4">
-        <div className="max-w-xs">
-          <h4 className="font-medium text-foreground line-clamp-2">{story.title}</h4>
-        </div>
-      </td>
-      <td className="p-4">
-        <div className="text-sm text-muted-foreground">
-          {story.company}
-        </div>
-      </td>
-      <td className="p-4">
-        <div className="text-sm text-muted-foreground">
-          {story.role}
-        </div>
-      </td>
-      <td className="p-4">
-        <div className="max-w-xs">
-          <p className="text-sm text-foreground line-clamp-2">{story.metrics}</p>
-        </div>
-      </td>
-      <td className="p-4">
-        <div className="text-sm text-muted-foreground">
-          {new Date(story.date).toLocaleDateString()}
-        </div>
-      </td>
-      <td className="p-4">
-        <div className="flex flex-wrap gap-1">
-          {story.tags.slice(0, 2).map((tag, tagIndex) => (
-            <Badge key={tagIndex} variant="outline" className="text-xs">
-              {tag}
-            </Badge>
-          ))}
-          {story.tags.length > 2 && (
-            <Badge variant="outline" className="text-xs">
-              +{story.tags.length - 2}
-            </Badge>
-          )}
-        </div>
-      </td>
+          <div className="space-y-1">
+            <h4 className="font-medium text-foreground overflow-hidden text-ellipsis [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+              {story.title}
+            </h4>
+            <p className="text-sm text-muted-foreground">{story.metrics}</p>
+          </div>
+        </td>
+        <td className="p-4">
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <div className="text-sm font-medium text-foreground">{story.company}</div>
+            <div className="overflow-hidden text-ellipsis [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+              {story.role}
+            </div>
+          </div>
+        </td>
+        <td className="p-4">
+          <div className="text-xs text-muted-foreground">
+            {new Date(story.date).toLocaleDateString()}
+          </div>
+        </td>
+        <td className="p-4">
+          <div className="flex flex-wrap gap-1">
+            {story.tags.slice(0, 2).map((tag, tagIndex) => (
+              <Badge key={tagIndex} variant="outline" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+            {story.tags.length > 2 && (
+              <Badge variant="outline" className="text-xs">
+                +{story.tags.length - 2}
+              </Badge>
+            )}
+          </div>
+        </td>
     </tr>
     );
   };
@@ -522,7 +512,7 @@ export default function ShowAllStories() {
   if (!isLoading && !error && stories.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <StoriesEmptyState onAddStory={() => setIsAddStoryModalOpen(true)} />
+        <StoriesEmptyState onAddStory={isDemo ? undefined : () => setIsAddStoryModalOpen(true)} />
       </div>
     );
   }
@@ -536,7 +526,7 @@ export default function ShowAllStories() {
         searchPlaceholder="Search stories by title, company, role, or metrics..."
         renderHeader={renderHeader}
         renderRow={renderRow}
-        onAddNew={handleAddNew}
+        onAddNew={isDemo ? undefined : handleAddNew}
         addNewLabel="Add Story"
         sortOptions={sortOptions}
         searchKeys={["title", "company", "role", "metrics"]}
@@ -544,18 +534,20 @@ export default function ShowAllStories() {
       />
 
       {/* Add Story Modal */}
-      <AddStoryModal
-        open={isAddStoryModalOpen}
-        onOpenChange={setIsAddStoryModalOpen}
-        onSave={(story) => {
-          console.log("Story saved:", story);
-          setIsAddStoryModalOpen(false);
-        }}
-        editingStory={editingStory}
-        isViewAllContext={true}
-        availableCompanies={companies}
-        availableRoles={roles}
-      />
+      {!isDemo && (
+        <AddStoryModal
+          open={isAddStoryModalOpen}
+          onOpenChange={setIsAddStoryModalOpen}
+          onSave={(story) => {
+            console.log("Story saved:", story);
+            setIsAddStoryModalOpen(false);
+          }}
+          editingStory={editingStory}
+          isViewAllContext={true}
+          availableCompanies={companies}
+          availableRoles={roles}
+        />
+      )}
 
       {/* View Story Modal - Using existing StoryCard */}
       {isViewModalOpen && viewingStory && (
@@ -566,10 +558,12 @@ export default function ShowAllStories() {
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold">Story Details</h2>
                   <div className="flex items-center gap-3">
-                    <Button onClick={() => handleEdit(viewingStory)}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Story
-                    </Button>
+                    {!isDemo && (
+                      <Button onClick={() => handleEdit(viewingStory)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Story
+                      </Button>
+                    )}
                     <Button 
                       variant="ghost" 
                       size="icon" 
@@ -596,16 +590,16 @@ export default function ShowAllStories() {
                       hasGaps={hasGaps && !isGapResolved}
                       gaps={viewingStoryGaps}
                       isGapResolved={isGapResolved}
-                      onGenerateContent={handleGenerateContent}
-                      onDismissGap={() => {
+                      onGenerateContent={isDemo ? undefined : handleGenerateContent}
+                      onDismissGap={isDemo ? undefined : () => {
                         // Dismiss all gaps for this story
                         viewingStoryGaps.forEach(gap => {
                           handleResolveGap(gap.id);
                         });
                       }}
-                      onEdit={() => handleEdit(viewingStory)}
-                      onDuplicate={() => handleCopy(viewingStory)}
-                      onDelete={() => handleDelete(viewingStory)}
+                      onEdit={isDemo ? undefined : () => handleEdit(viewingStory)}
+                      onDuplicate={isDemo ? undefined : () => handleCopy(viewingStory)}
+                      onDelete={isDemo ? undefined : () => handleDelete(viewingStory)}
                       tagsLabel="Story Tags"
                     >
                       {/* Outcome Metrics - extract from story.metrics */}
@@ -627,29 +621,31 @@ export default function ShowAllStories() {
       )}
 
       {/* Content Generation Modal */}
-      {hilV3BaselineOn ? (
-        <ContentGenerationModalV3Baseline
-          isOpen={isContentModalOpen}
-          onClose={() => {
-            setIsContentModalOpen(false);
-            setSelectedGap(null);
-          }}
-          gap={selectedGap}
-          userId={user?.id}
-          entityType="approved_content"
-          entityId={viewingStory?.id}
-          onApplyContent={handleApplyContent}
-        />
-      ) : (
-        <ContentGenerationModal
-          isOpen={isContentModalOpen}
-          onClose={() => {
-            setIsContentModalOpen(false);
-            setSelectedGap(null);
-          }}
-          gap={selectedGap}
-          onApplyContent={handleApplyContent}
-        />
+      {!isDemo && (
+        hilV3BaselineOn ? (
+          <ContentGenerationModalV3Baseline
+            isOpen={isContentModalOpen}
+            onClose={() => {
+              setIsContentModalOpen(false);
+              setSelectedGap(null);
+            }}
+            gap={selectedGap}
+            userId={user?.id}
+            entityType="approved_content"
+            entityId={viewingStory?.id}
+            onApplyContent={handleApplyContent}
+          />
+        ) : (
+          <ContentGenerationModal
+            isOpen={isContentModalOpen}
+            onClose={() => {
+              setIsContentModalOpen(false);
+              setSelectedGap(null);
+            }}
+            gap={selectedGap}
+            onApplyContent={handleApplyContent}
+          />
+        )
       )}
     </>
   );

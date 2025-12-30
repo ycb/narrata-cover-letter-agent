@@ -469,6 +469,7 @@ Rules:
 - Do NOT invent facts or propose fake metrics.
 - Do NOT output bracket placeholders like [company], [metric], etc.
 - Keep the user's tone/style; do not impose a new tone.
+- Always provide a 1-sentence summary of the highest-impact improvement to make (even if you also provide suggestions).
 - Produce at most 5 suggestions, prioritized by impact.
 - Each suggestion MUST include an "anchor" that is an exact substring copied from the user's text (8–200 chars).
 - Each suggestion MUST include a "replacement" the user could swap in for the anchor (same tone, no new claims).
@@ -479,7 +480,7 @@ ${kindConstraints}
 Return JSON only (no code fences, no markdown).
 Schema:
 {
-  "summary": string | null,
+  "summary": string,
   "suggestions": Array<{
     "id": string,
     "priority": "P0" | "P1" | "P2",

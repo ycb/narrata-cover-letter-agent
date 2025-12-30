@@ -87,6 +87,17 @@ export function computeSectionAttribution({
 } {
   const normalizedTypes = normalizeSectionType(sectionType);
 
+  const requirementMatchesSection = (sectionIds: string[] | undefined): boolean => {
+    if (!sectionIds || sectionIds.length === 0) return false;
+    return sectionIds.some((sid) => {
+      // Path 1: Direct UUID match (PREFERRED)
+      if (sid === sectionId) return true;
+      // Path 2: Semantic type match (LEGACY/FALLBACK)
+      const lowerSid = sid.toLowerCase();
+      return normalizedTypes.some((nt) => lowerSid.includes(nt) || nt.includes(lowerSid));
+    });
+  };
+
   // Initialize empty attribution
   const attribution: SectionAttributionData = {
     coreReqs: { met: [], unmet: [] },
@@ -101,30 +112,7 @@ export function computeSectionAttribution({
     // Met requirements: demonstrated AND addressed in this section
     const metInSection = allCoreReqs.filter(req => {
       if (!req.demonstrated) return false;
-      const sectionIds = req.sectionIds || [];
-
-      // Check if this section is mentioned
-      // Priority: UUID match (exact) > Semantic match (fuzzy)
-      const matched = sectionIds.some(sid => {
-        // Path 1: Direct UUID match (PREFERRED)
-        // Example: sid="section-1-1" === sectionId="section-1-1"
-        if (sid === sectionId) {
-          console.log(`[MATCH PATH 1] ✓ UUID Match for "${req.requirement}": ${sid} === ${sectionId}`);
-          return true;
-        }
-
-        // Path 2: Semantic type match (LEGACY/FALLBACK)
-        // Example: sid="introduction" matches normalizedTypes=["introduction", "intro", "opening"]
-        // Used when LLM returns semantic slugs instead of UUIDs
-        const lowerSid = sid.toLowerCase();
-        const semanticMatch = normalizedTypes.some(nt => lowerSid.includes(nt) || nt.includes(lowerSid));
-        if (semanticMatch) {
-          console.log(`[MATCH PATH 2] ⚠️ Semantic Type Match for "${req.requirement}": ${sid} → ${normalizedTypes.join(', ')}`);
-        }
-        return semanticMatch;
-      });
-
-      return matched;
+      return requirementMatchesSection(req.sectionIds);
     });
 
     attribution.coreReqs.met = metInSection.map(req => ({
@@ -133,8 +121,9 @@ export function computeSectionAttribution({
       evidence: req.evidence,
     }));
 
-    // Unmet requirements: all core reqs not demonstrated
-    const unmet = allCoreReqs.filter(req => !req.demonstrated);
+    // Unmet requirements (for this section): everything not addressed in this section.
+    // NOTE: A requirement can be demonstrated in the draft but still be unmet for this particular section.
+    const unmet = allCoreReqs.filter((req) => !requirementMatchesSection(req.sectionIds));
     attribution.coreReqs.unmet = unmet.map(req => ({
       id: req.id,
       label: req.requirement,
@@ -148,26 +137,7 @@ export function computeSectionAttribution({
     // Met requirements: demonstrated AND addressed in this section
     const metInSection = allPrefReqs.filter(req => {
       if (!req.demonstrated) return false;
-      const sectionIds = req.sectionIds || [];
-
-      // Priority: UUID match (exact) > Semantic match (fuzzy)
-      const matched = sectionIds.some(sid => {
-        // Path 1: Direct UUID match (PREFERRED)
-        if (sid === sectionId) {
-          console.log(`[MATCH PATH 1] ✓ UUID Match (Pref) for "${req.requirement}": ${sid} === ${sectionId}`);
-          return true;
-        }
-
-        // Path 2: Semantic type match (LEGACY/FALLBACK)
-        const lowerSid = sid.toLowerCase();
-        const semanticMatch = normalizedTypes.some(nt => lowerSid.includes(nt) || nt.includes(lowerSid));
-        if (semanticMatch) {
-          console.log(`[MATCH PATH 2] ⚠️ Semantic Type Match (Pref) for "${req.requirement}": ${sid} → ${normalizedTypes.join(', ')}`);
-        }
-        return semanticMatch;
-      });
-
-      return matched;
+      return requirementMatchesSection(req.sectionIds);
     });
 
     attribution.prefReqs.met = metInSection.map(req => ({
@@ -176,8 +146,8 @@ export function computeSectionAttribution({
       evidence: req.evidence,
     }));
 
-    // Unmet requirements
-    const unmet = allPrefReqs.filter(req => !req.demonstrated);
+    // Unmet requirements (for this section): everything not addressed in this section.
+    const unmet = allPrefReqs.filter((req) => !requirementMatchesSection(req.sectionIds));
     attribution.prefReqs.unmet = unmet.map(req => ({
       id: req.id,
       label: req.requirement,

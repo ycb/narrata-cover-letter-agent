@@ -19,6 +19,21 @@ type JobRow = {
   stages?: Record<string, unknown> | null;
 };
 
+type UserLevelsRow = {
+  inferred_level: PMLevelCode;
+  confidence: number;
+  scope_score: number;
+  maturity_modifier: number;
+  role_type: RoleType[] | null;
+  delta_summary: string | null;
+  recommendations: any;
+  competency_scores: any;
+  signals: any;
+  last_run_timestamp: string | null;
+  updated_at: string | null;
+  created_at: string | null;
+};
+
 const SPECIALIZATION_MAP: Record<string, RoleType> = {
   'Growth PM': 'growth',
   'Platform PM': 'platform',
@@ -108,6 +123,55 @@ const mapIcLevelToLevel = (icLevel: number): { levelCode: PMLevelCode; displayLe
     : { levelCode: 'L3', displayLevel: 'Associate Product Manager' };
 };
 
+const LEVEL_CODE_TO_LABEL: Record<PMLevelCode, string> = {
+  L3: 'Associate Product Manager',
+  L4: 'Product Manager',
+  L5: 'Senior Product Manager',
+  L6: 'Staff Product Manager',
+  M1: 'Group Product Manager',
+  M2: 'VP of Product',
+};
+
+const normalizeCompetencyScore = (value: unknown): number => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  // user_levels stores 0-3 scale; some other sources may already be 0-1
+  if (value > 1.5) return Math.max(0, Math.min(1, value / 3));
+  return Math.max(0, Math.min(1, value));
+};
+
+const mapUserLevelsToInference = (row: UserLevelsRow | null): PMLevelInference | null => {
+  if (!row?.inferred_level) return null;
+
+  const inferredLevel = row.inferred_level;
+  const displayLevel = LEVEL_CODE_TO_LABEL[inferredLevel] || inferredLevel;
+  const confidence = typeof row.confidence === 'number' ? Math.max(0, Math.min(1, row.confidence)) : 0;
+  const competencyScoresRaw = (row.competency_scores ?? {}) as Record<string, unknown>;
+
+  return {
+    inferredLevel,
+    displayLevel,
+    confidence,
+    scopeScore: typeof row.scope_score === 'number' ? row.scope_score : 0,
+    maturityInfo: 'growth',
+    roleType: Array.isArray(row.role_type) ? row.role_type : [],
+    competencyScores: {
+      execution: normalizeCompetencyScore(competencyScoresRaw.execution),
+      strategy: normalizeCompetencyScore(competencyScoresRaw.strategy),
+      customer_insight: normalizeCompetencyScore(competencyScoresRaw.customer_insight),
+      influence: normalizeCompetencyScore(competencyScoresRaw.influence),
+    },
+    levelScore: 0,
+    deltaSummary: row.delta_summary || '',
+    recommendations: Array.isArray(row.recommendations) ? row.recommendations : [],
+    signals: (row.signals as any) || defaultSignals,
+    topArtifacts: [],
+    lastAnalyzedAt: row.last_run_timestamp || row.updated_at || row.created_at || new Date().toISOString(),
+    evidenceByCompetency: buildEmptyCompetencyEvidence(),
+    levelEvidence: buildEmptyEvidence(displayLevel),
+    roleArchetypeEvidence: {},
+  };
+};
+
 const mapJobToInference = (job: JobRow | null): PMLevelInference | null => {
   if (!job?.result) return null;
 
@@ -184,7 +248,24 @@ async function fetchLatestPMLevelsResult(userId: string, profileId?: string | nu
   }
 
   const job = Array.isArray(data) ? (data[0] as JobRow | undefined) : (data as JobRow | null);
-  return mapJobToInference(job || null);
+  const inferredFromJob = mapJobToInference(job || null);
+  if (inferredFromJob) return inferredFromJob;
+
+  // Backward compatibility: older PM levels runs may be persisted to user_levels instead of jobs.result.
+  const { data: userLevelsRow, error: levelsError } = await supabase
+    .from('user_levels')
+    .select(
+      'inferred_level, confidence, scope_score, maturity_modifier, role_type, delta_summary, recommendations, competency_scores, signals, last_run_timestamp, updated_at, created_at'
+    )
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (levelsError) {
+    // Non-fatal: treat as no data
+    return null;
+  }
+
+  return mapUserLevelsToInference((userLevelsRow as unknown as UserLevelsRow) ?? null);
 }
 
 async function startPMLevelsJob(profileId?: string | null): Promise<JobRow> {
@@ -241,7 +322,7 @@ async function startPMLevelsJob(profileId?: string | null): Promise<JobRow> {
 }
 
 export function usePMLevel() {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const queryClient = useQueryClient();
   const [syntheticProfileId, setSyntheticProfileId] = useState<string | undefined | null>(null);
   const [isDeterminingProfile, setIsDeterminingProfile] = useState(true);
@@ -340,6 +421,7 @@ export function usePMLevel() {
   const { mutateAsync: recalculate, isPending: isRecalculating } = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('User not authenticated');
+      if (isDemo) throw new Error('PM Levels recalculation is disabled in the public demo');
       setBackgroundError(null);
       const job = await startPMLevelsJob(stableProfileId);
       return mapJobToInference(job);

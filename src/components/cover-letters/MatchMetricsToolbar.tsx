@@ -7,10 +7,12 @@ import { CoverLetterRatingInsights } from './CoverLetterRatingTooltip';
 import { ATSScoreInsights } from './ATSScoreTooltip';
 import { StatusIcon } from './StatusIcon';
 import { computeGoNoGoModel, type GoNoGoModel } from './goNoGoModel';
+import { getStandardConfig } from '@/config/contentStandards';
 import {
   getATSScoreColor,
   getScoreColor,
   useMatchMetricsDetails,
+  type CoverLetterCriterion,
   type GoalMatchDisplay,
   type GoNoGoAnalysis,
   type MatchMetricsData,
@@ -18,10 +20,12 @@ import {
   type RequirementDisplayItem,
 } from './useMatchMetricsDetails';
 import type { EnhancedMatchData, DraftReadinessEvaluation } from '@/types/coverLetters';
+import type { ContentStandardsAnalysis } from '@/types/coverLetters';
 import type { APhaseInsights } from '@/types/jobs';
 import { isDraftReadinessEnabled } from '@/lib/flags';
 import { logReadinessEvent } from '@/lib/telemetry';
 import { useDraftReadiness } from '@/hooks/useDraftReadiness';
+import { supabase } from '@/lib/supabase';
 
 type MetricKey = 'goNoGo' | 'gaps' | 'goals' | 'strengths' | 'core' | 'preferred' | 'rating' | 'readiness';
 
@@ -35,7 +39,9 @@ interface MatchMetricsToolbarProps {
   goNoGoAnalysis?: GoNoGoAnalysis;
   jobDescription?: MatchJobDescription;
   enhancedMatchData?: EnhancedMatchData;
+  contentStandards?: ContentStandardsAnalysis | null;
   sections?: Array<{ id: string; type: string; title?: string }>;
+  dismissedGapSectionIds?: string[] | Set<string>;
   aPhaseInsights?: APhaseInsights; // Task 7: A-phase streaming insights
   jobId?: string; // Debug: correlate UI ↔ job record
   draftId?: string;
@@ -58,6 +64,8 @@ interface MatchMetricsToolbarProps {
     evidence: string;
   }>) => void;
   onAddMetrics?: (sectionId?: string) => void;
+  onRefreshInsights?: () => void;
+  isRefreshLoading?: boolean;
 }
 
 interface ToolbarItem {
@@ -157,12 +165,16 @@ function MatchMetricsToolbarContent({
   goNoGoAnalysis,
   jobDescription,
   enhancedMatchData,
+  contentStandards,
   sections = [],
+  dismissedGapSectionIds,
   aPhaseInsights,
   jobId,
   onEditGoals,
   onEnhanceSection,
   onAddMetrics,
+  onRefreshInsights,
+  isRefreshLoading = false,
   draftId,
   draftUpdatedAt,
   draftMws,
@@ -208,7 +220,14 @@ function MatchMetricsToolbarContent({
     });
   }
   const [ttlTimerId, setTtlTimerId] = useState<number | null>(null);
+  const dismissedGapSectionIdSet = useMemo(() => {
+    if (!dismissedGapSectionIds) return new Set<string>();
+    return dismissedGapSectionIds instanceof Set
+      ? new Set(Array.from(dismissedGapSectionIds))
+      : new Set(dismissedGapSectionIds);
+  }, [dismissedGapSectionIds]);
   const viewedEventForDraftRef = useRef<string | null>(null);
+  const readinessPersistedRef = useRef<string | null>(null);
 
   // Telemetry: readiness card viewed when it first appears
   useEffect(() => {
@@ -223,6 +242,60 @@ function MatchMetricsToolbarContent({
       viewedEventForDraftRef.current = draftId;
     }
   }, [ENABLE_DRAFT_READINESS, draftId, readiness, isReadinessLoading]);
+
+  useEffect(() => {
+    if (!draftId || !readiness?.rating || readinessFeatureDisabled) return;
+    const key = `${draftId}:${readiness.rating}:${readiness.evaluatedAt ?? ''}`;
+    if (readinessPersistedRef.current === key) return;
+
+    let cancelled = false;
+
+    const persistReadiness = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('cover_letters')
+          .select('analytics')
+          .eq('id', draftId)
+          .maybeSingle();
+
+        if (cancelled || error || !data) {
+          return;
+        }
+
+        const analytics =
+          data.analytics && typeof data.analytics === 'object'
+            ? (data.analytics as Record<string, unknown>)
+            : {};
+
+        const nextAnalytics = {
+          ...analytics,
+          readiness: readiness.rating,
+          readinessScoreBreakdown: readiness.scoreBreakdown ?? null,
+          readinessEvaluatedAt: readiness.evaluatedAt ?? new Date().toISOString(),
+        };
+
+        const { error: updateError } = await supabase
+          .from('cover_letters')
+          .update({
+            analytics: nextAnalytics,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', draftId);
+
+        if (!cancelled && !updateError) {
+          readinessPersistedRef.current = key;
+        }
+      } catch (error) {
+        console.warn('[MatchMetricsToolbar] Failed to persist readiness:', error);
+      }
+    };
+
+    persistReadiness();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draftId, readiness?.rating, readiness?.evaluatedAt, readiness?.scoreBreakdown, readinessFeatureDisabled]);
 
   // Schedule telemetry logging on TTL expiry (data refetch handled by hook)
   useEffect(() => {
@@ -280,6 +353,134 @@ function MatchMetricsToolbarContent({
     }
     return preferredRequirements.list;
   }, [aPhaseRequirementAnalysis?.preferredRequirements, preferredRequirements.list, isLoading, mode]);
+
+  const coreMet = effectiveCoreRequirements.filter((r) => r.demonstrated).length;
+  const coreTotal = effectiveCoreRequirements.length;
+  const prefMet = effectivePreferredRequirements.filter((r) => r.demonstrated).length;
+  const prefTotal = effectivePreferredRequirements.length;
+
+  const readinessScore = useMemo(() => {
+    if (!readiness?.rating) return null;
+    switch (readiness.rating) {
+      case 'exceptional':
+        return 4;
+      case 'strong':
+        return 3;
+      case 'adequate':
+        return 2;
+      case 'weak':
+      default:
+        return 1;
+    }
+  }, [readiness?.rating]);
+
+  const contentStandardsOverallScore = contentStandards?.aggregated?.overallScore ?? null;
+  const overallScoreValue = contentStandardsOverallScore ?? metrics.overallScore ?? null;
+
+  const contentStandardsCriteria = useMemo(() => {
+    if (!contentStandards?.aggregated?.standards) return null;
+    return contentStandards.aggregated.standards.map((standard) => {
+      const config = getStandardConfig(standard.standardId);
+      return {
+        id: standard.standardId,
+        label: config?.label || standard.standardId,
+        met: standard.status === 'met',
+        evidence: standard.evidence,
+      };
+    });
+  }, [contentStandards?.aggregated?.standards]);
+
+  const previousSnapshotRef = useRef<{
+    draftId: string;
+    overallScore: number | null;
+    coreMet: number;
+    prefMet: number;
+    readinessScore: number | null;
+    updatedAt?: string | null;
+    capturedAt?: string;
+  } | null>(null);
+  const [metricDeltas, setMetricDeltas] = useState<{
+    overallScore?: number;
+    coreMet?: number;
+    prefMet?: number;
+    readiness?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!draftId) return;
+    const storageKey = `coverLetter:metrics-snapshot:${draftId}`;
+    if (!previousSnapshotRef.current) {
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          previousSnapshotRef.current = JSON.parse(stored);
+        }
+      } catch (error) {
+        console.warn('[MatchMetricsToolbar] Failed to restore metric snapshot:', error);
+      }
+    }
+    const current = {
+      draftId,
+      overallScore: overallScoreValue,
+      coreMet,
+      prefMet,
+      readinessScore,
+      updatedAt: draftUpdatedAt ?? null,
+      capturedAt: new Date().toISOString(),
+    };
+
+    const previous = previousSnapshotRef.current;
+    if (previous && previous.draftId === draftId) {
+      const deltas: {
+        overallScore?: number;
+        coreMet?: number;
+        prefMet?: number;
+        readiness?: number;
+      } = {};
+      const shouldCompareByUpdatedAt =
+        Boolean(previous.updatedAt) &&
+        Boolean(current.updatedAt) &&
+        previous.updatedAt !== current.updatedAt;
+
+      if (!shouldCompareByUpdatedAt && previous.updatedAt && current.updatedAt) {
+        setMetricDeltas(null);
+        previousSnapshotRef.current = current;
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(current));
+        } catch (error) {
+          console.warn('[MatchMetricsToolbar] Failed to persist metric snapshot:', error);
+        }
+        return;
+      }
+
+      if (previous.overallScore !== null && current.overallScore !== null) {
+        const delta = current.overallScore - previous.overallScore;
+        if (delta !== 0) deltas.overallScore = delta;
+      }
+
+      const coreDelta = current.coreMet - previous.coreMet;
+      if (coreDelta !== 0) deltas.coreMet = coreDelta;
+
+      const prefDelta = current.prefMet - previous.prefMet;
+      if (prefDelta !== 0) deltas.prefMet = prefDelta;
+
+      if (previous.readinessScore !== null && current.readinessScore !== null) {
+        const delta = current.readinessScore - previous.readinessScore;
+        if (delta !== 0) deltas.readiness = delta;
+      }
+
+      setMetricDeltas(Object.keys(deltas).length > 0 ? deltas : null);
+    } else {
+      setMetricDeltas(null);
+    }
+
+    previousSnapshotRef.current = current;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(current));
+    } catch (error) {
+      console.warn('[MatchMetricsToolbar] Failed to persist metric snapshot:', error);
+    }
+  }, [draftId, draftUpdatedAt, overallScoreValue, coreMet, prefMet, readinessScore]);
 
   // Normalize section types to handle variations
   const normalizeSectionType = (sectionType: string): string[] => {
@@ -354,6 +555,7 @@ function MatchMetricsToolbarContent({
     // Iterate directly over sectionGapInsights - no matching required
     enhancedMatchData.sectionGapInsights.forEach((insight, idx) => {
       if (!insight.requirementGaps || insight.requirementGaps.length === 0) return;
+      if (insight.sectionId && dismissedGapSectionIdSet.has(insight.sectionId)) return;
       
       // Try to find matching section for better title, but don't require it
       const matchedSection = sections?.find(s => 
@@ -373,7 +575,7 @@ function MatchMetricsToolbarContent({
         
         // Add all gaps for this section
       insight.requirementGaps.forEach((gap: any) => {
-          gaps.push({
+        gaps.push({
           sectionId: insight.sectionId || `insight-${idx}`,
             sectionTitle,
             gap,
@@ -382,7 +584,7 @@ function MatchMetricsToolbarContent({
     });
     
     return gaps;
-  }, [enhancedMatchData?.sectionGapInsights, sections]);
+  }, [enhancedMatchData?.sectionGapInsights, sections, dismissedGapSectionIdSet]);
 
   // Count sections with gaps - directly from sectionGapInsights (don't depend on sections array)
   const gapsCount = useMemo(() => {
@@ -390,9 +592,12 @@ function MatchMetricsToolbarContent({
     
     // Count sections that have at least one gap
     return enhancedMatchData.sectionGapInsights.filter(
-      (insight) => insight.requirementGaps && insight.requirementGaps.length > 0
+      (insight) =>
+        insight.requirementGaps &&
+        insight.requirementGaps.length > 0 &&
+        !(insight.sectionId && dismissedGapSectionIdSet.has(insight.sectionId))
     ).length;
-  }, [enhancedMatchData?.sectionGapInsights]);
+  }, [enhancedMatchData?.sectionGapInsights, dismissedGapSectionIdSet]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // A-PHASE AVAILABILITY - check data directly (not just stageFlags)
@@ -473,18 +678,18 @@ function MatchMetricsToolbarContent({
           : 'border-muted bg-muted/10 text-muted-foreground',
         disabled: false,
       });
-    } else if (mode === 'full') {
-      // 1) GAPS (Phase B) - shows count when gap data is available
-      // gapsCount comes from enhancedMatchData which is B-phase, so check if it exists
-      const hasGapData = enhancedMatchData?.sectionGapInsights !== undefined;
-      items.push({
-        key: 'gaps',
-        label: 'Gaps',
-        value: hasGapData ? String(gapsCount) : null,
-        badgeClass: gapsCount > 0 ? 'border-warning bg-warning/10 text-warning' : 'border-muted bg-muted/10 text-muted-foreground',
-        disabled: false,
-      });
-    }
+	    } else if (mode === 'full') {
+	      // 1) GAPS (Phase B) - shows count when gap data is available
+	      // gapsCount comes from enhancedMatchData which is B-phase, so check if it exists
+	      const hasGapData = enhancedMatchData?.sectionGapInsights !== undefined;
+	      items.push({
+	        key: 'gaps',
+	        label: 'Gaps',
+	        value: hasGapData ? String(gapsCount) : (isLoading ? null : '—'),
+	        badgeClass: gapsCount > 0 ? 'border-warning bg-warning/10 text-warning' : 'border-muted bg-muted/10 text-muted-foreground',
+	        disabled: false,
+	      });
+	    }
     
     // 2) MATCH WITH GOALS (Phase A - shows as soon as goal data available)
     // Shows skeleton until goalsSummary has real data, regardless of isLoading
@@ -503,25 +708,27 @@ function MatchMetricsToolbarContent({
       disabled: false,
     });
     
-    // 3) MATCH WITH STRENGTHS (Phase A streaming OR persisted from draft)
-    // Uses effectiveMws which prefers streaming data, falls back to persisted draft data
-    const mwsScore = hasMwsData && effectiveMws ? effectiveMws.summaryScore : undefined;
-    items.push({
-      key: 'strengths',
-      label: 'Match with Strengths',
-      value: mwsScore !== undefined ? `${mwsScore}/3` : null,
-      badgeClass: mwsScore !== undefined && mwsScore >= 2 
-        ? 'border-success bg-success/10 text-success'
-        : mwsScore === 1
-        ? 'border-warning bg-warning/10 text-warning'
+	    // 3) MATCH WITH STRENGTHS (Phase A streaming OR persisted from draft)
+	    // Uses effectiveMws which prefers streaming data, falls back to persisted draft data
+	    const mwsScore = hasMwsData && effectiveMws ? effectiveMws.summaryScore : undefined;
+	    items.push({
+	      key: 'strengths',
+	      label: 'Match with Strengths',
+	      value: mwsScore !== undefined ? `${mwsScore}/3` : (isLoading ? null : '—'),
+	      badgeClass: mwsScore !== undefined && mwsScore >= 2 
+	        ? 'border-success bg-success/10 text-success'
+	        : mwsScore === 1
+	        ? 'border-warning bg-warning/10 text-warning'
         : 'border-muted bg-muted/10 text-muted-foreground',
       disabled: false,
     });
     
     // 4) CORE REQUIREMENTS (A-phase totals → B-phase mapping)
-    const coreMet = effectiveCoreRequirements.filter((r) => r.demonstrated).length;
-    const coreTotal = effectiveCoreRequirements.length;
-    const coreValue = hasAPhaseRequirementAnalysis
+    // Fit check: never show "0/12" while requirementAnalysis is still running.
+    // Show skeleton until we have A-phase requirement analysis data.
+    const coreValue = (mode === 'fitCheck' && !hasAPhaseRequirementAnalysis)
+      ? null
+      : hasAPhaseRequirementAnalysis
       ? `${coreMet}/${coreTotal}`
       : hasJdCounts && aPhaseCoreTot !== undefined
       ? (isLoading ? String(aPhaseCoreTot) : `${coreMet}/${aPhaseCoreTot}`)
@@ -535,9 +742,10 @@ function MatchMetricsToolbarContent({
     });
     
     // 5) PREFERRED REQUIREMENTS (A-phase totals → B-phase mapping)
-    const prefMet = effectivePreferredRequirements.filter((r) => r.demonstrated).length;
-    const prefTotal = effectivePreferredRequirements.length;
-    const prefValue = hasAPhaseRequirementAnalysis
+    // Fit check: never show "0/5" while requirementAnalysis is still running.
+    const prefValue = (mode === 'fitCheck' && !hasAPhaseRequirementAnalysis)
+      ? null
+      : hasAPhaseRequirementAnalysis
       ? `${prefMet}/${prefTotal}`
       : hasJdCounts && aPhasePrefTot !== undefined
       ? (isLoading ? String(aPhasePrefTot) : `${prefMet}/${aPhasePrefTot}`)
@@ -556,12 +764,12 @@ function MatchMetricsToolbarContent({
 
     // 6) OVERALL SCORE (Phase B ONLY) - shows ONLY after draft generation complete
     // Must be !isLoading AND have real score - skeleton during all of Phase A
-    const hasRealScore = !isLoading && metrics.overallScore !== undefined;
+    const hasRealScore = !isLoading && overallScoreValue !== null;
         items.push({
       key: 'rating',
       label: 'Overall Score',
-      value: hasRealScore ? `${metrics.overallScore}%` : null, // Skeleton until Phase B complete
-      badgeClass: hasRealScore ? getScoreColor(metrics.overallScore!) : 'border-muted bg-muted/10 text-muted-foreground',
+      value: hasRealScore ? `${overallScoreValue}%` : null, // Skeleton until Phase B complete
+      badgeClass: hasRealScore ? getScoreColor(overallScoreValue!) : 'border-muted bg-muted/10 text-muted-foreground',
           disabled: false,
         });
     
@@ -601,7 +809,7 @@ function MatchMetricsToolbarContent({
   }, [
     goalsComparisonReady,
     goalsSummary, gapsCount, isLoading, 
-    metrics.overallScore, metrics.goalsMatchScore,
+    overallScoreValue, metrics.goalsMatchScore,
     isPostHIL, readiness, isReadinessLoading, ENABLE_DRAFT_READINESS, 
     aPhaseInsights, hasMwsData, hasJdCounts, aPhaseCoreTot, aPhasePrefTot,
     effectiveMws, draftMws, // MwS persistence: use streaming OR draft data
@@ -671,6 +879,19 @@ function MatchMetricsToolbarContent({
     return activeMetric === key;
   };
 
+  const formatDelta = (value?: number, suffix = '') => {
+    if (!value) return null;
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value}${suffix}`;
+  };
+
+  const deltaByKey: Partial<Record<MetricKey, string>> = {
+    rating: formatDelta(metricDeltas?.overallScore, '%') ?? undefined,
+    core: formatDelta(metricDeltas?.coreMet) ?? undefined,
+    preferred: formatDelta(metricDeltas?.prefMet) ?? undefined,
+    readiness: formatDelta(metricDeltas?.readiness) ?? undefined,
+  };
+
   // Toggle accordion (respects streaming vs single mode)
   const toggleAccordion = (key: MetricKey) => {
     if (layout === 'horizontal' && mode === 'fitCheck') {
@@ -728,8 +949,13 @@ function MatchMetricsToolbarContent({
                     disabled={valueIsLoading && !isOpen}
                   >
                     <div className="flex items-center justify-between gap-6 w-full">
-                      <span className={`text-xs uppercase tracking-wide ${isOpen ? 'text-white/80 dark:text-black/80' : 'text-muted-foreground'}`}>
-                        {item.label}
+                      <span className={`inline-flex items-center gap-2 text-xs uppercase tracking-wide ${isOpen ? 'text-white/80 dark:text-black/80' : 'text-muted-foreground'}`}>
+                        <span>{item.label}</span>
+                        {deltaByKey[item.key] && (
+                          <span className={`${isOpen ? 'text-white/70 dark:text-black/70' : 'text-muted-foreground'}`}>
+                            {deltaByKey[item.key]}
+                          </span>
+                        )}
                       </span>
                       {valueIsLoading ? (
                         <div className="h-5 w-16 bg-muted/50 rounded fit-check-loading" />
@@ -761,6 +987,8 @@ function MatchMetricsToolbarContent({
                     isLoading={isLoading}
                     mode={mode}
                     metrics={metrics}
+                    overallScoreValue={overallScoreValue}
+                    contentStandardsCriteria={contentStandardsCriteria}
                     allGaps={allGaps}
                     aPhaseInsights={aPhaseInsights}
                     readiness={readiness ?? undefined}
@@ -791,6 +1019,8 @@ function MatchMetricsToolbarContent({
                 isLoading={isLoading}
                 mode={mode}
                 metrics={metrics}
+                overallScoreValue={overallScoreValue}
+                contentStandardsCriteria={contentStandardsCriteria}
                 allGaps={allGaps}
                 aPhaseInsights={aPhaseInsights}
                 readiness={readiness ?? undefined}
@@ -845,9 +1075,14 @@ function MatchMetricsToolbarContent({
                 disabled={valueIsLoading && !isOpen}
                   >
                     <div className="flex items-center justify-between w-full">
-                  <span className={`text-[11px] uppercase tracking-wide ${isOpen ? 'text-white dark:text-black' : 'text-muted-foreground'}`}>
-                        {item.label}
+                  <span className={`inline-flex items-center gap-2 text-[11px] uppercase tracking-wide ${isOpen ? 'text-white dark:text-black' : 'text-muted-foreground'}`}>
+                    <span>{item.label}</span>
+                    {deltaByKey[item.key] && (
+                      <span className={`${isOpen ? 'text-white/70 dark:text-black/70' : 'text-muted-foreground'}`}>
+                        {deltaByKey[item.key]}
                       </span>
+                    )}
+                  </span>
                   {valueIsLoading ? (
                     // Skeleton animation for value only
                     <div className="h-5 w-12 bg-muted/50 rounded animate-pulse" />
@@ -859,9 +1094,9 @@ function MatchMetricsToolbarContent({
                     </span>
                   ) : (
                     <span className={`text-base font-semibold ${isOpen ? 'text-white dark:text-black' : 'text-foreground'}`}>
-                          {item.value}
-                        </span>
-                      )}
+                      {item.value}
+                    </span>
+                  )}
                     </div>
                   </button>
                   <div
@@ -880,6 +1115,8 @@ function MatchMetricsToolbarContent({
                       isLoading={isLoading}
                           mode={mode}
                           metrics={metrics}
+                          overallScoreValue={overallScoreValue}
+                          contentStandardsCriteria={contentStandardsCriteria}
                           allGaps={allGaps}
                           aPhaseInsights={aPhaseInsights}
                           readiness={readiness ?? undefined}
@@ -897,6 +1134,19 @@ function MatchMetricsToolbarContent({
           );
         })}
       </div>
+      {onRefreshInsights && (
+        <div className="border-t border-border/40 p-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={onRefreshInsights}
+            disabled={isRefreshLoading}
+          >
+            {isRefreshLoading ? 'Refreshing…' : 'Refresh insights'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -910,6 +1160,8 @@ interface MetricDrawerContentProps {
   isLoading: boolean;
   mode: 'full' | 'goNoGo' | 'fitCheck';
   metrics: MatchMetricsData;
+  overallScoreValue: number | null;
+  contentStandardsCriteria: CoverLetterCriterion[] | null;
   allGaps: Array<{ sectionId: string; sectionTitle: string; gap: any }>;
   aPhaseInsights?: APhaseInsights;
   readiness?: DraftReadinessEvaluation;
@@ -944,6 +1196,8 @@ function MetricDrawerContent({
   isLoading,
   mode,
   metrics,
+  overallScoreValue,
+  contentStandardsCriteria,
   allGaps,
   aPhaseInsights,
   readiness,
@@ -1013,12 +1267,13 @@ function MetricDrawerContent({
           </div>
         );
       }
-      const displayScore = metrics.overallScore ?? (isPostHIL ? 91 : 27);
+      const displayScore = overallScoreValue ?? metrics.overallScore ?? (isPostHIL ? 91 : 27);
+      const displayCriteria = contentStandardsCriteria ?? metrics.ratingCriteria;
       return (
         <CoverLetterRatingInsights 
           isPostHIL={isPostHIL} 
           overallScore={displayScore} 
-          criteria={metrics.ratingCriteria}
+          criteria={displayCriteria}
           showStatus={true} // Always show status in Phase B (draft exists)
         />
       );
@@ -1176,30 +1431,6 @@ function RequirementsDrawerContent({
           </div>
           <div className="flex-shrink-0 p-2 flex items-center gap-2">
             <StatusIcon met={req.demonstrated} />
-            {statusContext === 'draft' && req.demonstrated && (
-              <>
-                {onEnhanceSection && req.section && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-7 text-xs"
-                    onClick={() => onEnhanceSection(req.section!, req.requirement)}
-                  >
-                    Enhance
-                  </Button>
-                )}
-                {onAddMetrics && req.section && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="h-7 text-xs"
-                    onClick={() => onAddMetrics(req.section)}
-                  >
-                    Add Metrics
-                  </Button>
-                )}
-              </>
-            )}
           </div>
         </div>
       ))}

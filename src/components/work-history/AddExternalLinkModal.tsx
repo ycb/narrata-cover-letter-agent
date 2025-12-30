@@ -2,10 +2,12 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TagAutocompleteInput } from "@/components/ui/TagAutocompleteInput";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { addUserTag, removeUserTag } from "@/lib/userTags";
 
 interface AddExternalLinkModalProps {
   open: boolean;
@@ -22,14 +24,14 @@ export function AddExternalLinkModal({ open, onOpenChange, roleId, onLinkAdded }
   const { toast } = useToast();
 
   const handleAddTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
-      setTagInput("");
-    }
+    const nextTags = addUserTag(tags, tagInput);
+    if (nextTags === tags) return;
+    setTags(nextTags);
+    setTagInput("");
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
+    setTags(removeUserTag(tags, tagToRemove));
   };
 
   const validateUrl = (url: string) => {
@@ -122,12 +124,14 @@ export function AddExternalLinkModal({ open, onOpenChange, roleId, onLinkAdded }
           <div className="space-y-2">
             <Label htmlFor="tags">Tags</Label>
             <div className="flex gap-2">
-              <Input
+              <TagAutocompleteInput
                 id="tags"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 placeholder="Add a tag and press Enter"
+                category="link"
+                localTags={tags}
               />
               <Button type="button" onClick={handleAddTag} size="sm">
                 Add

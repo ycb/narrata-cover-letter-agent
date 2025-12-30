@@ -1,4 +1,4 @@
-import { SHARED_STORY_GUIDANCE } from './sharedStoryGuidance';
+import { SHARED_STORY_GUIDANCE } from './sharedStoryGuidance.ts';
 
 // Resume analysis prompt with robust story, metric, and tag extraction (RESUME ONLY)
 export const buildResumeAnalysisPrompt = (resumeText: string): string => {

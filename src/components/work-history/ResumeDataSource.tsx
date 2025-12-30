@@ -73,9 +73,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
         .from('sources')
         .select('*')
         .eq('user_id', user.id)
-        .or('file_name.ilike.%resume%,file_name.ilike.%cv%')
-        .not('file_name', 'ilike', '%cover%')
-        .not('file_name', 'ilike', '%linkedin%');
+        .eq('source_type', 'resume');
       
       // If synthetic mode enabled, filter by active profile
       if (activeProfileId) {
@@ -202,14 +200,25 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
         <CardContent>
           <div className="text-center py-8">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Upload Your Resume</h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              Upload your resume to extract work experience, skills, and achievements automatically.
-            </p>
-            <Button onClick={handleUpload} className="w-full">
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Resume
-            </Button>
+            {onUploadResume ? (
+              <>
+                <h3 className="text-lg font-semibold mb-2">Upload Your Resume</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Upload your resume to extract work experience, skills, and achievements automatically.
+                </p>
+                <Button onClick={handleUpload} className="w-full">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Resume
+                </Button>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold mb-2">No Resume Found</h3>
+                <p className="text-sm text-muted-foreground">
+                  This view is read-only, so uploading a resume is disabled.
+                </p>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -232,14 +241,16 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
               <Download className="h-4 w-4 mr-2" />
               Download
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleUpload}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Replace
-            </Button>
+            {onUploadResume && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUpload}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Replace
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>

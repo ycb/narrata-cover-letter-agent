@@ -60,8 +60,6 @@ export interface HILContentMetadata {
   impactScore?: number;
   truthScore?: number;
   tags?: string[];
-  saveAsSavedSection?: boolean;
-  saveAsStory?: boolean;
 }
 
 // Variation metadata for HIL integration

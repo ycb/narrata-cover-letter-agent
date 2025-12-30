@@ -311,7 +311,7 @@ interface AssessmentProps {
 }
 
 function Assessment({ initialSection = "overview" }: AssessmentProps) {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const {
     levelData,
     isLoading,
@@ -337,6 +337,7 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
   const [isSummaryDismissed, setIsSummaryDismissed] = useState(false);
   const [localBackgroundError, setLocalBackgroundError] = useState<string | null>(null);
   const autoTriggeredRef = useRef(false);
+  const autoOpenedLevelEvidenceRef = useRef(false);
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -371,6 +372,7 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
 
   // Auto-trigger PM Levels if no data is present to avoid manual clicks
   useEffect(() => {
+    if (isDemo) return;
     if (
       !autoTriggeredRef.current &&
       !isLoading &&
@@ -385,6 +387,7 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
   }, [levelData, isLoading, isAnalyzing, isPMStreaming, isRecalculating]);
 
   const handlePMLevelsRecalcStreaming = async () => {
+    if (isDemo) return;
     try {
       setLocalBackgroundError(null);
       setIsAnalyzing(true);
@@ -645,6 +648,17 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
       }
     }
   }, [searchParams, assessmentData, evidenceModalOpen]);
+
+  // Handle evidence query param to auto-open the overall level evidence modal
+  useEffect(() => {
+    const evidenceParam = searchParams.get("evidence");
+    if (evidenceParam !== "overall") return;
+    if (autoOpenedLevelEvidenceRef.current) return;
+    if (!levelData) return;
+
+    autoOpenedLevelEvidenceRef.current = true;
+    setLevelEvidenceModalOpen(true);
+  }, [searchParams, levelData]);
 
   if (error) {
     return (
@@ -1095,7 +1109,12 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
 
       <LevelEvidenceModal
         isOpen={levelEvidenceModalOpen}
-        onClose={() => setLevelEvidenceModalOpen(false)}
+        onClose={() => {
+          setLevelEvidenceModalOpen(false);
+          const params = new URLSearchParams(searchParams);
+          params.delete("evidence");
+          navigate(params.toString() ? `?${params.toString()}` : "", { replace: true });
+        }}
         evidence={{
           currentLevel: levelEvidence?.currentLevel || currentLevel || "Product Manager",
           nextLevel: levelEvidence?.nextLevel || nextLevel || "Staff/Principal Product Manager",

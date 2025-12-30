@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Copy, Download, Share2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { normalizeFinalContent } from '@/services/coverLetterParser';
 
 interface CoverLetterViewModalProps {
   isOpen: boolean;
@@ -21,7 +22,8 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
     if (!coverLetter?.content?.sections) return "";
 
     return coverLetter.content.sections
-      .map((section: any) => section.content)
+      .map((section: any) => normalizeFinalContent(section.content || ''))
+      .filter(Boolean)
       .join("\n\n");
   };
 

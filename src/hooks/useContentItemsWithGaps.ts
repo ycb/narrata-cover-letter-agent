@@ -99,6 +99,15 @@ export function useContentItemsWithGaps() {
         }
       }
     } catch {}
+    const onGapsChanged = (event: Event) => {
+      const detail = (event as CustomEvent)?.detail as { userId?: string } | undefined;
+      if (detail?.userId && detail.userId !== user.id) return;
+      cache.delete(cacheKey);
+      try { localStorage.removeItem(`contentItemsWithGaps:${cacheKey}`); } catch {}
+      fetchItems(true, true);
+    };
+    window.addEventListener('gaps:changed', onGapsChanged as any);
+
     // Fallback to normal fetch
     fetchItems(false, false);
 
@@ -107,6 +116,7 @@ export function useContentItemsWithGaps() {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      window.removeEventListener('gaps:changed', onGapsChanged as any);
     };
   }, [user?.id, ((): string | null => { try { return localStorage.getItem('synthetic_active_profile_id'); } catch { return null; } })()]);
 
@@ -163,5 +173,4 @@ export function useContentItemsWithGaps() {
     invalidateCache,
   };
 }
-
 

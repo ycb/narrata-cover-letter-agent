@@ -24,6 +24,8 @@ interface UserGoalsModalProps {
 }
 
 export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGoalsModalProps) {
+  const uniqueValues = (items: string[]) => Array.from(new Set(items.filter(Boolean)));
+
   const [formData, setFormData] = useState<UserGoalsFormData>({
     targetTitles: [],
     minimumSalary: '180000',
@@ -44,6 +46,8 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
   const [customIndustry, setCustomIndustry] = useState('');
   const [customBusinessModel, setCustomBusinessModel] = useState('');
   const [customCity, setCustomCity] = useState('');
+  const [customWorkType, setCustomWorkType] = useState('');
+  const [customCompanyMaturity, setCustomCompanyMaturity] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -52,18 +56,18 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
   useEffect(() => {
     if (isOpen && initialGoals) {
       setFormData({
-        targetTitles: initialGoals.targetTitles,
+        targetTitles: uniqueValues(initialGoals.targetTitles),
         minimumSalary: initialGoals.minimumSalary.toString(),
-        companyMaturity: initialGoals.companyMaturity,
-        workType: initialGoals.workType,
-        industries: initialGoals.industries,
-        businessModels: initialGoals.businessModels,
+        companyMaturity: uniqueValues(initialGoals.companyMaturity),
+        workType: uniqueValues(initialGoals.workType),
+        industries: uniqueValues(initialGoals.industries),
+        businessModels: uniqueValues(initialGoals.businessModels),
       dealBreakers: {
-        workType: initialGoals.dealBreakers.workType,
-        companyMaturity: initialGoals.dealBreakers.companyMaturity,
+        workType: uniqueValues(initialGoals.dealBreakers.workType),
+        companyMaturity: uniqueValues(initialGoals.dealBreakers.companyMaturity),
         salaryMinimum: initialGoals.dealBreakers.salaryMinimum?.toString() || ''
       },
-        preferredCities: initialGoals.preferredCities,
+        preferredCities: uniqueValues(initialGoals.preferredCities),
         openToRelocation: initialGoals.openToRelocation
       });
     }
@@ -100,7 +104,7 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
     }
   };
 
-  const addCustomItem = (type: 'title' | 'industry' | 'businessModel' | 'city', value: string) => {
+  const addCustomItem = (type: 'title' | 'industry' | 'businessModel' | 'city' | 'workType' | 'companyMaturity', value: string) => {
     if (!value.trim()) return;
     
     const cleanValue = value.trim();
@@ -129,10 +133,22 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
         }
         setCustomCity('');
         break;
+      case 'workType':
+        if (!formData.workType.includes(cleanValue)) {
+          setFormData(prev => ({ ...prev, workType: [...prev.workType, cleanValue] }));
+        }
+        setCustomWorkType('');
+        break;
+      case 'companyMaturity':
+        if (!formData.companyMaturity.includes(cleanValue)) {
+          setFormData(prev => ({ ...prev, companyMaturity: [...prev.companyMaturity, cleanValue] }));
+        }
+        setCustomCompanyMaturity('');
+        break;
     }
   };
 
-  const removeItem = (type: 'title' | 'industry' | 'businessModel' | 'city', value: string) => {
+  const removeItem = (type: 'title' | 'industry' | 'businessModel' | 'city' | 'workType' | 'companyMaturity', value: string) => {
     switch (type) {
       case 'title':
         setFormData(prev => ({ ...prev, targetTitles: prev.targetTitles.filter(item => item !== value) }));
@@ -145,6 +161,12 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
         break;
       case 'city':
         setFormData(prev => ({ ...prev, preferredCities: prev.preferredCities.filter(item => item !== value) }));
+        break;
+      case 'workType':
+        setFormData(prev => ({ ...prev, workType: prev.workType.filter(item => item !== value) }));
+        break;
+      case 'companyMaturity':
+        setFormData(prev => ({ ...prev, companyMaturity: prev.companyMaturity.filter(item => item !== value) }));
         break;
     }
   };
@@ -391,13 +413,50 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   </Label>
                 </div>
               </div>
-              <div className="space-y-4">
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add custom company stage..."
+                  value={customCompanyMaturity}
+                  onChange={(e) => setCustomCompanyMaturity(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && addCustomItem('companyMaturity', customCompanyMaturity)}
+                  className="flex-1"
+                />
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => addCustomItem('companyMaturity', customCompanyMaturity)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {formData.companyMaturity.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Selected</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.companyMaturity.map((value) => (
+                      <Badge
+                        key={value}
+                        variant="default"
+                        className="px-3 py-1 flex items-center gap-1"
+                      >
+                        {value}
+                        <X
+                          className="h-3 w-3 cursor-pointer hover:text-destructive"
+                          onClick={() => removeItem('companyMaturity', value)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {[
                     { value: 'early-stage', label: 'Early-stage startup' },
+                    { value: 'growth-stage', label: 'Growth-stage startup' },
                     { value: 'late-stage', label: 'Late-stage startup' },
                     { value: 'public', label: 'Public company' }
-                  ].map((option) => (
+                  ].filter((option) => !formData.companyMaturity.includes(option.value)).map((option) => (
                     <div key={option.value} className="flex items-center space-x-3">
                       <Checkbox
                         id={option.value}
@@ -432,12 +491,48 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
               </div>
             </div>
             <div className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add custom work type..."
+                  value={customWorkType}
+                  onChange={(e) => setCustomWorkType(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && addCustomItem('workType', customWorkType)}
+                  className="flex-1"
+                />
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => addCustomItem('workType', customWorkType)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {formData.workType.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Selected</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.workType.map((value) => (
+                      <Badge
+                        key={value}
+                        variant="default"
+                        className="px-3 py-1 flex items-center gap-1"
+                      >
+                        {value}
+                        <X
+                          className="h-3 w-3 cursor-pointer hover:text-destructive"
+                          onClick={() => removeItem('workType', value)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
                   { value: 'remote', label: 'Remote' },
                   { value: 'hybrid', label: 'Hybrid' },
                   { value: 'in-person', label: 'In-person' }
-                ].map((option) => (
+                ].filter((option) => !formData.workType.includes(option.value)).map((option) => (
                   <div key={option.value} className="flex items-center space-x-3">
                     <Checkbox
                       id={option.value}
@@ -474,8 +569,31 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
+                {formData.industries.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Selected</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.industries.map((value) => (
+                        <Badge
+                          key={value}
+                          variant="default"
+                          className="px-3 py-1 flex items-center gap-1"
+                        >
+                          {value}
+                          <X
+                            className="h-3 w-3 cursor-pointer hover:text-destructive"
+                            onClick={() => removeItem('industry', value)}
+                          />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2">
-                  {PREDEFINED_INDUSTRIES.slice(0, 10).map((industry) => (
+                  {PREDEFINED_INDUSTRIES
+                    .slice(0, 10)
+                    .filter((industry) => !formData.industries.includes(industry))
+                    .map((industry) => (
                     <Badge
                       key={industry}
                       variant={formData.industries.includes(industry) ? "default" : "outline"}
@@ -517,8 +635,31 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
+                {formData.businessModels.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Selected</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.businessModels.map((value) => (
+                        <Badge
+                          key={value}
+                          variant="default"
+                          className="px-3 py-1 flex items-center gap-1"
+                        >
+                          {value}
+                          <X
+                            className="h-3 w-3 cursor-pointer hover:text-destructive"
+                            onClick={() => removeItem('businessModel', value)}
+                          />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2">
-                  {PREDEFINED_BUSINESS_MODELS.slice(0, 8).map((model) => (
+                  {PREDEFINED_BUSINESS_MODELS
+                    .slice(0, 8)
+                    .filter((model) => !formData.businessModels.includes(model))
+                    .map((model) => (
                     <Badge
                       key={model}
                       variant={formData.businessModels.includes(model) ? "default" : "outline"}
@@ -564,8 +705,31 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+              {formData.preferredCities.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Selected</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.preferredCities.map((value) => (
+                      <Badge
+                        key={value}
+                        variant="default"
+                        className="px-3 py-1 flex items-center gap-1"
+                      >
+                        {value}
+                        <X
+                          className="h-3 w-3 cursor-pointer hover:text-destructive"
+                          onClick={() => removeItem('city', value)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
-                {PREDEFINED_CITIES.slice(0, 12).map((city) => (
+                {PREDEFINED_CITIES
+                  .slice(0, 12)
+                  .filter((city) => !formData.preferredCities.includes(city))
+                  .map((city) => (
                   <Badge
                     key={city}
                     variant={formData.preferredCities.includes(city) ? "default" : "outline"}

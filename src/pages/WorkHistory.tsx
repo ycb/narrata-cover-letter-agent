@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { WorkHistoryMaster } from "@/components/work-history/WorkHistoryMaster";
 import { WorkHistoryDetail } from "@/components/work-history/WorkHistoryDetail";
 import { WorkHistoryDrawer } from "@/components/work-history/WorkHistoryDrawer";
@@ -12,18 +11,43 @@ import { WorkHistoryEmptyState } from "@/components/work-history/EmptyStates";
 import { AddCompanyModal } from "@/components/work-history/AddCompanyModal";
 import { AddRoleModal } from "@/components/work-history/AddRoleModal";
 import { useTour } from "@/contexts/TourContext";
-import { useAuth } from "@/contexts/AuthContext";
-import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
-import { Button } from "@/components/ui/button";
-import { isExternalLinksEnabled } from "@/lib/flags";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Loader2 } from "lucide-react";
+	import { useAuth } from "@/contexts/AuthContext";
+	import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
+	import { Button } from "@/components/ui/button";
+	import { isExternalLinksEnabled, isLinkedInScrapingEnabled } from "@/lib/flags";
+	import { Card, CardContent } from "@/components/ui/card";
+	import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { FileUploadService } from "@/services/fileUploadService";
 import type { FileType } from "@/types/fileUpload";
 import { toast } from "sonner";
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
 import { getMergedWorkHistory, type MergedRoleCluster } from "@/services/workHistoryMergeService";
+
+const formatMetricDisplay = (metric: any): string => {
+  if (typeof metric === 'string') return metric.trim();
+  const value = (metric?.value ?? '').toString().trim().replace(/\s+/g, ' ');
+  const context = (metric?.context ?? '').toString().trim().replace(/\s+/g, ' ');
+  if (!value && !context) return '';
+  if (!value) return context;
+  if (!context) return value;
+
+  const valueLower = value.toLowerCase();
+  const contextLower = context.toLowerCase();
+  const idx = contextLower.indexOf(valueLower);
+  if (idx !== -1) {
+    const before = idx > 0 ? contextLower[idx - 1] : '';
+    const after = idx + valueLower.length < contextLower.length ? contextLower[idx + valueLower.length] : '';
+    const isWordChar = (ch: string) => /[a-z0-9]/i.test(ch);
+    const beforeOk = !before || !isWordChar(before);
+    const afterOk = !after || !isWordChar(after);
+    if (beforeOk && afterOk) {
+      return context;
+    }
+  }
+
+  return `${value} ${context}`.trim();
+};
 
 /**
  * Transform merged role clusters into WorkHistoryCompany format
@@ -97,7 +121,7 @@ function transformClustersToWorkHistory(
           roleId: primaryWorkItemId,
           title: story.title,
           content: story.content,
-          outcomeMetrics: story.metrics.map(m => m.context ? `${m.value} ${m.context}` : m.value),
+          outcomeMetrics: (story.metrics || []).map(formatMetricDisplay).filter((s: string) => s.trim().length > 0),
           tags: story.tags,
           source: 'resume' as const,
           status: 'approved' as const,
@@ -142,7 +166,7 @@ function transformClustersToWorkHistory(
         endDate: cluster.endDate || undefined,
         description: cluster.mergedDescription,
         tags: mergedTags,
-        outcomeMetrics: mergedMetrics.map(m => m.context ? `${m.value} ${m.context}` : m.value),
+        outcomeMetrics: mergedMetrics.map(formatMetricDisplay).filter((s: string) => s.trim().length > 0),
         blurbs,
         externalLinks: [],
         hasGaps: contentItemsWithGaps > 0,
@@ -383,7 +407,7 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
 
 export default function WorkHistory() {
   // Auth context
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   
   // File upload service
   const [isUploading, setIsUploading] = useState(false);
@@ -443,6 +467,26 @@ export default function WorkHistory() {
           setIsLoading(false);
           return;
         }
+
+        // Hydrate company metadata (tags/description) from the companies table so UI reflects edits.
+        const companyIds = Array.from(new Set(clusters.map((c) => c.companyId).filter(Boolean)));
+        const companyById = new Map<string, { id: string; tags?: string[] | null; description?: string | null; name?: string | null }>();
+        if (companyIds.length > 0) {
+          const { data: companyRows, error: companyRowsError } = await supabase
+            .from('companies')
+            .select('id, tags, description, name')
+            .eq('user_id', user.id)
+            .in('id', companyIds);
+
+          if (companyRowsError) {
+            console.warn('[WorkHistory] Failed to load company metadata for merged view:', companyRowsError);
+          } else {
+            (companyRows || []).forEach((row: any) => {
+              if (!row?.id) return;
+              companyById.set(row.id, row);
+            });
+          }
+        }
         
         // Fetch gaps for all work items in clusters
         const { GapDetectionService } = await import('../services/gapDetectionService');
@@ -480,9 +524,20 @@ export default function WorkHistory() {
           storyGapMap,
           storyGapsMap,
         });
+
+        const hydratedWorkHistory = mergedWorkHistory.map((company) => {
+          const companyMeta = companyById.get(company.id);
+          if (!companyMeta) return company;
+          return {
+            ...company,
+            tags: Array.from(new Set([...(companyMeta.tags || []), ...(company.tags || [])])),
+            description: companyMeta.description || company.description || '',
+            name: companyMeta.name || company.name,
+          };
+        });
         
         console.log(`[WorkHistory] Transformed to ${mergedWorkHistory.length} companies`);
-        setWorkHistory(mergedWorkHistory);
+        setWorkHistory(hydratedWorkHistory);
         setIsLoading(false);
         return;
       }
@@ -641,6 +696,34 @@ export default function WorkHistory() {
         spatialThinkStories: blurbs?.filter(b => b.work_item_id === '3dc40ac2-65bc-4486-88f0-ce6a15202461').length || 0
       });
 
+      // Fetch content variations for stories (approved_content)
+      const blurbIds = blurbs?.map((blurb: any) => blurb.id) || [];
+      let variationsQuery = supabase
+        .from('content_variations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('parent_entity_type', 'approved_content');
+
+      if (blurbIds.length > 0) {
+        variationsQuery = variationsQuery.in('parent_entity_id', blurbIds);
+      } else {
+        variationsQuery = variationsQuery.is('parent_entity_id', null);
+      }
+
+      const { data: variations, error: variationsError } = await variationsQuery
+        .order('created_at', { ascending: false });
+
+      if (variationsError) throw variationsError;
+
+      const variationsByParent = new Map<string, any[]>();
+      (variations || []).forEach((variation: any) => {
+        const parentId = variation.parent_entity_id;
+        if (!parentId) return;
+        const list = variationsByParent.get(parentId) || [];
+        list.push(variation);
+        variationsByParent.set(parentId, list);
+      });
+
       // Fetch external links - filter by work items if available
       let linksQuery = supabase
         .from('external_links')
@@ -739,6 +822,8 @@ export default function WorkHistory() {
 
       // Transform database data to WorkHistoryCompany format
       const transformedData: WorkHistoryCompany[] = sortedCompanies.map((company: any) => {
+        const companyTags: string[] = [...(company.tags || [])];
+
         // Get work items for this company (already sorted)
         const companyWorkItems = sortedWorkItems.filter((item: any) => item.company_id === company.id);
 
@@ -766,6 +851,7 @@ export default function WorkHistory() {
           const transformedBlurbs: WorkHistoryBlurb[] = itemBlurbs.map((blurb: any) => {
             const storyGapCount = storyGapMap.get(blurb.id) || 0;
             const storyGaps = storyGapsMap.get(blurb.id) || [];
+            const blurbVariations = variationsByParent.get(blurb.id) || [];
             if (item.id === '3dc40ac2-65bc-4486-88f0-ce6a15202461') {
               console.log('[WorkHistory] SpatialThink story gap lookup:', {
                 blurbId: blurb.id,
@@ -790,7 +876,16 @@ export default function WorkHistory() {
               hasGaps: storyGapCount > 0,
               gapCount: storyGapCount,
               gaps: storyGaps, // Store actual gap objects
-              variations: [],
+              variations: blurbVariations.map((variation: any) => ({
+                id: variation.id,
+                content: variation.content,
+                developedForJobTitle: variation.target_job_title || undefined,
+                filledGap: undefined,
+                jdTags: variation.gap_tags || [],
+                tags: variation.gap_tags || [],
+                createdAt: variation.created_at,
+                createdBy: variation.created_by || 'AI',
+              })),
               createdAt: blurb.created_at,
               updatedAt: blurb.updated_at
             };
@@ -834,8 +929,6 @@ export default function WorkHistory() {
           // Normalize metadata in role description into tags
           let roleDescription = item.description || '';
           const roleTags: string[] = [...(item.tags || [])];
-          company.tags = company.tags || [];
-          const companyTags: string[] = [...company.tags];
           if (roleDescription) {
             const parts = roleDescription.split('|').map((p: string) => p.trim()).filter(Boolean);
             const residual: string[] = [];
@@ -913,7 +1006,7 @@ export default function WorkHistory() {
   
   // Auto-select most recent role on page load (no unselected state)
   // Find the most recent role across all companies (current roles first, then by start_date descending)
-  const findMostRecentRole = (companies: WorkHistoryCompany[]): { company: WorkHistoryCompany; role: WorkHistoryRole } | null => {
+  const findMostRecentRole = useCallback((companies: WorkHistoryCompany[]): { company: WorkHistoryCompany; role: WorkHistoryRole } | null => {
     let mostRecent: { company: WorkHistoryCompany; role: WorkHistoryRole; date: Date } | null = null;
     
     companies.forEach(company => {
@@ -926,15 +1019,21 @@ export default function WorkHistory() {
     });
     
     return mostRecent ? { company: mostRecent.company, role: mostRecent.role } : null;
-  };
+  }, []);
   
   const mostRecent = workHistory.length > 0 ? findMostRecentRole(workHistory) : null;
   const initialCompany = mostRecent?.company || (workHistory.length > 0 ? workHistory[0] : null);
   const initialRole = mostRecent?.role || initialCompany?.roles[0] || null;
   
-  const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(initialCompany);
-  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(initialRole);
-  const [selectedDataSource, setSelectedDataSource] = useState<'work-history' | 'linkedin' | 'resume'>('work-history');
+	  const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(initialCompany);
+	  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(initialRole);
+	  const [selectedDataSource, setSelectedDataSource] = useState<'work-history' | 'linkedin' | 'resume'>('work-history');
+
+	  useEffect(() => {
+	    if (!isLinkedInScrapingEnabled() && selectedDataSource === 'linkedin') {
+	      setSelectedDataSource('work-history');
+	    }
+	  }, [selectedDataSource]);
   
   // Track which company should be expanded in the accordion
   const [expandedCompanyId, setExpandedCompanyId] = useState<string | null>(initialCompany?.id || null);
@@ -950,23 +1049,87 @@ export default function WorkHistory() {
   const [editingLink, setEditingLink] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Update selected items when work history data changes - always select most recent role
+  const replaceWorkHistoryUrlParams = useCallback((updates: Record<string, string | null | undefined>) => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const params = url.searchParams;
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    const query = params.toString();
+    const nextUrl = `${url.pathname}${query ? `?${query}` : ''}${url.hash || ''}`;
+    window.history.replaceState({}, '', nextUrl);
+  }, []);
+
+  // Avoid overwriting `roleId` deep-linking during initial boot.
+  const didSyncUrlFromStateRef = useRef(false);
+
+  // Update selected items when work history data changes:
+  // - Initial load: select most recent role
+  // - Subsequent refreshes: preserve the user's current role selection if possible
   useEffect(() => {
-    if (workHistory.length > 0) {
-      const mostRecent = findMostRecentRole(workHistory);
-      if (mostRecent) {
-        setSelectedCompany(mostRecent.company);
-        setSelectedRole(mostRecent.role);
-        setExpandedCompanyId(mostRecent.company.id);
+    if (workHistory.length === 0) return;
+
+    if (selectedRole?.id) {
+      for (const company of workHistory) {
+        const role = company.roles.find((r) => r.id === selectedRole.id);
+        if (role) {
+          setSelectedCompany(company);
+          setSelectedRole(role);
+          setExpandedCompanyId(company.id);
+          return;
+        }
       }
     }
-  }, [workHistory]);
 
-  // Handle URL parameters for initial navigation
-  const [initialTab, setInitialTab] = useState<'role' | 'stories' | 'links'>('role');
+    // If a role is represented by a merged/clustered set of work items, edits can change
+    // which underlying work_item becomes the "primary" role id. Preserve selection by overlap.
+    const selectedWorkItemIds = selectedRole?.workItemIds || [];
+    if (selectedWorkItemIds.length > 0) {
+      for (const company of workHistory) {
+        for (const role of company.roles) {
+          const roleIds = new Set([role.id, ...(role.workItemIds || [])]);
+          if (selectedWorkItemIds.some((id) => roleIds.has(id))) {
+            setSelectedCompany(company);
+            setSelectedRole(role);
+            setExpandedCompanyId(company.id);
+            return;
+          }
+        }
+      }
+    }
+
+    const mostRecent = findMostRecentRole(workHistory);
+    if (!mostRecent) return;
+    setSelectedCompany(mostRecent.company);
+    setSelectedRole(mostRecent.role);
+    setExpandedCompanyId(mostRecent.company.id);
+  }, [findMostRecentRole, selectedRole?.id, workHistory]);
+
+  // Active tab (default: Role). Persisted in-memory across data refreshes.
+  const [activeTab, setActiveTab] = useState<'role' | 'stories' | 'links'>('role');
   
   // Gap resolution state - tracks which gaps have been resolved
   const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
+
+  // Keep URL deep-link params in sync with the user's current selection.
+  // If `roleId` lingers in the URL (often Aurora), deep-link effects will snap back on refresh.
+  useEffect(() => {
+    if (selectedDataSource !== 'work-history') return;
+    if (!selectedRole?.id) return;
+    // Only start syncing after we've actually mounted with real data.
+    if (!didSyncUrlFromStateRef.current && workHistory.length === 0) return;
+    didSyncUrlFromStateRef.current = true;
+
+    replaceWorkHistoryUrlParams({
+      roleId: selectedRole.id,
+      tab: activeTab,
+    });
+  }, [activeTab, replaceWorkHistoryUrlParams, selectedDataSource, selectedRole?.id, workHistory.length]);
   
   // Auto-advance through tabs during tour
   useEffect(() => {
@@ -980,7 +1143,7 @@ export default function WorkHistory() {
       
       const advanceTab = () => {
         if (currentTabIndex < tabs.length) {
-          setInitialTab(tabs[currentTabIndex]);
+          setActiveTab(tabs[currentTabIndex]);
           currentTabIndex++;
           
           if (currentTabIndex < tabs.length) {
@@ -1001,18 +1164,22 @@ export default function WorkHistory() {
     const searchParams = new URLSearchParams(window.location.search);
     const tabParam = searchParams.get('tab');
     const storyIdParam = searchParams.get('storyId');
+    const roleIdParam = searchParams.get('roleId');
     
     if (tabParam === 'stories' && workHistory.length > 0) {
-      // If roleId is present, the role deep-link effect will select the right role.
-      // Otherwise default to first role for stories view.
-      const firstCompany = workHistory[0];
-      const firstRole = firstCompany.roles[0];
-      if (firstRole && !searchParams.get('roleId')) {
-        setSelectedCompany(firstCompany);
-        setSelectedRole(firstRole);
-        setExpandedCompanyId(firstCompany.id);
+      setActiveTab('stories');
+
+      // Only auto-select a role when there is no current selection AND no role deep-link.
+      // This prevents refreshes (e.g., after edits) from bouncing the user back to the first role.
+      if (!selectedRole && !roleIdParam) {
+        const firstCompany = workHistory[0];
+        const firstRole = firstCompany.roles[0];
+        if (firstRole) {
+          setSelectedCompany(firstCompany);
+          setSelectedRole(firstRole);
+          setExpandedCompanyId(firstCompany.id);
+        }
       }
-      setInitialTab('stories');
 
       // Scroll to specific story if provided
       if (storyIdParam) {
@@ -1026,7 +1193,7 @@ export default function WorkHistory() {
         }, 350);
       }
     }
-  }, [workHistory]);
+  }, [selectedRole, workHistory]);
 
   // Deep link: select role and company based on roleId param
   useEffect(() => {
@@ -1053,8 +1220,10 @@ export default function WorkHistory() {
       setSelectedRole(foundRole);
       setExpandedCompanyId(foundCompany.id);
       setSelectedDataSource('work-history');
-      // Only force role tab if no explicit tab requested (prevents overriding Stories deep-link)
-      if (!tabParam) setInitialTab('role');
+      // Only set tab when explicitly provided in URL; otherwise preserve current selection.
+      if (tabParam === 'role' || tabParam === 'stories' || tabParam === 'links') {
+        setActiveTab(tabParam as 'role' | 'stories' | 'links');
+      }
 
       // After selecting role, optionally scroll to a section (e.g., metrics)
       if (sectionParam === 'metrics') {
@@ -1093,6 +1262,7 @@ export default function WorkHistory() {
       setSelectedRole(role);
       setExpandedCompanyId(parentCompany.id);
       setSelectedDataSource('work-history'); // Reset to work history view
+      replaceWorkHistoryUrlParams({ roleId: role.id, tab: activeTab });
     }
   };
 
@@ -1274,11 +1444,16 @@ export default function WorkHistory() {
     console.log("View resume");
   };
 
-  const handleLinkedInClick = () => {
-    setSelectedDataSource('linkedin');
-    setSelectedCompany(null);
-    setSelectedRole(null);
-  };
+	  const handleLinkedInClick = () => {
+	    if (!isLinkedInScrapingEnabled()) {
+	      toast.error('LinkedIn disabled', { description: 'LinkedIn features are currently turned off.' });
+	      setSelectedDataSource('work-history');
+	      return;
+	    }
+	    setSelectedDataSource('linkedin');
+	    setSelectedCompany(null);
+	    setSelectedRole(null);
+	  };
 
   const handleResumeClick = () => {
     setSelectedDataSource('resume');
@@ -1315,12 +1490,18 @@ export default function WorkHistory() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <main className={`container mx-auto px-4 pb-32 ${isTourActive ? 'pt-24' : ''}`}>
-        <div>
-          <p className="text-muted-foreground description-spacing">Summarize impact with metrics, stories and links</p>
-        </div>
+	  return (
+	    <div className="min-h-screen bg-background">
+	      <main className={`container mx-auto px-4 pb-32 ${isTourActive ? 'pt-24' : ''}`}>
+	        <div>
+	          <p className="text-muted-foreground description-spacing">Summarize impact with metrics, stories and links</p>
+	        </div>
+
+        {isDemo && (
+          <div className="mb-4 rounded-lg border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+            Public demo: read-only mode.
+          </div>
+        )}
 
         {hasWorkHistory ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1334,8 +1515,8 @@ export default function WorkHistory() {
               expandedCompanyId={expandedCompanyId}
               onCompanySelect={handleCompanySelect}
               onRoleSelect={handleRoleSelect}
-              onAddCompany={() => setIsAddCompanyModalOpen(true)}
-              onAddRole={() => setIsAddRoleModalOpen(true)}
+              onAddCompany={isDemo ? undefined : () => setIsAddCompanyModalOpen(true)}
+              onAddRole={isDemo ? undefined : () => setIsAddRoleModalOpen(true)}
             />
             
             {/* Master Panel - Desktop */}
@@ -1348,10 +1529,10 @@ export default function WorkHistory() {
                 resolvedGaps={resolvedGaps}
                 onCompanySelect={handleCompanySelect}
                 onRoleSelect={handleRoleSelect}
-                onAddRole={() => setIsAddRoleModalOpen(true)}
-                onAddCompany={() => setIsAddCompanyModalOpen(true)}
-                onConnectLinkedIn={handleConnectLinkedIn}
-                onUploadResume={handleUploadResume}
+                onAddRole={isDemo ? undefined : () => setIsAddRoleModalOpen(true)}
+                onAddCompany={isDemo ? undefined : () => setIsAddCompanyModalOpen(true)}
+                onConnectLinkedIn={isDemo ? undefined : handleConnectLinkedIn}
+                onUploadResume={isDemo ? undefined : handleUploadResume}
                 onLinkedInClick={handleLinkedInClick}
                 onResumeClick={handleResumeClick}
                 selectedDataSource={selectedDataSource}
@@ -1364,46 +1545,49 @@ export default function WorkHistory() {
                 selectedCompany={selectedCompany}
                 selectedRole={selectedRole}
                 companies={workHistory}
-                initialTab={initialTab}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
                 resolvedGaps={resolvedGaps}
                 onResolvedGapsChange={setResolvedGaps}
                 onRoleSelect={handleRoleSelect}
-                onAddRole={() => setIsAddRoleModalOpen(true)}
-                onEditRole={handleEditRole}
-                onAddStory={handleAddStory}
-                onEditStory={handleEditStory}
-                onAddLink={handleAddLink}
-                onEditLink={handleEditLink}
-                onEditCompany={handleEditCompany}
-                onDeleteStory={handleStoryDeleted}
+                onAddRole={isDemo ? undefined : () => setIsAddRoleModalOpen(true)}
+                onEditRole={isDemo ? undefined : handleEditRole}
+                onAddStory={isDemo ? undefined : handleAddStory}
+                onEditStory={isDemo ? undefined : handleEditStory}
+                onAddLink={isDemo ? undefined : handleAddLink}
+                onEditLink={isDemo ? undefined : handleEditLink}
+                onEditCompany={isDemo ? undefined : handleEditCompany}
+                onDeleteStory={isDemo ? undefined : handleStoryDeleted}
                 selectedDataSource={selectedDataSource}
                 onRefresh={fetchWorkHistory}
-                onUploadResume={handleUploadResume}
+                onUploadResume={isDemo ? undefined : handleUploadResume}
               />
             </div>
           </div>
-        ) : (
-          <div>
-            {!isTourActive ? (
-              <WorkHistoryEmptyState />
-            ) : (
+	        ) : (
+	          <div>
+	            {!isTourActive ? (
+	              <WorkHistoryEmptyState />
+	            ) : (
               <WorkHistoryOnboarding
-                onConnectLinkedIn={handleConnectLinkedIn}
-                onUploadResume={handleUploadResume}
+                onConnectLinkedIn={isDemo ? undefined : handleConnectLinkedIn}
+                onUploadResume={isDemo ? undefined : handleUploadResume}
               />
-            )}
-          </div>
-        )}
+	            )}
+	          </div>
+	        )}
 
-        {/* Mobile FAB */}
-        <WorkHistoryFAB
-          selectedCompany={selectedCompany}
-          selectedRole={selectedRole}
-          onAddCompany={() => setIsAddCompanyModalOpen(true)}
-          onAddRole={() => setIsAddRoleModalOpen(true)}
-          onAddStory={handleAddStory}
-          onAddLink={handleAddLink}
-        />
+	        {/* Mobile FAB */}
+	        {!isDemo && (
+	          <WorkHistoryFAB
+            selectedCompany={selectedCompany}
+            selectedRole={selectedRole}
+            onAddCompany={() => setIsAddCompanyModalOpen(true)}
+            onAddRole={() => setIsAddRoleModalOpen(true)}
+            onAddStory={handleAddStory}
+            onAddLink={handleAddLink}
+          />
+        )}
 
         {/* Modals */}
         <AddCompanyModal
@@ -1444,22 +1628,22 @@ export default function WorkHistory() {
           editingStory={editingStory}
         />
 
-        <AddLinkModal
-          open={isAddLinkModalOpen}
-          onOpenChange={(open) => {
-            setIsAddLinkModalOpen(open);
-            if (!open) setEditingLink(null);
-          }}
-          roleId={selectedRole?.id || ''}
-          onSave={handleSaveContent}
-          editingLink={editingLink}
-        />
-      </main>
+	        <AddLinkModal
+	          open={isAddLinkModalOpen}
+	          onOpenChange={(open) => {
+	            setIsAddLinkModalOpen(open);
+	            if (!open) setEditingLink(null);
+	          }}
+	          roleId={selectedRole?.id || ''}
+	          onSave={handleSaveContent}
+	          editingLink={editingLink}
+	        />
+	      </main>
 
-      {/* Tour Banner */}
-      {isTourActive && currentTourStep && (
-        <TourBannerFull
-          currentStep={tourStep}
+	      {/* Tour Banner */}
+	      {isTourActive && currentTourStep && (
+	        <TourBannerFull
+	          currentStep={tourStep}
           totalSteps={tourSteps.length}
           title={currentTourStep.title}
           description={currentTourStep.description}

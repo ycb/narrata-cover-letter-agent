@@ -476,13 +476,13 @@ export function ContentGenerationModalV2({
 
               <div className="flex items-center justify-between pt-2">
                 <div className="space-y-2">
-                  {allowSaveToSavedSections && (
+                  {allowSaveToSavedSections && !allowSaveToStories && (
                     <label className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Checkbox checked={saveToSavedSections} onCheckedChange={(v) => setSaveToSavedSections(Boolean(v))} />
                       Save to Saved Sections after apply
                     </label>
                   )}
-                  {allowSaveToStories && (
+                  {allowSaveToStories && !allowSaveToSavedSections && (
                     <label className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Checkbox checked={saveToStories} onCheckedChange={(v) => setSaveToStories(Boolean(v))} />
                       Add to Stories after apply

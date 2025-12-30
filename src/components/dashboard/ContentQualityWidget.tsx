@@ -317,7 +317,7 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
       params.set('storyId', item.entity_id);
     } else {
       // saved_section
-      path = '/cover-letter-template';
+      path = '/saved-sections';
       params.set('sectionId', item.entity_id);
     }
     navigate(`${path}?${params.toString()}`);
@@ -652,4 +652,3 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
 });
 
 ContentQualityWidget.displayName = 'ContentQualityWidget';
-

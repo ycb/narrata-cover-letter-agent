@@ -68,7 +68,7 @@ export const ContentGapBanner = ({
                       e.stopPropagation();
                       handleDismiss();
                     }}
-                    className="h-6 w-6 rounded-full bg-warning text-white flex items-center justify-center hover:bg-destructive transition-colors"
+                    className="inline-flex h-6 w-6 aspect-square shrink-0 items-center justify-center rounded-full bg-warning text-white hover:bg-destructive transition-colors"
                     aria-label="Dismiss gap"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -127,4 +127,3 @@ export const ContentGapBanner = ({
     </div>
   );
 };
-

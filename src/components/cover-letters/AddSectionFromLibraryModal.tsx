@@ -31,6 +31,8 @@ export interface AddSectionFromLibraryModalProps {
   onClose: () => void;
   invocation: InvocationType;
   jobDescription?: string;
+  initialContentType?: ContentType;
+  initialShowSelectionPanel?: boolean;
 
   // Library data
   workHistoryLibrary: WorkHistoryCompany[];
@@ -61,6 +63,8 @@ export function AddSectionFromLibraryModal({
   onClose,
   invocation,
   jobDescription,
+  initialContentType,
+  initialShowSelectionPanel,
   workHistoryLibrary,
   savedSections,
   isLibraryLoading,
@@ -71,6 +75,8 @@ export function AddSectionFromLibraryModal({
 }: AddSectionFromLibraryModalProps) {
   const [selectedContent, setSelectedContent] = React.useState<WorkHistoryBlurb | SavedSection | null>(null);
   const [showPreview, setShowPreview] = React.useState(false);
+  const isSavedSection = (content: WorkHistoryBlurb | SavedSection): content is SavedSection =>
+    'type' in content && !('roleId' in content);
 
   const handleContentSelected = (content: WorkHistoryBlurb | SavedSection) => {
     setSelectedContent(content);
@@ -80,9 +86,9 @@ export function AddSectionFromLibraryModal({
   const handleReplace = () => {
     if (!selectedContent || invocation.type !== "replace_or_insert_below") return;
 
-    const contentType: "story" | "saved_section" = "content" in selectedContent && selectedContent.content ? "saved_section" : "story";
-    const itemContent = "content" in selectedContent ? selectedContent.content! : (selectedContent as WorkHistoryBlurb).content;
-    const itemTitle = "title" in selectedContent ? selectedContent.title : "";
+    const contentType: "story" | "saved_section" = isSavedSection(selectedContent) ? "saved_section" : "story";
+    const itemContent = selectedContent.content;
+    const itemTitle = selectedContent.title || "";
     const itemId = selectedContent.id!;
 
     onReplace?.(invocation.sectionId, itemContent, {
@@ -101,9 +107,9 @@ export function AddSectionFromLibraryModal({
   const handleInsertBelow = () => {
     if (!selectedContent || invocation.type !== "replace_or_insert_below") return;
 
-    const contentType: "story" | "saved_section" = "content" in selectedContent && selectedContent.content ? "saved_section" : "story";
-    const itemContent = "content" in selectedContent ? selectedContent.content! : (selectedContent as WorkHistoryBlurb).content;
-    const itemTitle = "title" in selectedContent ? selectedContent.title : "";
+    const contentType: "story" | "saved_section" = isSavedSection(selectedContent) ? "saved_section" : "story";
+    const itemContent = selectedContent.content;
+    const itemTitle = selectedContent.title || "";
     const itemId = selectedContent.id!;
 
     onInsertBelow?.(invocation.sectionIndex, invocation.sectionType, itemContent, {
@@ -122,9 +128,9 @@ export function AddSectionFromLibraryModal({
   const handleInsertHere = () => {
     if (!selectedContent || invocation.type !== "insert_here") return;
 
-    const contentType: "story" | "saved_section" = "content" in selectedContent && selectedContent.content ? "saved_section" : "story";
-    const itemContent = "content" in selectedContent ? selectedContent.content! : (selectedContent as WorkHistoryBlurb).content;
-    const itemTitle = "title" in selectedContent ? selectedContent.title : "";
+    const contentType: "story" | "saved_section" = isSavedSection(selectedContent) ? "saved_section" : "story";
+    const itemContent = selectedContent.content;
+    const itemTitle = selectedContent.title || "";
     const itemId = selectedContent.id!;
 
     onInsertHere?.(invocation.insertIndex, invocation.preferredSectionType, itemContent, {
@@ -149,8 +155,8 @@ export function AddSectionFromLibraryModal({
   // Conditional rendering without early return to maintain consistent hook calls
   const sectionType = inferSectionType(invocation);
   const sectionTypeLabel = sectionType === "intro" ? "Introduction" : sectionType === "closing" ? "Closing" : "Body Paragraph";
-  const itemContent = selectedContent && ("content" in selectedContent ? selectedContent.content! : (selectedContent as WorkHistoryBlurb).content);
-  const itemTitle = selectedContent && ("title" in selectedContent ? selectedContent.title : "");
+  const itemContent = selectedContent?.content;
+  const itemTitle = selectedContent?.title ?? "";
 
   // Render preview or selection modal based on state
   return showPreview && selectedContent ? (
@@ -209,6 +215,9 @@ export function AddSectionFromLibraryModal({
       savedSections={savedSections}
       isLibraryLoading={isLibraryLoading}
       libraryError={libraryError}
+      initialContentType={initialContentType}
+      initialMethod="static"
+      initialShowSelectionPanel={initialShowSelectionPanel}
     />
   );
 }

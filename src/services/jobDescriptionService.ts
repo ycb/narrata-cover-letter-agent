@@ -40,6 +40,16 @@ const SUPPORTED_CATEGORIES: RequirementCategory[] = ['standard', 'differentiator
 const MAX_RETRIES = 2;
 const RETRY_DELAYS_MS = [750, 1500];
 
+const inferWorkTypeFromText = (content: string): string | null => {
+  const text = content.toLowerCase();
+  if (/hybrid/.test(text)) return 'Hybrid';
+  if (/(location type|work location|work type)[^a-z0-9]{0,8}remote/.test(text) || /\bremote\b/.test(text)) {
+    return 'Remote';
+  }
+  if (/(on[\s-]?site|in[\s-]?office|office-based)/.test(text)) return 'In-person';
+  return null;
+};
+
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
@@ -394,6 +404,9 @@ export class JobDescriptionService {
         }
 
         const parsed = await this.transformParsedResponse(parsedJson);
+        if (!parsed.workType) {
+          parsed.workType = inferWorkTypeFromText(content);
+        }
         return { parsed, raw: parsedJson };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error during JD parse');
@@ -628,6 +641,54 @@ export class JobDescriptionService {
     return data ? mapRowToRecord(data) : null;
   }
 
+  /**
+   * Find existing job description by content, or create a new one.
+   * This prevents duplicate parsing of identical JDs.
+   * 
+   * @param userId - User ID
+   * @param content - JD content to look up or parse
+   * @param options - Parse options (only used if JD not found)
+   * @returns Existing or newly created JD record
+   */
+  async findOrCreateJobDescription(
+    userId: string,
+    content: string,
+    options: ParseJobDescriptionOptions & { url?: string | null; syntheticProfileId?: string } = {},
+  ): Promise<JobDescriptionRecord & { evaluationRunId?: string; sessionId?: string; cached?: boolean }> {
+    const trimmedContent = content.trim();
+
+    // Look up existing JD by exact content match
+    const { data: existing, error: lookupError } = await this.supabaseClient
+      .from('job_descriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('content', trimmedContent)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lookupError) {
+      console.warn('[JobDescriptionService] Failed to lookup existing JD (non-blocking):', lookupError);
+    }
+
+    if (existing) {
+      console.log('[JobDescriptionService] Found existing JD, skipping parse:', existing.id);
+      options.onProgress?.('Job description analysis complete (cached).');
+      return { 
+        ...mapRowToRecord(existing),
+        cached: true,
+      };
+    }
+
+    // Not found - parse and create new
+    console.log('[JobDescriptionService] No cached JD found, parsing...');
+    const result = await this.parseAndCreate(userId, trimmedContent, options);
+    return { 
+      ...result,
+      cached: false,
+    };
+  }
+
   createWorkpadPayload(
     parsed: ParsedJobDescription,
     draftId: string,
@@ -804,5 +865,4 @@ export class JobDescriptionService {
 }
 
 export const jobDescriptionService = new JobDescriptionService();
-
 

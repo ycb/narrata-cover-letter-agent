@@ -27,6 +27,7 @@ export interface ContentGenerationRequest {
   entityType: 'work_item' | 'approved_content' | 'saved_section';
   entityId: string;
   workHistoryContext: WorkHistoryContext;
+  userVoicePrompt?: string;
   jobContext?: JobContext;
   sectionType?: 'introduction' | 'closer' | 'signature' | 'custom'; // For saved_section
 }
@@ -125,7 +126,8 @@ export class ContentGenerationService {
             request.gap,
             request.existingContent,
             request.workHistoryContext,
-            request.jobContext
+            request.jobContext,
+            request.userVoicePrompt
           );
           break;
 
@@ -133,7 +135,8 @@ export class ContentGenerationService {
           userPrompt = buildRoleDescriptionPrompt(
             request.gap,
             request.existingContent,
-            request.workHistoryContext
+            request.workHistoryContext,
+            request.userVoicePrompt
           );
           break;
 
@@ -143,7 +146,8 @@ export class ContentGenerationService {
             request.existingContent,
             request.sectionType || 'custom',
             request.workHistoryContext,
-            request.jobContext
+            request.jobContext,
+            request.userVoicePrompt
           );
           break;
 
@@ -471,6 +475,9 @@ export class ContentGenerationService {
    * Replace existing content
    */
   private async replaceContent(request: ContentSaveRequest): Promise<{ success: boolean; id: string }> {
+    const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+    const gapIdIsUuid = isUuid(String(request.gapId || ''));
+
     const tableName = request.entityType === 'work_item' ? 'work_items' :
                      request.entityType === 'approved_content' ? 'approved_content' : 'saved_sections';
 
@@ -482,7 +489,7 @@ export class ContentGenerationService {
       .update({
         [contentField]: request.content,
         updated_at: new Date().toISOString(),
-        addressed_gap_id: request.gapId
+        ...(gapIdIsUuid ? { addressed_gap_id: request.gapId } : {})
       })
       .eq('id', request.entityId)
       .eq('user_id', request.userId);
@@ -490,12 +497,14 @@ export class ContentGenerationService {
     if (error) throw error;
 
     // Mark gap as resolved
-    await GapDetectionService.resolveGap(
-      request.gapId,
-      request.userId,
-      'content_added',
-      request.entityId
-    );
+    if (gapIdIsUuid) {
+      await GapDetectionService.resolveGap(
+        request.gapId,
+        request.userId,
+        'content_added',
+        request.entityId
+      );
+    }
 
     return { success: true, id: request.entityId };
   }

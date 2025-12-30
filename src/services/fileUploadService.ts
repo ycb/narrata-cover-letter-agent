@@ -1574,6 +1574,31 @@ source_type: dbSourceType,
       const workItemKeyToData = new Map<string, any>(); // key -> payload
       const companyIds = Array.from(companyIdMap.values());
 
+      const formatMetricForDisplay = (metric: any): string => {
+        if (typeof metric === 'string') return metric.trim();
+        const value = (metric?.value ?? '').toString().trim().replace(/\s+/g, ' ');
+        const context = (metric?.context ?? '').toString().trim().replace(/\s+/g, ' ');
+        if (!value && !context) return '';
+        if (!value) return context;
+        if (!context) return value;
+
+        const valueLower = value.toLowerCase();
+        const contextLower = context.toLowerCase();
+        const idx = contextLower.indexOf(valueLower);
+        if (idx !== -1) {
+          const before = idx > 0 ? contextLower[idx - 1] : '';
+          const after = idx + valueLower.length < contextLower.length ? contextLower[idx + valueLower.length] : '';
+          const isWordChar = (ch: string) => /[a-z0-9]/i.test(ch);
+          const beforeOk = !before || !isWordChar(before);
+          const afterOk = !after || !isWordChar(after);
+          if (beforeOk && afterOk) {
+            return context;
+          }
+        }
+
+        return `${value} ${context}`.trim();
+      };
+
       for (const workItem of structuredData.workHistory) {
         const workItemTitle = workItem.title?.trim();
         if (!workItemTitle) {
@@ -1600,7 +1625,7 @@ source_type: dbSourceType,
           start_date: workItem.startDate,
           end_date: endDate,
           description: workItem.roleSummary || workItem.description || '',
-          achievements: workItem.outcomeMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [],
+          achievements: workItem.outcomeMetrics?.map(formatMetricForDisplay).filter((s: string) => s.trim().length > 0) || workItem.achievements || [],
           tags: workItem.roleTags || workItem.tags || [],
           metrics: outcomeMetrics,
           source_id: sourceId,
@@ -3233,6 +3258,17 @@ source_type: dbSourceType,
       let appifyRawData: any = null;
       let activeProfileId: string | null = await this.getActiveSyntheticProfileId(authSupabase, user.id);
       const isSyntheticEnabled = !!activeProfileId;
+
+      // Do not rely on local fixture files in production browser builds.
+      // (Fixtures are dev-only and are removed from production `dist/` output.)
+      if (
+        activeProfileId &&
+        typeof window !== 'undefined' &&
+        !(import.meta as any).env?.DEV
+      ) {
+        console.warn('⚠️ Synthetic profile detected in production; skipping fixture-based enrichment.');
+        activeProfileId = null;
+      }
 
       if (activeProfileId) {
         // Synthetic mode: Load JSON fixture file

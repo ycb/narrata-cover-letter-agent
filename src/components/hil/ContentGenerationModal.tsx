@@ -11,6 +11,7 @@ import type { Gap } from '@/services/gapTransformService';
 import { SectionInspector, type SectionAttributionData } from '@/components/cover-letters/SectionInspector';
 import { supabase } from '@/lib/supabase';
 import { Checkbox } from '@/components/ui/checkbox';
+import { clearDraft, loadDraft, saveDraft } from '@/lib/localDraft';
 
 interface GapAnalysis {
   id: string;
@@ -44,13 +45,14 @@ interface ContentGenerationModalProps {
   onClose: () => void;
   gap?: GapAnalysis | null;
   onApplyContent?: (content: string, options?: { saveToSavedSections?: boolean; saveToStories?: boolean }) => void;
-  // Optional toggles for CL draft context; defaults keep checkboxes hidden elsewhere
+  // Optional toggles for CL draft context; defaults keep checkboxes hidden elsewhere.
+  // Exactly one should be enabled at a time.
   allowSaveToSavedSections?: boolean;
   allowSaveToStories?: boolean;
   // Tag suggestion mode
   mode?: 'gap-detection' | 'tag-suggestion';
   content?: string;
-  contentType?: 'company' | 'role' | 'saved_section';
+  contentType?: 'company' | 'role' | 'saved_section' | 'story';
   entityId?: string; // For persisting tags
   existingTags?: string[];
   suggestedTags?: TagSuggestion[];      // High confidence, pre-checked
@@ -70,6 +72,7 @@ export function ContentGenerationModal({
   mode = 'gap-detection',
   content,
   contentType,
+  entityId,
   existingTags = [],
   suggestedTags = [],
   otherTags = [],
@@ -87,28 +90,167 @@ export function ContentGenerationModal({
   const [contentQuality, setContentQuality] = useState<'draft' | 'review' | 'ready'>('draft');
   const [saveToSavedSections, setSaveToSavedSections] = useState(false);
   const [saveToStories, setSaveToStories] = useState(false);
+  const [restoredDraft, setRestoredDraft] = useState(false);
 
   // Tag suggestion state
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
 
-  // Auto-select high-confidence tags when modal opens OR when suggestedTags are loaded
+  const latestGeneratedContentRef = React.useRef('');
+  const latestSelectedTagsRef = React.useRef<string[]>([]);
+  const latestContentQualityRef = React.useRef<'draft' | 'review' | 'ready'>('draft');
+  const latestSaveToSavedSectionsRef = React.useRef(false);
+  const latestSaveToStoriesRef = React.useRef(false);
+
   useEffect(() => {
-    if (isOpen && mode === 'tag-suggestion') {
-      // Pre-select ONLY the high-confidence (suggested) tags - replace, don't merge
-      const highConfidenceTags = (suggestedTags || []).map(t => t.value);
-      console.log('🏷️ [Modal] Auto-selecting tags:', { 
-        suggestedTagsCount: suggestedTags?.length,
-        highConfidenceTags 
+    latestGeneratedContentRef.current = generatedContent;
+  }, [generatedContent]);
+  useEffect(() => {
+    latestSelectedTagsRef.current = selectedTags;
+  }, [selectedTags]);
+  useEffect(() => {
+    latestContentQualityRef.current = contentQuality;
+  }, [contentQuality]);
+  useEffect(() => {
+    latestSaveToSavedSectionsRef.current = saveToSavedSections;
+  }, [saveToSavedSections]);
+  useEffect(() => {
+    latestSaveToStoriesRef.current = saveToStories;
+  }, [saveToStories]);
+
+  const draftKey = (() => {
+    const id = entityId || gap?.id || 'unknown';
+    const type = contentType || 'unknown';
+    return `draft:hil:v2:${mode}:${type}:${id}`;
+  })();
+
+  const normalizeTag = (tag: string) => (tag || '').trim().toLowerCase();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const draft = loadDraft<{
+      generatedContent?: string;
+      contentQuality?: 'draft' | 'review' | 'ready';
+      saveToSavedSections?: boolean;
+      saveToStories?: boolean;
+      selectedTags?: string[];
+    }>(draftKey);
+    if (!draft?.data) return;
+    if (generatedContent.trim() || selectedTags.length) return;
+
+    if (draft.data.generatedContent?.trim()) {
+      setGeneratedContent(draft.data.generatedContent);
+      setContentQuality(draft.data.contentQuality ?? 'review');
+      setSaveToSavedSections(Boolean(draft.data.saveToSavedSections));
+      setSaveToStories(Boolean(draft.data.saveToStories));
+      setSelectedTags(Array.isArray(draft.data.selectedTags) ? draft.data.selectedTags : []);
+      setRestoredDraft(true);
+      toast({ title: 'Restored draft', description: 'Recovered your unsaved generated content.' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, draftKey]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = () => {
+      const currentGenerated = latestGeneratedContentRef.current;
+      const currentSelected = latestSelectedTagsRef.current;
+      const hasWork = currentGenerated.trim() || currentSelected.length;
+      if (!hasWork) return;
+      saveDraft(draftKey, {
+        generatedContent: currentGenerated,
+        contentQuality: latestContentQualityRef.current,
+        saveToSavedSections: latestSaveToSavedSectionsRef.current,
+        saveToStories: latestSaveToStoriesRef.current,
+        selectedTags: currentSelected,
       });
-      setSelectedTags(highConfidenceTags);
-    } else if (!isOpen) {
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isOpen, draftKey, generatedContent, contentQuality, saveToSavedSections, saveToStories, selectedTags]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onVisibilityChange = () => {
+      if (!document.hidden) return;
+      const currentGenerated = latestGeneratedContentRef.current;
+      const currentSelected = latestSelectedTagsRef.current;
+      const hasWork = currentGenerated.trim() || currentSelected.length;
+      if (!hasWork) return;
+      saveDraft(draftKey, {
+        generatedContent: currentGenerated,
+        contentQuality: latestContentQualityRef.current,
+        saveToSavedSections: latestSaveToSavedSectionsRef.current,
+        saveToStories: latestSaveToStoriesRef.current,
+        selectedTags: currentSelected,
+      });
+    };
+    const onPageHide = () => {
+      const currentGenerated = latestGeneratedContentRef.current;
+      const currentSelected = latestSelectedTagsRef.current;
+      const hasWork = currentGenerated.trim() || currentSelected.length;
+      if (!hasWork) return;
+      saveDraft(draftKey, {
+        generatedContent: currentGenerated,
+        contentQuality: latestContentQualityRef.current,
+        saveToSavedSections: latestSaveToSavedSectionsRef.current,
+        saveToStories: latestSaveToStoriesRef.current,
+        selectedTags: currentSelected,
+      });
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+  }, [isOpen, draftKey, generatedContent, contentQuality, saveToSavedSections, saveToStories, selectedTags]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = window.setTimeout(() => {
+      const hasWork = generatedContent.trim() || selectedTags.length;
+      if (!hasWork) {
+        clearDraft(draftKey);
+        return;
+      }
+      saveDraft(draftKey, {
+        generatedContent,
+        contentQuality,
+        saveToSavedSections,
+        saveToStories,
+        selectedTags,
+      });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [isOpen, draftKey, generatedContent, contentQuality, saveToSavedSections, saveToStories, selectedTags]);
+
+  // Auto-select high-confidence tags when modal opens OR when suggestedTags are loaded.
+  // Only seed selection if the user hasn't interacted (i.e. nothing selected yet).
+  useEffect(() => {
+    if (!isOpen) {
       // Reset when modal closes
       console.log('🏷️ [Modal] Resetting selected tags (modal closed)');
       setSelectedTags([]);
+      setRestoredDraft(false);
+      return;
     }
+    if (mode !== 'tag-suggestion') return;
+    if (selectedTags.length > 0) return;
+    if (!suggestedTags || suggestedTags.length === 0) return;
+
+    const existing = new Set((existingTags || []).map(normalizeTag));
+    const highConfidenceTags = suggestedTags
+      .map((t) => t.value)
+      .filter((v) => v && !existing.has(normalizeTag(v)));
+
+    console.log('🏷️ [Modal] Auto-selecting tags:', {
+      suggestedTagsCount: suggestedTags?.length,
+      selectedCount: highConfidenceTags.length,
+    });
+    setSelectedTags(highConfidenceTags);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, mode]); // Only run when modal opens/closes, not when suggestedTags changes
+  }, [isOpen, mode, suggestedTags, existingTags, selectedTags.length]);
 
   // Toggle tag selection
   const toggleTag = (tagValue: string) => {
@@ -122,6 +264,8 @@ export function ContentGenerationModal({
   // Auto-start content generation when modal opens in gap-detection mode
   useEffect(() => {
     if (isOpen && mode === 'gap-detection' && gap && !generatedContent && !isGenerating) {
+      // If we restored a draft, don't immediately clobber it by auto-generating again.
+      if (restoredDraft) return;
       handleGenerate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -273,6 +417,7 @@ export function ContentGenerationModal({
       saveToSavedSections,
       saveToStories,
     });
+    clearDraft(draftKey);
     onClose();
     // Reset state
     setGeneratedContent('');
@@ -282,19 +427,56 @@ export function ContentGenerationModal({
   };
 
   const handleClose = () => {
+    const hasWork = generatedContent.trim() || selectedTags.length;
+    if (hasWork) {
+      saveDraft(draftKey, {
+        generatedContent,
+        contentQuality,
+        saveToSavedSections,
+        saveToStories,
+        selectedTags,
+      });
+    } else {
+      clearDraft(draftKey);
+    }
     onClose();
     // Reset state
     setGeneratedContent('');
     setContentQuality('draft');
     setSaveToSavedSections(false);
     setSaveToStories(false);
+    setRestoredDraft(false);
   };
 
   if (mode === 'gap-detection' && !gap) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) return;
+        // Switching browser tabs can trigger Radix "dismiss" via focus-loss.
+        // Ignore dismiss attempts while the document is hidden.
+        if (typeof document !== 'undefined' && document.hidden) return;
+        handleClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        onEscapeKeyDown={(e) => {
+          if (isGenerating || isGeneratingTags) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (isGenerating || isGeneratingTags) e.preventDefault();
+          // Prevent closing when the browser window/tab loses focus (Radix reports this as an "interact outside").
+          const originalEvent = (e as any)?.detail?.originalEvent;
+          if (originalEvent instanceof FocusEvent) e.preventDefault();
+        }}
+        onFocusOutside={(e) => {
+          // Prevent the dialog from closing when the browser window/tab loses focus.
+          e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -532,7 +714,7 @@ export function ContentGenerationModal({
 
                       <div className="flex items-center justify-between mt-4">
                         <div className="flex flex-col gap-3 text-sm text-muted-foreground">
-                          {allowSaveToSavedSections && (
+                          {allowSaveToSavedSections && !allowSaveToStories && (
                             <label className="flex gap-2 items-center">
                               <Checkbox
                                 checked={saveToSavedSections}
@@ -541,7 +723,7 @@ export function ContentGenerationModal({
                               <span>Add to Saved Sections after apply</span>
                             </label>
                           )}
-                          {allowSaveToStories && (
+                          {allowSaveToStories && !allowSaveToSavedSections && (
                             <label className="flex gap-2 items-center">
                               <Checkbox
                                 checked={saveToStories}

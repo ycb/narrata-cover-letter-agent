@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase, getUserProfile, upsertUserProfile, getCurrentUser, safeAuthOperations } from '@/lib/supabase'
+import { supabase, supabaseConfigError, getUserProfile, upsertUserProfile, getCurrentUser, safeAuthOperations } from '@/lib/supabase'
+import { setPreferredDashboardCache } from '@/lib/dashboardPreference'
 import type { Database } from '@/types/supabase'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -254,6 +255,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('🎯 Setting profile in state:', profileData);
       console.log('🔍 Profile preferred_dashboard:', (profileData as any)?.preferred_dashboard);
+      if ((profileData as any)?.preferred_dashboard) {
+        setPreferredDashboardCache((profileData as any).preferred_dashboard as 'main' | 'onboarding');
+      }
       setProfile(profileData)
     } catch (err: any) {
       console.error('Error loading user profile:', err)
@@ -272,6 +276,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (demoSlug) {
           await loadDemoProfile(demoSlug)
           return
+        }
+
+        if (supabaseConfigError) {
+          if (!mounted) return;
+          setError(supabaseConfigError);
+          setLoading(false);
+          return;
         }
 
         const { data: { session }, error } = await supabase.auth.getSession()
@@ -308,6 +319,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Listen for auth changes
+    if (supabaseConfigError) {
+      return () => {
+        mounted = false
+      }
+    }
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -647,6 +664,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Refresh profile data
+      if ((updates as any).preferred_dashboard) {
+        setPreferredDashboardCache((updates as any).preferred_dashboard as 'main' | 'onboarding');
+      }
       await refreshProfile()
       return { error: null }
     } catch (err: any) {

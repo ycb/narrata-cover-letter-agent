@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { CoverLetterDraftSection } from '@/types/coverLetters';
+import { normalizeFinalContent } from '@/services/coverLetterParser';
 
 interface CoverLetterFinalizationProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ const buildLetter = (sections: CoverLetterDraftSection[]): string =>
   sections
     .slice()
     .sort((a, b) => a.order - b.order)
-    .map(section => section.content?.trim())
+    .map(section => normalizeFinalContent(section.content || ''))
     .filter(Boolean)
     .join('\n\n');
 

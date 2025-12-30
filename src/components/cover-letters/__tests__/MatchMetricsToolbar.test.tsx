@@ -71,6 +71,7 @@ describe('MatchMetricsToolbar', () => {
     );
 
     expect(screen.getByText(/Match with Goals/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Match with Goals/i }));
     expect(screen.getByText(/Target Title/i)).toBeInTheDocument();
   });
 
@@ -88,7 +89,7 @@ describe('MatchMetricsToolbar', () => {
     expect(screen.getByText('Define product strategy')).toBeInTheDocument();
   });
 
-  it('shows ATS insights when ATS toolbar item is selected', () => {
+  it('shows overall score insights when Overall Score is selected', () => {
     render(
       <MatchMetricsToolbar
         metrics={baseMetrics}
@@ -97,11 +98,10 @@ describe('MatchMetricsToolbar', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /ATS/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Overall Score/i }));
 
-    expect(screen.getByText(/ATS Score/i)).toBeInTheDocument();
-    const scoreDisplays = screen.getAllByText(/82%/i);
+    expect(screen.getByText(/Compelling Opening/i)).toBeInTheDocument();
+    const scoreDisplays = screen.getAllByText(/85%/i);
     expect(scoreDisplays.length).toBeGreaterThan(0);
   });
 });
-

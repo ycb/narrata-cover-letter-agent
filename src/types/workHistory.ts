@@ -119,6 +119,19 @@ export interface CoverLetterSection {
   savedSectionId?: string;
   isStatic: boolean; // true = static text, false = uses blurb matching
   staticContent?: string; // for static sections
+  /**
+   * Optional user-defined AI fill instructions that can be referenced from `staticContent`
+   * using placeholders like `[LLM:slot_label]` or `[LLM:slot_label|instruction text]`.
+   *
+   * Note: Slots are primarily inferred from `staticContent` placeholders; this field allows
+   * richer UI authoring later without schema changes.
+   */
+  llmSlots?: Array<{
+    label: string;
+    instruction?: string;
+    scope?: 'jd' | 'workHistory' | 'both';
+    required?: boolean;
+  }>;
   blurbCriteria?: {
     goals: string[]; // content goals/purpose for this section
   }; // for dynamic sections

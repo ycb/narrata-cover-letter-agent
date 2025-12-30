@@ -149,6 +149,7 @@ export const StoryCard = ({
       <OutcomeMetrics
         metrics={story.outcomeMetrics}
         className="mb-6"
+        showHeading={true}
       />
 
       {/* Link Details - Above Variations */}

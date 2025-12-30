@@ -35,6 +35,7 @@ import { aggregateContentStandards, extractSectionsMeta, mapDraftSectionType } f
 import type { ContentStandardsAnalysis, SectionStandardResult, LetterStandardResult } from '@/types/coverLetters';
 import type { DraftReadinessEvaluation } from '@/types/coverLetters';
 import { isDraftReadinessEnabled } from '@/lib/flags';
+import { parseLlmSlotTokens, replaceAllLiteral } from '@/lib/coverLetterSlots';
 import type {
   DraftCoverLetterEvalEvent,
   PhaseACompleteness,
@@ -671,123 +672,175 @@ export class CoverLetterDraftService {
   }> {
     const { userId, templateId, jobDescriptionId, onProgress, onSectionBuilt, signal } = options;
 
-    this.emitProgress(onProgress, 'jd_parse', 'Loading job description…');
-    const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
-
-    this.emitProgress(onProgress, 'content_match', 'Loading content libraries…');
-    const [templateRow, stories, savedSections, userGoals] = await Promise.all([
-      this.fetchTemplate(userId, templateId),
-      this.fetchStories(userId),
-      this.fetchSavedSections(userId),
-      UserPreferencesService.loadGoals(userId),
-    ]);
-
-    const templateSections = this.normaliseTemplateSections(templateRow.sections);
-
-    // PERF: Stream sections to UI as they're built
-    const { sections, matchState } = this.buildSections({
-      templateSections,
-      stories,
-      savedSections,
-      jobDescription,
-      userGoals,
-      onSectionBuilt, // Now passed through for progressive rendering
+    const evalsLogger = new EvalsLogger({
+      userId,
+      stage: 'coverLetter.phase0.generateDraftFast',
     });
+    evalsLogger.start();
 
-    const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, sections);
+    const startedAtMs = Date.now();
+    const timings: Record<string, number> = {};
+    const mark = (key: string, ms: number) => {
+      timings[key] = Math.max(0, Math.round(ms));
+    };
 
-    // AGENT D: Generate heuristic gaps for instant feedback
-    this.emitProgress(onProgress, 'gap_detection', 'Analyzing gaps...');
-    const heuristicInsights = this.heuristicGapService.generateGapsForDraft(sections, jobDescription);
+    try {
+      this.emitProgress(onProgress, 'jd_parse', 'Loading job description…');
+      const jdStart = Date.now();
+      const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
+      mark('fetchJobDescription_ms', Date.now() - jdStart);
 
-    console.log('[AGENT D] Generated heuristic insights:', {
-      sectionCount: sections.length,
-      insightKeys: Object.keys(heuristicInsights),
-      insights: heuristicInsights
-    });
+      this.emitProgress(onProgress, 'content_match', 'Loading content libraries…');
+      const libsStart = Date.now();
+      const [templateRow, stories, savedSections, userGoals] = await Promise.all([
+        this.fetchTemplate(userId, templateId),
+        this.fetchStories(userId),
+        this.fetchSavedSections(userId),
+        UserPreferencesService.loadGoals(userId),
+      ]);
+      mark('loadLibraries_ms', Date.now() - libsStart);
 
-    // Create placeholder metrics for fast path
-    const placeholderMetrics = this.createFallbackMetrics();
+      const normalizeStart = Date.now();
+      const templateSections = this.normaliseTemplateSections(templateRow.sections);
+      mark('normalizeTemplate_ms', Date.now() - normalizeStart);
 
-    // Read MwS from job description analysis (persisted by streaming edge function)
-    // This ensures MwS is available immediately in the draft, avoiding race conditions
-    const mwsFromJd = (jobDescription.analysis as Record<string, unknown>)?.mws as {
-      summaryScore: 0 | 1 | 2 | 3;
-      details: Array<{ label: string; strengthLevel: string; explanation: string }>;
-    } | undefined;
-    
-    if (mwsFromJd) {
-      console.log('[generateDraftFast] MwS loaded from JD analysis:', {
-        summaryScore: mwsFromJd.summaryScore,
-        detailCount: mwsFromJd.details?.length,
+      // PERF: Stream sections to UI as they're built
+      const buildStart = Date.now();
+      const { sections, matchState } = this.buildSections({
+        templateSections,
+        stories,
+        savedSections,
+        jobDescription,
+        userGoals,
+        onSectionBuilt, // Now passed through for progressive rendering
       });
+      mark('buildSections_ms', Date.now() - buildStart);
+
+      const differentiatorStart = Date.now();
+      const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, sections);
+      mark('buildDifferentiatorSummary_ms', Date.now() - differentiatorStart);
+
+      // AGENT D: Generate heuristic gaps for instant feedback
+      this.emitProgress(onProgress, 'gap_detection', 'Analyzing gaps...');
+      const heuristicStart = Date.now();
+      const heuristicInsights = this.heuristicGapService.generateGapsForDraft(sections, jobDescription);
+      mark('heuristicGaps_ms', Date.now() - heuristicStart);
+
+      console.log('[AGENT D] Generated heuristic insights:', {
+        sectionCount: sections.length,
+        insightKeys: Object.keys(heuristicInsights),
+        insights: heuristicInsights
+      });
+
+      // Create placeholder metrics for fast path
+      const placeholderMetrics = this.createFallbackMetrics();
+
+      // Read MwS from job description analysis (persisted by streaming edge function)
+      // This ensures MwS is available immediately in the draft, avoiding race conditions
+      const mwsFromJd = (jobDescription.analysis as Record<string, unknown>)?.mws as {
+        summaryScore: 0 | 1 | 2 | 3;
+        details: Array<{ label: string; strengthLevel: string; explanation: string }>;
+      } | undefined;
+
+      if (mwsFromJd) {
+        console.log('[generateDraftFast] MwS loaded from JD analysis:', {
+          summaryScore: mwsFromJd.summaryScore,
+          detailCount: mwsFromJd.details?.length,
+        });
+      }
+
+      const insertStart = Date.now();
+      const insertPayload: Database['public']['Tables']['cover_letters']['Insert'] = {
+        user_id: userId,
+        template_id: templateId,
+        job_description_id: jobDescriptionId,
+        status: 'draft',
+        sections: sections as unknown as Record<string, unknown>,
+        llm_feedback: {
+          generatedAt: this.now().toISOString(),
+          metrics: placeholderMetrics.raw,
+          enhancedMatchData: undefined, // Will be calculated in background
+          ...(mwsFromJd ? { mws: mwsFromJd } : {}), // Include MwS if available from JD
+        },
+        metrics: [] as unknown as Record<string, unknown>, // Empty until metrics calculated
+        heuristic_insights: heuristicInsights as unknown as Record<string, unknown>, // AGENT D: instant gaps
+        differentiator_summary: differentiatorSummary as unknown as Record<string, unknown>,
+        analytics: {
+          atsScore: 0, // Will be calculated in background
+          generatedAt: this.now().toISOString(),
+        } as unknown as Record<string, unknown>,
+      };
+
+      const { data: draftRow, error } = await this.supabaseClient
+        .from('cover_letters')
+        .insert(insertPayload)
+        .select()
+        .single();
+      mark('insertDraft_ms', Date.now() - insertStart);
+
+      if (error || !draftRow) {
+        console.error('[CoverLetterDraftService] Failed to store draft:', error);
+        throw new Error('Unable to create cover letter draft. Please try again.');
+      }
+
+      const workpadStart = Date.now();
+      const workpadRow = await this.upsertWorkpad({
+        draftId: draftRow.id,
+        userId,
+        jobDescriptionId,
+        matchState,
+        sections,
+        phase: 'content_match', // Metrics not yet calculated
+      });
+      mark('upsertWorkpad_ms', Date.now() - workpadStart);
+
+      const mapStart = Date.now();
+      const draft = this.mapCoverLetterRow(draftRow, [], 0);
+      mark('mapDraftRow_ms', Date.now() - mapStart);
+
+      this.emitProgress(onProgress, 'content_match', 'Draft ready! Calculating metrics...');
+
+      // Phase B (metrics + gaps) is triggered by the caller (`useCoverLetterDraft`) so we can
+      // reliably manage retries and avoid duplicate concurrent runs.
+
+      // PHASE 2 (parallel): Fill any [LLM:...] / [SLOT:...] placeholders in the draft.
+      this.fillTemplateSlotsForDraft(draftRow.id, userId, jobDescriptionId, onProgress).catch(error => {
+        console.error('[generateDraftFast] Background template slot fill failed:', error);
+      });
+
+      mark('total_ms', Date.now() - startedAtMs);
+      await evalsLogger.success({
+        result_subset: {
+          templateId,
+          jobDescriptionId,
+          draftId: draftRow.id,
+          sectionCount: sections.length,
+          storiesCount: stories.length,
+          savedSectionsCount: savedSections.length,
+          timings,
+        },
+      });
+
+      return {
+        draft: {
+          ...draft,
+          differentiatorSummary,
+        },
+        workpad: workpadRow,
+        jobDescription,
+        heuristicInsights, // AGENT D: Pass heuristic gaps to hook
+      };
+    } catch (err) {
+      mark('total_ms', Date.now() - startedAtMs);
+      await evalsLogger.failure(err, {
+        result_subset: {
+          templateId,
+          jobDescriptionId,
+          timings,
+        },
+      });
+      throw err;
     }
-
-    const insertPayload: Database['public']['Tables']['cover_letters']['Insert'] = {
-      user_id: userId,
-      template_id: templateId,
-      job_description_id: jobDescriptionId,
-      status: 'draft',
-      sections: sections as unknown as Record<string, unknown>,
-      llm_feedback: {
-        generatedAt: this.now().toISOString(),
-        metrics: placeholderMetrics.raw,
-        enhancedMatchData: undefined, // Will be calculated in background
-        ...(mwsFromJd ? { mws: mwsFromJd } : {}), // Include MwS if available from JD
-      },
-      metrics: [] as unknown as Record<string, unknown>, // Empty until metrics calculated
-      heuristic_insights: heuristicInsights as unknown as Record<string, unknown>, // AGENT D: instant gaps
-      differentiator_summary: differentiatorSummary as unknown as Record<string, unknown>,
-      analytics: {
-        atsScore: 0, // Will be calculated in background
-        generatedAt: this.now().toISOString(),
-      } as unknown as Record<string, unknown>,
-    };
-
-    const { data: draftRow, error } = await this.supabaseClient
-      .from('cover_letters')
-      .insert(insertPayload)
-      .select()
-      .single();
-
-    if (error || !draftRow) {
-      console.error('[CoverLetterDraftService] Failed to store draft:', error);
-      throw new Error('Unable to create cover letter draft. Please try again.');
-    }
-
-    const workpadRow = await this.upsertWorkpad({
-      draftId: draftRow.id,
-      userId,
-      jobDescriptionId,
-      matchState,
-      sections,
-      phase: 'content_match', // Metrics not yet calculated
-    });
-
-    const draft = this.mapCoverLetterRow(draftRow, [], 0);
-
-    this.emitProgress(onProgress, 'content_match', 'Draft ready! Calculating metrics...');
-
-    // PHASE 2: Start metrics calculation in background (don't await)
-    // Fire-and-forget pattern - metrics calculated with 3 parallel calls for 1.6x speedup
-    this.calculateMetricsForDraft(
-      draftRow.id,
-      userId,
-      jobDescriptionId,
-      onProgress
-    ).catch(error => {
-      console.error('[generateDraftFast] Background metrics calculation failed:', error);
-    });
-
-    return {
-      draft: {
-        ...draft,
-        differentiatorSummary,
-      },
-      workpad: workpadRow,
-      jobDescription,
-      heuristicInsights, // AGENT D: Pass heuristic gaps to hook
-    };
   }
 
   /**
@@ -804,36 +857,39 @@ export class CoverLetterDraftService {
     onProgress?: DraftGenerationOptions['onProgress']
   ): Promise<EnhancedMatchData | undefined> {
     const metricsStartTime = Date.now();
-    this.emitProgress(onProgress, 'metrics', 'Loading data for metrics calculation...');
+    try {
+      this.emitProgress(onProgress, 'metrics', 'Loading data for metrics calculation...');
 
-    const [draftRow, jobDescription, userGoals, workHistory, approvedContent] = await Promise.all([
-      this.supabaseClient
-        .from('cover_letters')
-        .select('*')
-        .eq('id', draftId)
-        .single()
-        .then(({ data, error }) => {
-          if (error || !data) throw new Error('Draft not found');
-          return data;
-        }),
-      this.fetchJobDescription(userId, jobDescriptionId),
-      UserPreferencesService.loadGoals(userId),
-      this.fetchWorkHistory(userId),
-      this.fetchStoriesForMatching(userId),
-    ]);
+      const [draftRow, jobDescription, userGoals, workHistory, approvedContent] = await Promise.all([
+        this.supabaseClient
+          .from('cover_letters')
+          .select('*')
+          .eq('id', draftId)
+          .single()
+          .then(({ data, error }) => {
+            if (error || !data) throw new Error('Draft not found');
+            return data;
+          }),
+        this.fetchJobDescription(userId, jobDescriptionId),
+        UserPreferencesService.loadGoals(userId),
+        this.fetchWorkHistory(userId),
+        this.fetchStoriesForMatching(userId),
+      ]);
 
-    const sections = this.normaliseDraftSections(draftRow.sections);
+      const sections = this.normaliseDraftSections(draftRow.sections);
 
-    // Extract MwS from draft (primary) or job description (fallback) for eval logging
-    const llmFeedback = draftRow.llm_feedback as Record<string, unknown> | null;
-    const mwsFromDraft = llmFeedback?.mws as {
-      summaryScore: 0 | 1 | 2 | 3;
-      details: Array<{ label: string; strengthLevel: string; explanation: string }>;
-    } | undefined;
-    const mwsFromJd = (jobDescription.analysis as Record<string, unknown>)?.mws as typeof mwsFromDraft | undefined;
-    const mwsData = mwsFromDraft || mwsFromJd || null;
+      // Extract MwS from draft (primary) or job description (fallback) for eval logging
+      const llmFeedback = draftRow.llm_feedback as Record<string, unknown> | null;
+      const mwsFromDraft = llmFeedback?.mws as {
+        summaryScore: 0 | 1 | 2 | 3;
+        details: Array<{ label: string; strengthLevel: string; explanation: string }>;
+      } | undefined;
+      const mwsFromJd = (jobDescription.analysis as Record<string, unknown>)?.mws as typeof mwsFromDraft | undefined;
+      const mwsData = mwsFromDraft || mwsFromJd || null;
 
     // PHASE 2: Run 4 parallel LLM calls for optimized performance
+    // IMPORTANT: persist sectionGapInsights as soon as they are ready so the UI doesn't "stall at gaps"
+    // while waiting for slower Phase B subcalls (e.g., requirement analysis, content standards).
     this.emitProgress(onProgress, 'metrics', 'Analyzing match quality with AI (this takes ~45 seconds)...');
 
     // Storage for results
@@ -841,6 +897,64 @@ export class CoverLetterDraftService {
     let reqResult: { enhancedMatchData: Partial<EnhancedMatchData> } | undefined;
     let gapResult: { enhancedMatchData: Partial<EnhancedMatchData>; ratingCriteria?: any[] } | undefined;
     let contentStandardsResult: ContentStandardsAnalysis | null = null;
+
+    const persistEnhancedPartial = async (partial: Partial<EnhancedMatchData>, patch: Record<string, unknown>) => {
+      try {
+        const { data: latestRow } = await this.supabaseClient
+          .from('cover_letters')
+          .select('llm_feedback')
+          .eq('id', draftId)
+          .single();
+
+        const existingFeedback =
+          latestRow?.llm_feedback && typeof latestRow.llm_feedback === 'object'
+            ? (latestRow.llm_feedback as Record<string, unknown>)
+            : {};
+        const existingEnhanced =
+          (existingFeedback.enhancedMatchData as Partial<EnhancedMatchData> | undefined) ?? {};
+
+        const mergedEnhanced: EnhancedMatchData = {
+          ...(existingEnhanced as EnhancedMatchData),
+          ...(partial as EnhancedMatchData),
+        };
+
+        // Keep the no-stall invariant: sectionGapInsights should never remain undefined once any
+        // Phase B persist happens (even if empty).
+        if ((mergedEnhanced as any).sectionGapInsights === undefined) {
+          (mergedEnhanced as any).sectionGapInsights = Array.isArray((existingEnhanced as any).sectionGapInsights)
+            ? (existingEnhanced as any).sectionGapInsights
+            : [];
+        }
+
+        const patchRecord = patch ?? {};
+        const patchPhaseB = (patchRecord as any).phaseB as Record<string, unknown> | undefined;
+        const { phaseB: _ignored, ...restPatch } = patchRecord as any;
+
+        const nextFeedback: Record<string, unknown> = {
+          ...existingFeedback,
+          ...restPatch,
+          enhancedMatchData: mergedEnhanced,
+          ...(patchPhaseB
+            ? {
+                phaseB: {
+                  ...(((existingFeedback as any).phaseB as Record<string, unknown>) ?? {}),
+                  ...patchPhaseB,
+                },
+              }
+            : null),
+        };
+
+        await this.supabaseClient
+          .from('cover_letters')
+          .update({
+            llm_feedback: nextFeedback as unknown as Record<string, unknown>,
+            updated_at: this.now().toISOString(),
+          })
+          .eq('id', draftId);
+      } catch (persistError) {
+        console.warn('[CoverLetterDraftService] Failed to persist Phase B partial (non-blocking):', persistError);
+      }
+    };
 
     // Fire all 3 calls in parallel - each has independent retry logic
     const call1Promise = (async () => {
@@ -896,10 +1010,22 @@ export class CoverLetterDraftService {
             const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
             await sleep(delay);
           }
-          return await this.calculateSectionGaps({
+          const res = await this.calculateSectionGaps({
             sections,
             jobDescription,
           });
+          // Persist gaps as soon as they are ready to unblock UI ("no gap stall").
+          await persistEnhancedPartial(res.enhancedMatchData, {
+            phaseB: {
+              sectionGaps: {
+                status: 'success',
+                attempt: attempt + 1,
+                latencyMs: Date.now() - metricsStartTime,
+                completedAt: this.now().toISOString(),
+              },
+            },
+          });
+          return res;
         } catch (error) {
           if (attempt === MAX_RETRIES) {
             console.warn('[CoverLetterDraftService] Section gaps failed');
@@ -1041,28 +1167,35 @@ export class CoverLetterDraftService {
         : [];
     }
 
-    // Update draft with calculated metrics + MwS from streaming job
-    await this.supabaseClient
-      .from('cover_letters')
-      .update({
-        llm_feedback: {
-          ...existingFeedback,
-          generatedAt: this.now().toISOString(),
-          metrics: metricResult.raw,
-          enhancedMatchData: mergedEnhanced,
-          ...(ratingData ? { rating: ratingData } : {}),
-          ...(contentStandardsResult ? { contentStandards: contentStandardsResult } : {}),
-          ...(mwsFromJob ? { mws: mwsFromJob } : {}), // Persist MwS from streaming job
-        } as unknown as Record<string, unknown>,
-        metrics: metricResult.metrics as unknown as Record<string, unknown>,
-        analytics: {
-          atsScore: metricResult.atsScore,
-          ...(contentStandardsResult ? { overallScore: contentStandardsResult.aggregated.overallScore } : {}),
-          generatedAt: this.now().toISOString(),
-        } as unknown as Record<string, unknown>,
-        updated_at: this.now().toISOString(),
-      })
-      .eq('id', draftId);
+      const phaseBAttempt = (((existingFeedback as any)?.phaseB as any)?.attempt ?? 0) + 1;
+      // Update draft with calculated metrics + MwS from streaming job
+      await this.supabaseClient
+        .from('cover_letters')
+        .update({
+          llm_feedback: {
+            ...existingFeedback,
+            generatedAt: this.now().toISOString(),
+            metrics: metricResult.raw,
+            enhancedMatchData: mergedEnhanced,
+            phaseB: {
+              status: 'success',
+              attempt: phaseBAttempt,
+              latencyMs: Date.now() - metricsStartTime,
+              completedAt: this.now().toISOString(),
+            },
+            ...(ratingData ? { rating: ratingData } : {}),
+            ...(contentStandardsResult ? { contentStandards: contentStandardsResult } : {}),
+            ...(mwsFromJob ? { mws: mwsFromJob } : {}), // Persist MwS from streaming job
+          } as unknown as Record<string, unknown>,
+          metrics: metricResult.metrics as unknown as Record<string, unknown>,
+          analytics: {
+            atsScore: metricResult.atsScore,
+            ...(contentStandardsResult ? { overallScore: contentStandardsResult.aggregated.overallScore } : {}),
+            generatedAt: this.now().toISOString(),
+          } as unknown as Record<string, unknown>,
+          updated_at: this.now().toISOString(),
+        })
+        .eq('id', draftId);
 
     this.emitProgress(onProgress, 'metrics', 'Match metrics calculated successfully!');
 
@@ -1087,7 +1220,298 @@ export class CoverLetterDraftService {
       console.warn('[CoverLetterDraftService] Failed to log evaluation result (non-blocking):', error);
     }
 
-    return metricResult.enhancedMatchData;
+      return metricResult.enhancedMatchData;
+    } catch (error) {
+      // Prevent "gap stall": ensure the draft always gets a defined `sectionGapInsights` on failure.
+      // This unblocks the UI (users can keep editing) and allows automatic retries to kick in.
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[CoverLetterDraftService] Phase B metrics calculation failed:', error);
+      try {
+        const { data: latestRow } = await this.supabaseClient
+          .from('cover_letters')
+          .select('llm_feedback')
+          .eq('id', draftId)
+          .single();
+        const existingFeedback =
+          latestRow?.llm_feedback && typeof latestRow.llm_feedback === 'object'
+            ? (latestRow.llm_feedback as Record<string, unknown>)
+            : {};
+        const existingEnhanced = (existingFeedback.enhancedMatchData as Record<string, unknown> | undefined) ?? {};
+        const phaseBAttempt = (((existingFeedback as any)?.phaseB as any)?.attempt ?? 0) + 1;
+        const mergedEnhanced = {
+          ...existingEnhanced,
+          sectionGapInsights:
+            (existingEnhanced as any).sectionGapInsights !== undefined ? (existingEnhanced as any).sectionGapInsights : [],
+        };
+
+        await this.supabaseClient
+          .from('cover_letters')
+          .update({
+            llm_feedback: {
+              ...existingFeedback,
+              phaseB: {
+                status: 'error',
+                attempt: phaseBAttempt,
+                latencyMs: Date.now() - metricsStartTime,
+                failedAt: this.now().toISOString(),
+                message,
+              },
+              enhancedMatchData: mergedEnhanced,
+            } as unknown as Record<string, unknown>,
+            updated_at: this.now().toISOString(),
+          })
+          .eq('id', draftId);
+      } catch (persistError) {
+        console.warn('[CoverLetterDraftService] Failed to persist Phase B error status (non-blocking):', persistError);
+      }
+
+      // Still throw so callers (manual refresh) can surface an error if desired.
+      throw error;
+    }
+  }
+
+  /**
+   * Recompute ONLY sectionGapInsights (fast retry path).
+   * Used by the "Retry gaps" CTA so users don't wait for full Phase B.
+   */
+  async calculateSectionGapsForDraft(
+    draftId: string,
+    userId: string,
+    jobDescriptionId: string,
+    onProgress?: DraftGenerationOptions['onProgress'],
+  ): Promise<Partial<EnhancedMatchData> | undefined> {
+    const startedAt = Date.now();
+    this.emitProgress(onProgress, 'gap_detection', 'Refreshing gaps for this draft...');
+
+    const [draftRow, jobDescription] = await Promise.all([
+      this.supabaseClient
+        .from('cover_letters')
+        .select('id, llm_feedback, sections')
+        .eq('id', draftId)
+        .single()
+        .then(({ data, error }) => {
+          if (error || !data) throw new Error('Draft not found');
+          return data as Pick<CoverLetterRow, 'id' | 'llm_feedback' | 'sections'>;
+        }),
+      this.fetchJobDescription(userId, jobDescriptionId),
+    ]);
+
+    const sections = this.normaliseDraftSections((draftRow as any).sections);
+    const res = await this.calculateSectionGaps({ sections, jobDescription });
+
+    // Merge and persist (race-safe) without touching metrics/analytics.
+    const existingFeedback =
+      (draftRow as any).llm_feedback && typeof (draftRow as any).llm_feedback === 'object'
+        ? ((draftRow as any).llm_feedback as Record<string, unknown>)
+        : {};
+    const existingEnhanced =
+      (existingFeedback.enhancedMatchData as Partial<EnhancedMatchData> | undefined) ?? {};
+    const mergedEnhanced: EnhancedMatchData = {
+      ...(existingEnhanced as EnhancedMatchData),
+      ...(res.enhancedMatchData as EnhancedMatchData),
+    };
+    if ((mergedEnhanced as any).sectionGapInsights === undefined) {
+      (mergedEnhanced as any).sectionGapInsights = [];
+    }
+
+    const attempt = (((existingFeedback as any)?.phaseB as any)?.sectionGaps?.attempt ?? 0) + 1;
+    await this.supabaseClient
+      .from('cover_letters')
+      .update({
+        llm_feedback: {
+          ...existingFeedback,
+          enhancedMatchData: mergedEnhanced,
+          phaseB: {
+            ...(((existingFeedback as any)?.phaseB as Record<string, unknown>) ?? {}),
+            sectionGaps: {
+              status: 'success',
+              attempt,
+              latencyMs: Date.now() - startedAt,
+              completedAt: this.now().toISOString(),
+            },
+          },
+        } as unknown as Record<string, unknown>,
+        updated_at: this.now().toISOString(),
+      })
+      .eq('id', draftId);
+
+    this.emitProgress(onProgress, 'gap_detection', 'Gaps refreshed.');
+    return res.enhancedMatchData;
+  }
+
+  private async fillTemplateSlotsForDraft(
+    draftId: string,
+    userId: string,
+    jobDescriptionId: string,
+    onProgress?: DraftGenerationOptions['onProgress'],
+  ): Promise<void> {
+    const draftRow = await this.supabaseClient
+      .from('cover_letters')
+      .select('*')
+      .eq('id', draftId)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) throw new Error('Draft not found');
+        return data;
+      });
+
+    const sections = this.normaliseDraftSections(draftRow.sections);
+    const slotTokens = sections.flatMap(section => parseLlmSlotTokens(section.content || ''));
+    if (slotTokens.length === 0) return;
+
+    const [jobDescriptionRecord, workHistory, approvedContent] = await Promise.all([
+      this.jobDescriptionService.getJobDescription(userId, jobDescriptionId),
+      this.fetchWorkHistory(userId),
+      this.fetchStoriesForMatching(userId),
+    ]);
+
+    if (!jobDescriptionRecord) return;
+
+    const apiKey =
+      (import.meta.env?.VITE_OPENAI_KEY as string | undefined) ||
+      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) ||
+      (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
+
+    if (!apiKey) {
+      console.warn('[fillTemplateSlotsForDraft] OpenAI key not configured; leaving slot tokens untouched');
+      return;
+    }
+
+    this.emitProgress(onProgress, 'content_match', 'Filling template placeholders with AI...');
+
+    const requestPayload = {
+      company: jobDescriptionRecord.company,
+      role: jobDescriptionRecord.role,
+      jobDescriptionText: jobDescriptionRecord.content,
+      workHistory: workHistory.slice(0, 12).map(item => ({
+        company: item.company,
+        title: item.title,
+        description: (item.description || '').slice(0, 800),
+        achievements: (item.achievements || []).slice(0, 8),
+      })),
+      approvedStories: approvedContent.slice(0, 12).map(item => ({
+        title: item.title,
+        content: (item.content || '').slice(0, 900),
+      })),
+      slots: slotTokens.slice(0, 20).map(token => ({
+        id: token.id,
+        label: token.label,
+        instruction: token.instruction,
+        rawToken: token.rawToken,
+      })),
+    };
+
+    const client = createOpenAI({ apiKey });
+    const system = [
+      'You fill template placeholders in a cover letter draft.',
+      'Each placeholder token is either [LLM:...] or [SLOT:...] and contains an instruction.',
+      'For each slot, produce a short fill that can be inserted directly into the cover letter.',
+      'Use ONLY the provided job description and work history; do not invent facts.',
+      'If you cannot confidently fill from the provided context, return status NOT_FOUND and an empty fill.',
+      'Return ONLY valid JSON: {"slots":[{"id":"...","status":"FILLED"|"NOT_FOUND","fill":"...","evidence":{"jobDescription":[],"workHistory":[]}}]}.',
+    ].join('\n');
+
+    const result: any = await streamText({
+      model: client.chat(OPENAI_CONFIG.MODEL),
+      system,
+      messages: [{ role: 'user', content: JSON.stringify(requestPayload) }],
+      temperature: 0.2,
+      maxTokens: 1200,
+    } as any);
+
+    let rawOutput = '';
+    if (result?.textStream) {
+      for await (const chunk of result.textStream as AsyncIterable<unknown>) {
+        const token =
+          typeof chunk === 'string'
+            ? chunk
+            : typeof chunk === 'object' && chunk !== null && 'text' in chunk
+            ? // @ts-expect-error runtime inspection
+              chunk.text
+            : typeof chunk === 'object' && chunk !== null && 'value' in chunk
+            ? // @ts-expect-error runtime inspection
+              chunk.value
+            : '';
+        if (!token) continue;
+        rawOutput += token;
+      }
+    }
+    if (!rawOutput && typeof result?.text === 'string') rawOutput = result.text;
+
+    const cleaned = rawOutput
+      .trim()
+      .replace(/^```json/i, '')
+      .replace(/^```/, '')
+      .replace(/```$/, '')
+      .trim();
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      console.warn('[fillTemplateSlotsForDraft] Unable to parse slot fill JSON; leaving tokens untouched');
+      return;
+    }
+
+    const fills: Array<{
+      id: string;
+      status: 'FILLED' | 'NOT_FOUND';
+      fill: string;
+      evidence?: { jobDescription?: string[]; workHistory?: string[] };
+    }> = Array.isArray(parsed?.slots) ? parsed.slots : [];
+
+    if (fills.length === 0) return;
+
+    const fillById = new Map(fills.map(item => [item.id, item]));
+    const updatedSections = sections.map(section => {
+      if (section.status?.isModified) return section;
+
+      const tokens = parseLlmSlotTokens(section.content || '');
+      if (tokens.length === 0) return section;
+
+      let updatedContent = section.content || '';
+      for (const token of tokens) {
+        const fill = fillById.get(token.id);
+        if (!fill) continue;
+        const replacement =
+          fill.status === 'FILLED' && typeof fill.fill === 'string' && fill.fill.trim().length > 0
+            ? fill.fill.trim()
+            : 'NOT_FOUND';
+        updatedContent = replaceAllLiteral(updatedContent, token.rawToken, replacement);
+      }
+
+      if (updatedContent === section.content) return section;
+      return {
+        ...section,
+        content: updatedContent,
+        status: {
+          ...section.status,
+          lastUpdatedAt: this.now().toISOString(),
+        },
+      };
+    });
+
+    const llmFeedback =
+      draftRow.llm_feedback && typeof draftRow.llm_feedback === 'object'
+        ? (draftRow.llm_feedback as Record<string, unknown>)
+        : {};
+
+    await this.supabaseClient
+      .from('cover_letters')
+      .update({
+        sections: updatedSections as unknown as Record<string, unknown>,
+        llm_feedback: {
+          ...llmFeedback,
+          templateSlots: {
+            filledAt: this.now().toISOString(),
+            slots: fills,
+          },
+        } as unknown as Record<string, unknown>,
+        updated_at: this.now().toISOString(),
+      })
+      .eq('id', draftId);
+
+    this.emitProgress(onProgress, 'content_match', 'Template placeholders updated.');
   }
 
   /**
@@ -1373,7 +1797,7 @@ export class CoverLetterDraftService {
         },
       ],
       temperature: 0.1,
-      maxTokens: 5000, // Increased from 3000 - section gaps + rating criteria + CTAs can be large
+      maxTokens: 2500, // Keep output bounded to reduce latency + avoid long stalls
     } as any);
 
     let rawOutput = '';
@@ -1519,6 +1943,40 @@ export class CoverLetterDraftService {
     const atsScore = deriveAtsScore(metrics);
     
     return this.mapCoverLetterRow(data, metrics, atsScore);
+  }
+
+  /**
+   * Update a draft record (used by the editor to persist section edits/reordering).
+   * NOTE: This is intentionally lightweight: it persists the draft row, but does not
+   * recompute Phase B metrics/gaps. Use `calculateMetricsForDraft` when needed.
+   */
+  async updateDraft(
+    draftId: string,
+    updates: {
+      sections?: CoverLetterDraftSection[];
+      status?: string;
+      templateId?: string;
+      jobDescriptionId?: string;
+      llmFeedback?: Record<string, unknown>;
+      analytics?: Record<string, unknown>;
+    },
+  ): Promise<CoverLetterDraft | null> {
+    const payload: Record<string, unknown> = {
+      updated_at: this.now().toISOString(),
+    };
+    if (updates.sections) payload.sections = updates.sections as unknown as Record<string, unknown>;
+    if (updates.status) payload.status = updates.status;
+    if (updates.templateId) payload.template_id = updates.templateId;
+    if (updates.jobDescriptionId) payload.job_description_id = updates.jobDescriptionId;
+    if (updates.llmFeedback) payload.llm_feedback = updates.llmFeedback;
+    if (updates.analytics) payload.analytics = updates.analytics;
+
+    const { error } = await this.supabaseClient.from('cover_letters').update(payload).eq('id', draftId);
+    if (error) {
+      throw new Error(error.message || 'Unable to update draft.');
+    }
+
+    return this.getDraft(draftId);
   }
 
   async generateDraft(options: DraftGenerationOptions): Promise<DraftGenerationResult> {
@@ -1715,6 +2173,11 @@ export class CoverLetterDraftService {
 
     // TODO: Add draft generation logging when HILDraftEvent is implemented
     // For now, draft generation logging is deferred per merged evaluation logging work
+
+    // Non-blocking: fill any [LLM:...] / [SLOT:...] placeholders post-save.
+    this.fillTemplateSlotsForDraft(draftRow.id, userId, jobDescriptionId, onProgress).catch(error => {
+      console.error('[generateDraft] Background template slot fill failed:', error);
+    });
 
     this.emitProgress(onProgress, 'gap_detection', 'Draft ready for refinement.');
 
@@ -2588,7 +3051,30 @@ export class CoverLetterDraftService {
         let builtSection: CoverLetterDraftSection;
 
         if (section.isStatic) {
-          const content = this.applyCompanyTokens(section.staticContent || '', jobDescription.company);
+          // IMPORTANT: For static sections, `staticContent` in the template can drift from the
+          // latest `saved_sections` content. If a `savedSectionId` is present, treat the saved
+          // section as the source of truth so edits automatically reflect in new drafts.
+          const normalize = (text: string) => text.replace(/\s+/g, ' ').trim().toLowerCase();
+
+          let rawContent = section.staticContent || '';
+          const savedSectionId = (section as any).savedSectionId as string | undefined;
+          const linkedSaved = savedSectionId
+            ? savedSections.find(candidate => candidate.id === savedSectionId)
+            : undefined;
+
+          if (linkedSaved?.content) {
+            rawContent = linkedSaved.content;
+          } else if (rawContent) {
+            const normalized = normalize(rawContent);
+            const matched = normalized
+              ? savedSections.find(candidate => normalize(String(candidate.content || '')) === normalized)
+              : undefined;
+            if (matched?.content) {
+              rawContent = matched.content;
+            }
+          }
+
+          const content = this.applyTemplateTokens(rawContent, jobDescription);
           builtSection = this.createSection({
             id: sectionId,
             slug,
@@ -2597,7 +3083,7 @@ export class CoverLetterDraftService {
             type: this.resolveSectionType(section),
             order: index + 1,
             content,
-            source: { kind: 'template_static', entityId: null },
+            source: { kind: 'template_static', entityId: linkedSaved?.id ?? null },
             requirementsMatched: [],
             tags: [],
             nowIso,
@@ -2605,7 +3091,7 @@ export class CoverLetterDraftService {
         } else if (section.contentType === 'saved') {
           const bestSaved = this.pickBestSavedSection(section, savedSections, jobDescription);
           if (bestSaved) {
-            const content = this.applyCompanyTokens(bestSaved.content || '', jobDescription.company);
+            const content = this.applyTemplateTokens(bestSaved.content || '', jobDescription);
             const requirementsMatched = this.matchRequirements(content, jobDescription);
             builtSection = this.createSection({
               id: sectionId,
@@ -2627,24 +3113,25 @@ export class CoverLetterDraftService {
               jobDescription,
               userGoals,
               { usedStoryIds },
-            );
-            if (bestStory && bestStory.content?.trim()) {
-              // Only use story if it has actual content
-              const requirementsMatched = this.matchRequirements(bestStory.content, jobDescription);
-              usedStoryIds.add(bestStory.id);
-              builtSection = this.createSection({
-                id: sectionId,
-                slug,
-                title: section.title || bestStory.title || 'Experience Highlight',
-                templateSectionId: section.id,
-                type: this.resolveSectionType(section),
-                order: index + 1,
-                content: bestStory.content,
-                source: { kind: 'work_story', entityId: bestStory.id },
-                requirementsMatched,
-                tags: bestStory.tags ?? [],
-                storySelection: includeStorySelectionDiagnostics ? diagnostics : undefined,
-                nowIso,
+          );
+          if (bestStory && bestStory.content?.trim()) {
+            // Only use story if it has actual content
+            const content = this.applyTemplateTokens(bestStory.content, jobDescription);
+            const requirementsMatched = this.matchRequirements(content, jobDescription);
+            usedStoryIds.add(bestStory.id);
+            builtSection = this.createSection({
+              id: sectionId,
+              slug,
+              title: section.title || bestStory.title || 'Experience Highlight',
+              templateSectionId: section.id,
+              type: this.resolveSectionType(section),
+              order: index + 1,
+              content,
+              source: { kind: 'work_story', entityId: bestStory.id },
+              requirementsMatched,
+              tags: bestStory.tags ?? [],
+              storySelection: includeStorySelectionDiagnostics ? diagnostics : undefined,
+              nowIso,
               });
             } else {
               // No story found - provide helpful fallback message
@@ -2678,7 +3165,7 @@ export class CoverLetterDraftService {
           );
           if (bestStory && bestStory.content?.trim()) {
             // Only use story if it has actual content
-            const content = this.applyCompanyTokens(bestStory.content, jobDescription.company);
+            const content = this.applyTemplateTokens(bestStory.content, jobDescription);
             const requirementsMatched = this.matchRequirements(content, jobDescription);
             usedStoryIds.add(bestStory.id);
             builtSection = this.createSection({
@@ -2736,9 +3223,22 @@ export class CoverLetterDraftService {
     return 'static';
   }
 
-  private applyCompanyTokens(content: string, companyName?: string): string {
-    if (!companyName || !content) return content;
-    return content.replace(/\[COMPANY-NAME\]/gi, companyName);
+  private applyTemplateTokens(
+    content: string,
+    jobDescription: Pick<ParsedJobDescription, 'company' | 'role'>,
+  ): string {
+    if (!content) return content;
+    let out = content;
+
+    if (jobDescription.company) {
+      out = out.replace(/\[COMPANY-NAME\]/gi, jobDescription.company);
+    }
+
+    if (jobDescription.role) {
+      out = out.replace(/\[ROLE\]/gi, jobDescription.role);
+    }
+
+    return out;
   }
 
   private createSection(input: {

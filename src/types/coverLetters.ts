@@ -17,6 +17,9 @@ export interface ParsedJobDescription {
   company: string;
   role: string;
   summary: string;
+  workType?: string | null;
+  location?: string | null;
+  salary?: string | null;
   standardRequirements: RequirementInsight[];
   preferredRequirements: RequirementInsight[];
   differentiatorRequirements: RequirementInsight[];

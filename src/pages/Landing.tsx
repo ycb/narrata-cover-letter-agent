@@ -60,7 +60,7 @@ const Landing = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img 
-              src="/narrata-logo.svg" 
+              src="/assets/narrata-logo.svg" 
               alt="Narrata" 
               className="h-8 w-auto"
             />
@@ -243,7 +243,7 @@ const Landing = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img 
-              src="/narrata-logo.svg" 
+              src="/assets/narrata-logo.svg" 
               alt="Narrata" 
               className="h-6 w-auto"
             />

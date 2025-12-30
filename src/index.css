@@ -166,6 +166,17 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+
+  a {
+    color: hsl(var(--primary));
+    text-decoration: none;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
 }
 
 @layer utilities {

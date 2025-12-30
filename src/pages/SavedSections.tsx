@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import type { ComponentProps } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { GrammarInput } from "@/components/ui/grammar-input";
+import { TagAutocompleteInput } from "@/components/ui/TagAutocompleteInput";
+import { GrammarTextarea } from "@/components/ui/grammar-textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { TagSuggestionService } from "@/services/tagSuggestionService";
 import { TagService } from "@/services/tagService";
+import { UserTagService } from "@/services/userTagService";
 import { GapDetectionService } from "@/services/gapDetectionService";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingState } from "@/components/shared/LoadingState";
@@ -23,6 +25,10 @@ import { useToast } from "@/hooks/use-toast";
 import { SyntheticUserService } from "@/services/syntheticUserService";
 import { useTour } from "@/contexts/TourContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useSearchParams } from "react-router-dom";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { addUserTag, mergeUserTags, removeUserTag } from "@/lib/userTags";
 
 type SavedSectionItem = {
   id: string;
@@ -59,6 +65,7 @@ export default function SavedSections() {
   const { goals } = useUserGoals();
   const { toast } = useToast();
   const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [savedSections, setSavedSections] = useState<SavedSectionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingSection, setIsEditingSection] = useState(false);
@@ -83,6 +90,9 @@ export default function SavedSections() {
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [tagContent, setTagContent] = useState('');
   const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
+  const [otherTags, setOtherTags] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [tagEntityId, setTagEntityId] = useState<string | undefined>();
   const [existingTags, setExistingTags] = useState<string[]>([]);
 
@@ -92,6 +102,52 @@ export default function SavedSections() {
   const [editingSectionLabel, setEditingSectionLabel] = useState('');
 
   const mountedRef = useRef(true);
+  const savedSectionContentRef = useRef<HTMLTextAreaElement | null>(null);
+  const newSavedSectionContentRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const insertTokenIntoTextarea = (
+    textarea: HTMLTextAreaElement | null,
+    currentContent: string,
+    tokenText: string,
+    apply: (nextContent: string) => void
+  ) => {
+    const selectionStart = textarea?.selectionStart ?? currentContent.length;
+    const selectionEnd = textarea?.selectionEnd ?? currentContent.length;
+
+    const nextContent =
+      currentContent.slice(0, selectionStart) +
+      tokenText +
+      currentContent.slice(selectionEnd);
+
+    apply(nextContent);
+
+    requestAnimationFrame(() => {
+      const el = textarea;
+      if (!el) return;
+      el.focus();
+      const nextPos = selectionStart + tokenText.length;
+      el.setSelectionRange(nextPos, nextPos);
+    });
+  };
+
+  const insertTokenIntoEditingSectionContent = (tokenText: string) => {
+    insertTokenIntoTextarea(
+      savedSectionContentRef.current,
+      editingSection?.content ?? "",
+      tokenText,
+      (nextContent) => setEditingSection((prev) => (prev ? { ...prev, content: nextContent } : prev))
+    );
+  };
+
+  const insertTokenIntoNewSectionContent = (tokenText: string) => {
+    insertTokenIntoTextarea(
+      newSavedSectionContentRef.current,
+      newReusableContent.content,
+      tokenText,
+      (nextContent) => setNewReusableContent((prev) => ({ ...prev, content: nextContent }))
+    );
+  };
+  const deepLinkHandledRef = useRef(false);
 
   // Load saved sections from database
   useEffect(() => {
@@ -193,6 +249,26 @@ export default function SavedSections() {
       mountedRef.current = false;
     };
   }, [user?.id]);
+
+  // Deep link: open a specific saved section from `?sectionId=...`
+  useEffect(() => {
+    if (deepLinkHandledRef.current) return;
+    const sectionId = searchParams.get("sectionId");
+    if (!sectionId) return;
+    if (isLoading) return;
+
+    const section = savedSections.find((s) => s.id === sectionId);
+    if (!section) return;
+
+    deepLinkHandledRef.current = true;
+    setEditingSection({ ...section, tags: [...(section.tags ?? [])] });
+    setSectionTagInput("");
+    setIsEditingSection(true);
+
+    // Remove the param so refresh/back doesn't keep re-opening the modal
+    searchParams.delete("sectionId");
+    setSearchParams(searchParams, { replace: true });
+  }, [isLoading, savedSections, searchParams, setSearchParams]);
 
   const handleSelectSectionFromLibrary = (_section: HierarchicalBlurb) => {
     // Reserved for future interactions when selecting a saved section from the library.
@@ -298,15 +374,15 @@ export default function SavedSections() {
 
   const handleAddSectionTag = () => {
     if (!editingSection) return;
-    const newTag = sectionTagInput.trim();
-    if (!newTag || editingSection.tags?.includes(newTag)) {
+    const nextTags = addUserTag(editingSection.tags ?? [], sectionTagInput);
+    if (nextTags === editingSection.tags) {
       setSectionTagInput('');
       return;
     }
 
     setEditingSection({
       ...editingSection,
-      tags: [...(editingSection.tags ?? []), newTag]
+      tags: nextTags,
     });
     setSectionTagInput('');
   };
@@ -315,7 +391,7 @@ export default function SavedSections() {
     if (!editingSection) return;
     setEditingSection({
       ...editingSection,
-      tags: (editingSection.tags ?? []).filter((tag) => tag !== tagToRemove)
+      tags: removeUserTag(editingSection.tags ?? [], tagToRemove),
     });
   };
 
@@ -329,11 +405,16 @@ export default function SavedSections() {
     if (!editingSection || !user?.id) return;
 
     try {
+      const normalizedTags = mergeUserTags(editingSection.tags ?? []);
       const updated = await CoverLetterTemplateService.updateSavedSection(editingSection.id, {
         title: editingSection.title,
         content: editingSection.content,
-        tags: editingSection.tags ?? []
+        tags: normalizedTags
       });
+
+      if (normalizedTags.length > 0) {
+        await UserTagService.upsertTags(user.id, normalizedTags, 'saved_section');
+      }
 
       const updatedTimestamp = updated.updated_at ?? new Date().toISOString();
       const updatedId = updated.id ?? editingSection.id;
@@ -442,6 +523,40 @@ export default function SavedSections() {
   // Tags are auto-generated when creating content to address gaps (using gapContext)
   // This happens automatically during HIL content creation flow
 
+  const handleSavedSectionTagSuggestions = async (section: any) => {
+    if (!user?.id) return;
+
+    setTagEntityId(section.id);
+    setExistingTags(section.tags || []);
+    setTagContent(`${section.title}: ${section.content}`);
+    setSuggestedTags([]);
+    setOtherTags([]);
+    setSearchError(null);
+    setIsSearching(true);
+    setIsTagModalOpen(true);
+
+    try {
+      const suggestions = await TagSuggestionService.suggestTags(
+        {
+          content: `${section.title}: ${section.content}`,
+          contentType: 'saved_section',
+          existingTags: section.tags || [],
+        },
+        user.id
+      );
+
+      const highConfidence = suggestions.filter((t) => t.confidence === 'high');
+      const otherConfidence = suggestions.filter((t) => t.confidence !== 'high');
+      setSuggestedTags(highConfidence);
+      setOtherTags(otherConfidence);
+    } catch (error) {
+      console.error('Error suggesting tags:', error);
+      setSearchError(error instanceof Error ? error.message : 'Failed to suggest tags. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   // Handle applying selected tags
   const handleApplyTags = async (selectedTags: string[]) => {
     if (!user || !tagEntityId) return;
@@ -529,6 +644,7 @@ export default function SavedSections() {
             onDeleteBlurb={handleDeleteSection}
             onDeleteSection={handleDeleteSectionType}
             onGenerateContent={handleGenerateContent}
+            onTagSuggestions={handleSavedSectionTagSuggestions}
             resolvedGaps={resolvedGaps}
             dismissedSuccessCards={dismissedSuccessCards}
             onDismissSuccessCard={handleDismissSuccessCard}
@@ -537,19 +653,22 @@ export default function SavedSections() {
                       type: 'intro',
                       label: 'Introduction',
                       description: 'Opening paragraphs that grab attention',
-                icon: FileText
+                      icon: FileText,
+                      count: savedSections.filter(s => s.type === 'intro').length
               },
               {
                 type: 'body',
                 label: 'Body Paragraph',
                 description: 'Supporting paragraphs from uploaded cover letter',
-                icon: BookOpen
+                      icon: BookOpen,
+                      count: savedSections.filter(s => s.type === 'body').length
                     },
                     {
                       type: 'closer',
                       label: 'Closing',
                 description: 'Closing paragraphs that reinforce your interest',
-                icon: CheckCircle
+                      icon: CheckCircle,
+                      count: savedSections.filter(s => s.type === 'closer').length
                     }
                   ]}
                 />
@@ -582,7 +701,7 @@ export default function SavedSections() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="section-label">Section Label</Label>
-                <Input
+                <GrammarInput
                   id="section-label"
                   value={editingSectionLabel}
                   onChange={(e) => setEditingSectionLabel(e.target.value)}
@@ -641,7 +760,7 @@ export default function SavedSections() {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="saved-section-title">Title</Label>
-                <Input
+                <GrammarInput
                   id="saved-section-title"
                   value={editingSection.title}
                   onChange={(event) =>
@@ -659,8 +778,60 @@ export default function SavedSections() {
 
               <div className="space-y-2">
                 <Label htmlFor="saved-section-content">Content</Label>
-                <Textarea
+                <div className="flex items-center mt-0.5">
+                  <TooltipProvider>
+                    <DropdownMenu>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <DropdownMenuTrigger
+                            aria-label="Insert token"
+                            className="inline-flex items-center justify-center rounded-md border bg-muted text-muted-foreground font-mono text-[0.5rem] p-1 w-8 h-8 hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          >
+                            [...]
+                          </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>Insert token</TooltipContent>
+                      </Tooltip>
+                      <DropdownMenuContent align="start" className="w-80">
+                      <DropdownMenuItem
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          insertTokenIntoEditingSectionContent("[COMPANY-NAME]");
+                        }}
+                        className="flex flex-col items-start gap-1"
+                      >
+                        <div className="font-mono text-sm">[COMPANY-NAME]</div>
+                        <div className="text-xs text-muted-foreground">Extracted from current JD</div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          insertTokenIntoEditingSectionContent("[ROLE]");
+                        }}
+                        className="flex flex-col items-start gap-1"
+                      >
+                        <div className="font-mono text-sm">[ROLE]</div>
+                        <div className="text-xs text-muted-foreground">Extracted from current JD</div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          insertTokenIntoEditingSectionContent(
+                            '[LLM: INSERT JD-SPECIFIC SUMMARY OF MY MOST RELEVANT SKILLS/EXPERIENCE. Ex: "simplify complex workflows and enhance user satisfaction"]'
+                          );
+                        }}
+                        className="flex flex-col items-start gap-1"
+                      >
+                        <div className="font-mono text-sm">[LLM: …]</div>
+                        <div className="text-xs text-muted-foreground">Add custom instructions</div>
+                      </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TooltipProvider>
+                </div>
+                <GrammarTextarea
                   id="saved-section-content"
+                  ref={savedSectionContentRef}
                   value={editingSection.content}
                   onChange={(event) =>
                     setEditingSection((prev) =>
@@ -680,7 +851,7 @@ export default function SavedSections() {
               <div className="space-y-2">
                 <Label htmlFor="saved-section-tags">Tags</Label>
                 <div className="flex gap-2">
-                  <Input
+                  <TagAutocompleteInput
                     id="saved-section-tags"
                     value={sectionTagInput}
                     onChange={(event) => setSectionTagInput(event.target.value)}
@@ -691,6 +862,9 @@ export default function SavedSections() {
                       }
                     }}
                     placeholder="Add a tag and press Enter"
+                    category="saved_section"
+                    localTags={editingSection?.tags ?? []}
+                    useGrammarInput
                   />
                   <Button type="button" variant="secondary" onClick={handleAddSectionTag}>
                     Add
@@ -757,17 +931,17 @@ export default function SavedSections() {
         )
       )}
 
-      {/* Add Reusable Content Modal */}
-      {showAddReusableContentModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="w-full max-w-2xl max-h-[90vh] bg-background rounded-lg shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b">
-              <div>
-                <h2 className="text-2xl font-bold">Add New Saved Section</h2>
-                <p className="text-muted-foreground">
-                  Create a new reusable section for your cover letters
-                </p>
-              </div>
+	      {/* Add Reusable Content Modal */}
+	      {showAddReusableContentModal && (
+	        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+	          <div className="w-full max-w-2xl max-h-[90vh] bg-background rounded-lg shadow-2xl overflow-hidden flex flex-col">
+	            <div className="flex items-center justify-between p-6 border-b">
+	              <div>
+	                <h2 className="text-2xl font-bold">Add New Saved Section</h2>
+	                <p className="text-muted-foreground">
+	                  Create a new reusable section for your cover letters
+	                </p>
+	              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -777,16 +951,16 @@ export default function SavedSections() {
                 }}
                 className="h-8 w-8 p-0"
               >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="content-type">Section Type</Label>
-                  <Input
-                    id="content-type"
+	                <X className="h-4 w-4" />
+	              </Button>
+	            </div>
+	            
+	            <div className="p-6 overflow-y-auto flex-1">
+	              <div className="space-y-4">
+	                <div>
+	                  <Label htmlFor="content-type">Section Type</Label>
+	                  <GrammarInput
+	                    id="content-type"
                     value={newReusableContent.contentType}
                     onChange={(e) => setNewReusableContent(prev => ({ ...prev, contentType: e.target.value }))}
                     placeholder="e.g., intro, closer, signature"
@@ -796,7 +970,7 @@ export default function SavedSections() {
                 
                 <div>
                   <Label htmlFor="title">Title</Label>
-                  <Input
+                  <GrammarInput
                     id="title"
                     value={newReusableContent.title}
                     onChange={(e) => setNewReusableContent(prev => ({ ...prev, title: e.target.value }))}
@@ -805,10 +979,62 @@ export default function SavedSections() {
                   />
                 </div>
                 
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="content">Content</Label>
-                  <Textarea
+                  <div className="flex items-center mt-0.5">
+                    <TooltipProvider>
+                      <DropdownMenu>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuTrigger
+                              aria-label="Insert token"
+                              className="inline-flex items-center justify-center rounded-md border bg-muted text-muted-foreground font-mono text-[0.5rem] p-1 w-8 h-8 hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            >
+                              [...]
+                            </DropdownMenuTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent>Insert token</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenuContent align="start" className="w-80">
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            insertTokenIntoNewSectionContent("[COMPANY-NAME]");
+                          }}
+                          className="flex flex-col items-start gap-1"
+                        >
+                          <div className="font-mono text-sm">[COMPANY-NAME]</div>
+                          <div className="text-xs text-muted-foreground">Extracted from current JD</div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            insertTokenIntoNewSectionContent("[ROLE]");
+                          }}
+                          className="flex flex-col items-start gap-1"
+                        >
+                          <div className="font-mono text-sm">[ROLE]</div>
+                          <div className="text-xs text-muted-foreground">Extracted from current JD</div>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            insertTokenIntoNewSectionContent(
+                              '[LLM: INSERT JD-SPECIFIC SUMMARY OF MY MOST RELEVANT SKILLS/EXPERIENCE. Ex: "simplify complex workflows and enhance user satisfaction"]'
+                            );
+                          }}
+                          className="flex flex-col items-start gap-1"
+                        >
+                          <div className="font-mono text-sm">[LLM: …]</div>
+                          <div className="text-xs text-muted-foreground">Add custom instructions</div>
+                        </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TooltipProvider>
+                  </div>
+                  <GrammarTextarea
                     id="content"
+                    ref={newSavedSectionContentRef}
                     value={newReusableContent.content}
                     onChange={(e) => setNewReusableContent(prev => ({ ...prev, content: e.target.value }))}
                     placeholder="Enter your section content here..."
@@ -819,7 +1045,7 @@ export default function SavedSections() {
                 
                 <div>
                   <Label htmlFor="tags">Tags</Label>
-                  <Input
+                  <GrammarInput
                     id="tags"
                     value={newReusableContent.tags}
                     onChange={(e) => setNewReusableContent(prev => ({ ...prev, tags: e.target.value }))}
@@ -903,13 +1129,27 @@ export default function SavedSections() {
           entityId={tagEntityId}
           existingTags={existingTags}
           suggestedTags={suggestedTags}
+          otherTags={otherTags}
+          isSearching={isSearching}
+          searchError={searchError}
+          onRetry={
+            tagEntityId
+              ? () => {
+                  const section = hierarchicalSections.find((s) => s.id === tagEntityId);
+                  if (section) handleSavedSectionTagSuggestions(section as any);
+                }
+              : undefined
+          }
           isOpen={isTagModalOpen}
           onClose={() => {
             setIsTagModalOpen(false);
             setSuggestedTags([]);
+            setOtherTags([]);
             setTagContent('');
             setTagEntityId(undefined);
             setExistingTags([]);
+            setIsSearching(false);
+            setSearchError(null);
           }}
           onApplyTags={handleApplyTags}
         />

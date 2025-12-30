@@ -20,6 +20,7 @@ import { CONTENT_STANDARDS, getStandardConfig } from '@/config/contentStandards'
 export interface SectionMeta {
   sectionId: string;
   sectionType: 'intro' | 'body' | 'closing';
+  sectionTitle?: string;
 }
 
 /**
@@ -55,11 +56,16 @@ export function aggregateContentStandards(
 ): ContentStandardsAnalysis {
   const aggregated: AggregatedStandardResult[] = [];
 
+  const normalizeStandardResultId = (standardId: string) =>
+    getStandardConfig(standardId)?.id ?? standardId;
+
   // Process each standard
   for (const standardConfig of CONTENT_STANDARDS) {
     if (standardConfig.scope === 'letter') {
       // Letter-scoped standards: use letter-level result directly
-      const letterResult = perLetter.find((r) => r.standardId === standardConfig.id);
+      const letterResult = perLetter.find(
+        (r) => normalizeStandardResultId(r.standardId) === standardConfig.id
+      );
       if (letterResult) {
         aggregated.push({
           standardId: standardConfig.id,
@@ -81,10 +87,11 @@ export function aggregateContentStandards(
       const sectionResults = applicableSections.map((meta) => {
         const sectionResult = perSection.find((r) => r.sectionId === meta.sectionId);
         const standardResult = sectionResult?.standards.find(
-          (s) => s.standardId === standardConfig.id
+          (s) => normalizeStandardResultId(s.standardId) === standardConfig.id
         );
         return {
           sectionId: meta.sectionId,
+          sectionTitle: meta.sectionTitle,
           status: standardResult?.status || 'not_applicable',
           evidence: standardResult?.evidence || '',
         };
@@ -106,12 +113,13 @@ export function aggregateContentStandards(
       } else if (aggregation === 'all_sections') {
         // Met only if ALL applicable sections meet it
         const metSections = sectionResults.filter((r) => r.status === 'met');
-        const unmetSections = sectionResults.filter((r) => r.status === 'not_met');
+        const unmetSections = sectionResults.filter((r) => r.status !== 'met');
         status = unmetSections.length === 0 && metSections.length > 0 ? 'met' : 'not_met';
         contributingSections = status === 'met' ? metSections.map((r) => r.sectionId) : [];
+        const unmetLabels = unmetSections.map((r) => r.sectionTitle || r.sectionId);
         evidence = status === 'met'
           ? 'All sections meet this standard.'
-          : `${unmetSections.length} section(s) do not meet this standard.`;
+          : `${unmetSections.length} section(s) do not meet this standard: ${unmetLabels.join(', ')}.`;
       }
 
       aggregated.push({
@@ -160,10 +168,11 @@ export function mapDraftSectionType(
  * @returns Array of section metadata for applicability checks
  */
 export function extractSectionsMeta(
-  sections: Array<{ id: string; type: 'static' | 'dynamic-story' | 'dynamic-saved' | 'closing' }>
+  sections: Array<{ id: string; type: 'static' | 'dynamic-story' | 'dynamic-saved' | 'closing'; title?: string }>
 ): SectionMeta[] {
   return sections.map((section) => ({
     sectionId: section.id,
     sectionType: mapDraftSectionType(section.type),
+    sectionTitle: section.title,
   }));
 }

@@ -79,6 +79,27 @@ function countNonEmptyMetrics(metrics: unknown[]): number {
   return (metrics || []).map(extractMetricText).filter((text) => text.trim().length > 0).length;
 }
 
+function hasQuantifiedMetricInText(content: string): boolean {
+  const text = (content || '').trim();
+  if (!text) return false;
+  // Prefer "metric-like" patterns over just any digit to avoid counting things like "5 pods" as a metric.
+  const patterns: RegExp[] = [
+    /\$\s*\d[\d,]*(\.\d+)?\s*(k|m|b|mm|bn)?/i, // $120k, $1.2M
+    /\b\d+(\.\d+)?\s*%/i, // 20%
+    /\b\d+(\.\d+)?\s*x\b/i, // 10x
+    /\b\d[\d,]*(\.\d+)?\s*(k|m|b)\b/i, // 120k, 2.5m
+    /\b(million|billion)\b/i,
+    /\b(arr|mrr|dau|mau|wau|nps)\b/i,
+    /\b\d[\d,]*\s*(users?|customers?|accounts?|leads?|signups?|installs?|downloads?)\b/i,
+    /\b\d+(\.\d+)?\s*(days?|weeks?|months?|quarters?|years?)\b/i,
+  ];
+  return patterns.some((p) => p.test(text));
+}
+
+function storyHasMetrics(content: string, metrics: unknown[]): boolean {
+  return countNonEmptyMetrics(metrics || []) > 0 || hasQuantifiedMetricInText(content || '');
+}
+
 export interface GenericContentGap {
   entityId: string;
   entityType: 'work_item' | 'approved_content';
@@ -171,6 +192,19 @@ export interface GapSummaryByItem {
 }
 
 export class GapDetectionService {
+  private static readonly TAG_METADATA_GAP_CATEGORIES = new Set([
+    'missing_tags',
+    'tag_industry_misalignment',
+    'tag_business_model_misalignment',
+  ]);
+  static storyHasMetrics(params: { content: string; metrics: unknown[] }): boolean {
+    return storyHasMetrics(params.content, params.metrics);
+  }
+
+  static storyMeetsSpecificity(content: string): boolean {
+    return !this.checkContentStandards(content || '').needsSpecifics;
+  }
+
   /**
    * Re-analyze all gaps for a user when goals/target titles change
    * 
@@ -743,6 +777,10 @@ export class GapDetectionService {
       businessModels?: string[];
     }
   ): Gap[] {
+    // Beta UX: Treat tag gaps as metadata-only and do not surface them as "content gaps".
+    // Tag suggestions remain available, but gap detection should prioritize writing quality.
+    return [];
+
     const gaps: Gap[] = [];
 
     if (!tags || tags.length === 0) {
@@ -1265,7 +1303,7 @@ export class GapDetectionService {
     metrics?: any[];
   }): StoryCompletenessGap | null {
     const content = story.content.toLowerCase();
-    const hasMetrics = story.metrics && story.metrics.length > 0;
+    const hasMetrics = storyHasMetrics(story.content, story.metrics || []);
 
     // Check for STAR format indicators
     const hasSituation = /(situation|context|challenge|problem|opportunity)/i.test(content);
@@ -1310,12 +1348,13 @@ export class GapDetectionService {
   private static checkMissingMetrics(story: {
     id: string;
     title: string;
+    content?: string;
     metrics?: any[];
   }): MetricGap | null {
-    const hasMetrics = story.metrics && story.metrics.length > 0;
-    const metricCount = story.metrics?.length || 0;
+    const metricCount = countNonEmptyMetrics(story.metrics || []);
+    const hasMetrics = storyHasMetrics(story.content || '', story.metrics || []);
 
-    if (hasMetrics && metricCount > 0) {
+    if (hasMetrics) {
       return null; // Has metrics
     }
 
@@ -1325,6 +1364,72 @@ export class GapDetectionService {
       hasMetrics: false,
       metricCount: 0
     };
+  }
+
+  /**
+   * Resolve story-level missing-metrics gaps when the story now contains metrics.
+   * This is a heuristic sync to prevent stale gaps from persisting after edits.
+   */
+  static async resolveSatisfiedStoryMetricsGaps(params: {
+    userId: string;
+    storyId: string;
+    content: string;
+    metrics: unknown[];
+  }): Promise<void> {
+    const hasMetrics = storyHasMetrics(params.content || '', params.metrics || []);
+    if (!hasMetrics) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('gaps')
+        .select('id')
+        .eq('user_id', params.userId)
+        .eq('entity_type', 'approved_content')
+        .eq('entity_id', params.storyId)
+        .eq('gap_category', 'missing_metrics')
+        .or('resolved.is.null,resolved.eq.false');
+
+      if (error) throw error;
+      const gaps = (data || []) as Array<{ id: string }>;
+      for (const gap of gaps) {
+        if (!gap?.id) continue;
+        await this.resolveGap(gap.id, params.userId, 'no_longer_applicable');
+      }
+    } catch (e) {
+      console.error('[GapDetectionService.resolveSatisfiedStoryMetricsGaps] Error:', e);
+    }
+  }
+
+  /**
+   * Resolve story-level "needs specifics" gaps when the story now meets the baseline heuristic.
+   */
+  static async resolveSatisfiedStorySpecificsGaps(params: {
+    userId: string;
+    storyId: string;
+    content: string;
+  }): Promise<void> {
+    const meetsSpecificity = !this.checkContentStandards(params.content || '').needsSpecifics;
+    if (!meetsSpecificity) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('gaps')
+        .select('id')
+        .eq('user_id', params.userId)
+        .eq('entity_type', 'approved_content')
+        .eq('entity_id', params.storyId)
+        .eq('gap_category', 'story_needs_specifics')
+        .or('resolved.is.null,resolved.eq.false');
+
+      if (error) throw error;
+      const gaps = (data || []) as Array<{ id: string }>;
+      for (const gap of gaps) {
+        if (!gap?.id) continue;
+        await this.resolveGap(gap.id, params.userId, 'no_longer_applicable');
+      }
+    } catch (e) {
+      console.error('[GapDetectionService.resolveSatisfiedStorySpecificsGaps] Error:', e);
+    }
   }
 
   /**
@@ -1639,11 +1744,19 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
         true // includeResolved = true: check both resolved and unresolved gaps
       );
 
-      // Create map of existing gaps by entity + category
-      // This prevents re-creating the same gap category for the same entity
-      // even if it was previously dismissed (unless context changed and category differs)
+      // Create map of existing gaps by entity + category.
+      //
+      // IMPORTANT: Only "sticky" resolutions (user_override/manual_resolve) should suppress re-creation.
+      // For content-driven resolutions (content_added/no_longer_applicable), allow the gap to be re-created
+      // if the content later regresses (since we don't yet track content hashes).
+      const isStickyResolution = (gap: Gap) => {
+        if (!gap.resolved) return true; // unresolved gaps should suppress duplicates
+        return gap.resolved_reason === 'user_override' || gap.resolved_reason === 'manual_resolve';
+      };
       const existingMap = new Map(
-        existingGaps.map(g => [`${g.entity_type}:${g.entity_id}:${g.gap_category}`, true])
+        existingGaps
+          .filter(isStickyResolution)
+          .map((g) => [`${g.entity_type}:${g.entity_id}:${g.gap_category}`, true]),
       );
 
       const newGaps = gaps.filter(g => 
@@ -1898,6 +2011,11 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
         console.error('Error resolving gap:', error);
         throw error;
       }
+
+      // Notify UI caches (dashboard/header) that gaps changed so they can refetch immediately.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('gaps:changed', { detail: { userId, gapId, reason } }));
+      }
     } catch (error) {
       console.error('Error in resolveGap:', error);
       throw error;
@@ -1926,6 +2044,9 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
       if (error) throw error;
         gaps = data || [];
       }
+
+      // Ignore metadata-only gaps (e.g., missing tags) for the content quality experience.
+      gaps = gaps.filter((gap: any) => !this.TAG_METADATA_GAP_CATEGORIES.has(gap.gap_category));
 
       const items: ContentItemWithGaps[] = [];
 
@@ -2372,7 +2493,7 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
             max_severity: maxSeverity,
             gap_categories: gapCategories,
             content_type_label: 'Cover Letter Saved Sections',
-            navigation_path: '/cover-letter-template',
+            navigation_path: '/saved-sections',
             navigation_params: { sectionId: entityId },
           });
         }

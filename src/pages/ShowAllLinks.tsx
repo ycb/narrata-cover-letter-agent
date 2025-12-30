@@ -18,7 +18,7 @@ import { LinksEmptyState } from "@/components/work-history/EmptyStates";
 // Mock data has been moved to usability-test branch for future reference
 
 export default function ShowAllLinks() {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const [links, setLinks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,16 +126,19 @@ export default function ShowAllLinks() {
   ];
 
   const handleAddNew = () => {
+    if (isDemo) return;
     setIsAddLinkModalOpen(true);
   };
 
   const handleEdit = (link: any) => {
+    if (isDemo) return;
     setEditingLink(link);
     setIsViewModalOpen(false);
     setIsAddLinkModalOpen(true);
   };
 
   const handleDelete = (link: any) => {
+    if (isDemo) return;
     setLinks(links.filter(l => l.id !== link.id));
   };
 
@@ -287,7 +290,7 @@ export default function ShowAllLinks() {
   if (!isLoading && !error && links.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <LinksEmptyState onAddLink={() => setIsAddLinkModalOpen(true)} />
+        <LinksEmptyState onAddLink={isDemo ? undefined : () => setIsAddLinkModalOpen(true)} />
       </div>
     );
   }
@@ -301,7 +304,7 @@ export default function ShowAllLinks() {
         searchPlaceholder="Search links by title, company, role, or description..."
         renderHeader={renderHeader}
         renderRow={renderRow}
-        onAddNew={handleAddNew}
+        onAddNew={isDemo ? undefined : handleAddNew}
         addNewLabel="Add Link"
 
         sortOptions={sortOptions}
@@ -310,18 +313,20 @@ export default function ShowAllLinks() {
       />
 
       {/* Add Link Modal */}
-      <AddLinkModal
-        open={isAddLinkModalOpen}
-        onOpenChange={setIsAddLinkModalOpen}
-        onSave={(link) => {
-          console.log("Link saved:", link);
-          setIsAddLinkModalOpen(false);
-        }}
-        editingLink={editingLink}
-        isViewAllContext={true}
-        availableCompanies={companies}
-        availableRoles={roles}
-      />
+      {!isDemo && (
+        <AddLinkModal
+          open={isAddLinkModalOpen}
+          onOpenChange={setIsAddLinkModalOpen}
+          onSave={(link) => {
+            console.log("Link saved:", link);
+            setIsAddLinkModalOpen(false);
+          }}
+          editingLink={editingLink}
+          isViewAllContext={true}
+          availableCompanies={companies}
+          availableRoles={roles}
+        />
+      )}
 
       {/* View Link Modal - Using existing LinkCard */}
       {isViewModalOpen && viewingLink && (
@@ -332,10 +337,12 @@ export default function ShowAllLinks() {
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold">Link Details</h2>
                   <div className="flex items-center gap-3">
-                    <Button onClick={() => handleEdit(viewingLink)}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Link
-                    </Button>
+                    {!isDemo && (
+                      <Button onClick={() => handleEdit(viewingLink)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Link
+                      </Button>
+                    )}
                     <Button 
                       variant="ghost" 
                       size="icon" 
@@ -353,10 +360,10 @@ export default function ShowAllLinks() {
                   tags={viewingLink.tags || []}
                   timesUsed={viewingLink.timesUsed || 0}
                   lastUsed={viewingLink.date}
-                  onEdit={() => handleEdit(viewingLink)}
+                  onEdit={isDemo ? undefined : () => handleEdit(viewingLink)}
                   onCopy={() => handleCopy(viewingLink)}
                   onDuplicate={() => handleCopy(viewingLink)}
-                  onDelete={() => handleDelete(viewingLink)}
+                  onDelete={isDemo ? undefined : () => handleDelete(viewingLink)}
                 />
               </div>
             </div>

@@ -110,6 +110,15 @@ export function useGapSummary() {
         }
       })
       .subscribe();
+
+    const onGapsChanged = (event: Event) => {
+      const detail = (event as CustomEvent)?.detail as { userId?: string } | undefined;
+      if (detail?.userId && detail.userId !== user.id) return;
+      cache.delete(cacheKey);
+      try { localStorage.removeItem(`gapSummary:${cacheKey}`); } catch {}
+      fetchGapSummary(true, true);
+    };
+    window.addEventListener('gaps:changed', onGapsChanged as any);
     // Fallback to normal fetch
     fetchGapSummary(false, false);
 
@@ -118,6 +127,8 @@ export function useGapSummary() {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      try { supabase.removeChannel(channel); } catch {}
+      window.removeEventListener('gaps:changed', onGapsChanged as any);
     };
   }, [user?.id, ((): string | null => { try { return localStorage.getItem('synthetic_active_profile_id'); } catch { return null; } })()]);
 
@@ -152,5 +163,3 @@ export function useGapSummary() {
     invalidateCache,
   };
 }
-
-

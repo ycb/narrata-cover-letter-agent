@@ -106,8 +106,8 @@ Return JSON with this exact structure:
   "roleId": "${roleContext.id}",
   "outcomeMetrics": [
     {
-      "value": "extract from resume",
-      "context": "complete self-explanatory phrase",
+      "value": "NUMBER + UNIT ONLY (e.g., \"$600k\", \"35%\", \"100+\", \"6 figures\")",
+      "context": "WHAT THE NUMBER MEASURES (must NOT repeat value; should read well when concatenated as \"<value> <context>\")",
       "type": "increase|decrease|absolute",
       "parentType": "role"
     }
@@ -126,8 +126,8 @@ Return JSON with this exact structure:
       "titleRole": "${roleContext.title}",
       "metrics": [
         {
-          "value": "extract from resume",
-          "context": "complete phrase",
+          "value": "NUMBER + UNIT ONLY (e.g., \"$600k\", \"35%\", \"100+\", \"6 figures\")",
+          "context": "WHAT THE NUMBER MEASURES (must NOT repeat value; should read well when concatenated as \"<value> <context>\")",
           "type": "increase|decrease|absolute",
           "parentType": "story"
         }
@@ -136,6 +136,17 @@ Return JSON with this exact structure:
   ]
 }
 
+METRIC FIELD RULES (CRITICAL):
+1. "value" MUST be ONLY the numeric magnitude + unit as written in the resume (no verbs, no restating).
+2. "context" MUST describe what the value refers to, WITHOUT repeating the "value" text.
+3. "context" MUST NOT start with the "value" and MUST NOT contain the "value" again.
+4. Your UI will display metrics as: "<value> <context>".
+   - Bad:  "value":"6 figures", "context":"Drove 6 figures in revenue"  → renders "6 figures Drove 6 figures in revenue"
+   - Good: "value":"6 figures", "context":"in revenue driven"           → renders "6 figures in revenue driven"
+   - Better:"value":"$600k+", "context":"in revenue driven"             → renders "$600k+ in revenue driven"
+   - Bad:  "value":"100+", "context":"onboarded 100+ enterprise users"   → renders "100+ onboarded 100+ enterprise users"
+   - Good: "value":"100+", "context":"enterprise users onboarded"
+
 CRITICAL RULES:
 1. Extract ONLY content from ${roleContext.company}'s section in the resume
 2. Find the boundaries: where does this role's section start/end?
@@ -143,8 +154,9 @@ CRITICAL RULES:
 4. Metrics: Can I find this exact number in THIS role's section?
    - YES → Include it
    - NO → Do NOT include it
-5. Extract verbatim - do NOT paraphrase or summarize
-6. Story IDs: sequential ("1", "2", "3", etc.)
+5. Stories: extract story.content verbatim (do NOT paraphrase or summarize the story text)
+6. Metrics: you MAY normalize how you split value vs context, but you MUST NOT change the numbers/units or introduce new claims
+7. Story IDs: sequential ("1", "2", "3", etc.)
 
 VALIDATION:
 - Every metric in outcomeMetrics appears in THIS role's section? YES/NO
@@ -313,4 +325,3 @@ export interface SkillsAndEducationResult {
     url: string | null;
   }>;
 }
-

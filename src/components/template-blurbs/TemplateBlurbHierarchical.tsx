@@ -56,6 +56,7 @@ interface TemplateBlurbHierarchicalProps {
     label: string;
     description: string;
     icon: React.ComponentType<{ className?: string }>;
+    count?: number;
     isDefault?: boolean;
   }>;
 }
@@ -288,7 +289,9 @@ export const TemplateBlurbHierarchical = ({
                           }}
                         />
                       ) : (
-                        <group.icon className="h-6 w-6 text-muted-foreground" />
+                        <Badge variant="secondary" className="h-8 w-8 flex items-center justify-center p-0 text-sm font-semibold">
+                          {group.blurbs.length}
+                        </Badge>
                       )}
                       <div className="space-y-1">
                         <h3 className="font-semibold text-lg leading-none">{group.label}</h3>

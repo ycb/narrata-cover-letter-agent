@@ -48,9 +48,44 @@ interface JobDescription {
   location?: string;
   salary?: string;
   workType?: string;
+  companyIndustry?: string | null;
+  companyBusinessModel?: string | null;
+  companyMaturity?: string | null;
+  structuredData?: {
+    companyIndustry?: string | null;
+    companyBusinessModel?: string | null;
+    companyMaturity?: string | null;
+  };
 }
 
 export class GoalsMatchService {
+  private getCompanyField(jobDescription: JobDescription, key: 'companyIndustry' | 'companyBusinessModel' | 'companyMaturity'): string | null {
+    const direct = jobDescription?.[key];
+    if (typeof direct === 'string' && direct.trim().length > 0) {
+      return direct;
+    }
+    const structured = jobDescription?.structuredData?.[key];
+    if (typeof structured === 'string' && structured.trim().length > 0) {
+      return structured;
+    }
+    return null;
+  }
+
+  private normalizeMaturity(value: string | null | undefined): 'early' | 'growth' | 'late' | null {
+    if (!value) return null;
+    const normalized = value.toLowerCase().trim();
+    if (normalized.includes('early') || normalized.includes('startup') || normalized.includes('seed') || normalized.includes('series a')) {
+      return 'early';
+    }
+    if (normalized.includes('growth') || normalized.includes('series b') || normalized.includes('series c')) {
+      return 'growth';
+    }
+    if (normalized.includes('late') || normalized.includes('public') || normalized.includes('enterprise') || normalized.includes('series d')) {
+      return 'late';
+    }
+    return null;
+  }
+
   /**
    * Analyze how well a job matches user's goals
    * Uses Go/No-Go analysis results + job description data
@@ -214,17 +249,25 @@ export class GoalsMatchService {
     // 5. Company Maturity Match
     if (userGoals?.companyMaturity && userGoals.companyMaturity.length > 0) {
       const isDealBreaker = (userGoals?.dealBreakers?.companyMaturity?.length ?? 0) > 0;
-      // jobValue will come from JD extraction (TODO: populate from JD parser)
-      const hasJobData = false; // Not yet extracted from JD
+      const jobMaturityRaw = this.getCompanyField(jobDescription, 'companyMaturity');
+      const normalizedJobMaturity = this.normalizeMaturity(jobMaturityRaw);
+      const normalizedUserMaturity = userGoals.companyMaturity
+        .map((value) => this.normalizeMaturity(value))
+        .filter((value): value is 'early' | 'growth' | 'late' => Boolean(value));
+      const hasJobData = Boolean(normalizedJobMaturity);
+      const isMatch =
+        hasJobData &&
+        normalizedUserMaturity.some((value) => value === normalizedJobMaturity);
       matches.push({
         id: 'goal-maturity',
         goalType: 'Company Maturity',
         userValue: `${userGoals.companyMaturity.join(', ')}${isDealBreaker ? ' (Deal-breaker)' : ''}`,
-        jobValue: null, // Not available in JD yet
-        met: false, // Can't confirm match without data
-        matchState: 'unknown', // Unknown until we have JD data
-        evidence: 'Company maturity not specified in job description - requires manual research',
-        requiresManualVerification: true,
+        jobValue: jobMaturityRaw || null,
+        met: isMatch,
+        matchState: hasJobData ? (isMatch ? 'match' : 'no-match') : 'unknown',
+        evidence: hasJobData
+          ? (isMatch ? 'Company maturity matches your preference' : 'Company maturity differs from your preference')
+          : 'Company maturity not specified in job description',
         criterion: `Company Maturity: ${userGoals.companyMaturity.join(', ')}${isDealBreaker ? ' (Deal-breaker)' : ''}`, // Legacy
       });
     } else {
@@ -243,17 +286,24 @@ export class GoalsMatchService {
 
     // 6. Industry Match
     if (userGoals?.industries && userGoals.industries.length > 0) {
-      // jobValue will come from JD extraction (TODO: populate from JD parser)
-      const hasJobData = false; // Not yet extracted from JD
+      const jobIndustryRaw = this.getCompanyField(jobDescription, 'companyIndustry');
+      const normalizedJobIndustry = jobIndustryRaw?.toLowerCase() ?? '';
+      const hasJobData = Boolean(normalizedJobIndustry);
+      const isMatch =
+        hasJobData &&
+        userGoals.industries.some((industry) =>
+          normalizedJobIndustry.includes(industry.toLowerCase().trim()),
+        );
       matches.push({
         id: 'goal-industry',
         goalType: 'Industry',
         userValue: userGoals.industries.join(', '),
-        jobValue: null, // Not available in JD yet
-        met: false, // Can't confirm match without data
-        matchState: 'unknown', // Unknown until we have JD data
-        evidence: 'Industry not specified in job description - requires manual research',
-        requiresManualVerification: true,
+        jobValue: jobIndustryRaw || null,
+        met: isMatch,
+        matchState: hasJobData ? (isMatch ? 'match' : 'no-match') : 'unknown',
+        evidence: hasJobData
+          ? (isMatch ? 'Industry matches your preference' : 'Industry differs from your preference')
+          : 'Industry not specified in job description',
         criterion: `Industries: ${userGoals.industries.join(', ')}`, // Legacy
       });
     } else {
@@ -272,17 +322,24 @@ export class GoalsMatchService {
 
     // 7. Business Model Match
     if (userGoals?.businessModels && userGoals.businessModels.length > 0) {
-      // jobValue will come from JD extraction (TODO: populate from JD parser)
-      const hasJobData = false; // Not yet extracted from JD
+      const jobBusinessModelRaw = this.getCompanyField(jobDescription, 'companyBusinessModel');
+      const normalizedJobBusinessModel = jobBusinessModelRaw?.toLowerCase() ?? '';
+      const hasJobData = Boolean(normalizedJobBusinessModel);
+      const isMatch =
+        hasJobData &&
+        userGoals.businessModels.some((model) =>
+          normalizedJobBusinessModel.includes(model.toLowerCase().trim()),
+        );
       matches.push({
         id: 'goal-business-model',
         goalType: 'Business Model',
         userValue: userGoals.businessModels.join(', '),
-        jobValue: null, // Not available in JD yet
-        met: false, // Can't confirm match without data
-        matchState: 'unknown', // Unknown until we have JD data
-        evidence: 'Business model not specified in job description - requires manual research',
-        requiresManualVerification: true,
+        jobValue: jobBusinessModelRaw || null,
+        met: isMatch,
+        matchState: hasJobData ? (isMatch ? 'match' : 'no-match') : 'unknown',
+        evidence: hasJobData
+          ? (isMatch ? 'Business model matches your preference' : 'Business model differs from your preference')
+          : 'Business model not specified in job description',
         criterion: `Business Models: ${userGoals.businessModels.join(', ')}`, // Legacy
       });
     } else {

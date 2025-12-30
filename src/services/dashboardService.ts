@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/types/supabase";
+import { classifyRoleToBucket } from "@/lib/roleBuckets";
 
 // Helper function to get Supabase configuration
 const getSupabaseConfig = () => ({
@@ -14,15 +15,18 @@ type CoverLetter = Database['public']['Tables']['cover_letters']['Row'];
 
 export interface DashboardStats {
   stories: number;
+  savedSections: number;
   coverLetters: number;
   skillsCoverage: number;
   lastMonthStories: number;
+  lastMonthSavedSections: number;
   lastMonthCoverLetters: number;
   skillsImprovement: number;
 }
 
 export interface TopRole {
   title: string;
+  bucketKey: string;
   count: number;
   percentage: number;
   lastApplied: string;
@@ -86,7 +90,7 @@ export class DashboardService {
     this.session = session;
   }
 
-  private async getAccessToken(): Promise<string> {
+  private async getAccessTokenOptional(): Promise<string | null> {
     console.log('DashboardService: Getting access token...');
     
     // Use session from constructor if available, otherwise try to get from auth context
@@ -97,22 +101,19 @@ export class DashboardService {
       this.session = session;
     }
     
-    console.log('DashboardService: Session result:', this.session ? 'session found' : 'no session');
-    if (!this.session?.access_token) {
-      throw new Error('No access token available');
-    }
-    console.log('DashboardService: Access token available, length:', this.session.access_token.length);
-    return this.session.access_token;
+    const token = this.session?.access_token ?? null;
+    console.log('DashboardService: Session result:', token ? 'token found' : 'no token');
+    return token;
   }
 
   private async directFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
     const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
-    const accessToken = await this.getAccessToken();
+    const accessToken = await this.getAccessTokenOptional();
     
     const response = await fetch(`${supabaseUrl}/rest/v1/${endpoint}`, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         'apikey': supabaseKey,
         'Content-Type': 'application/json',
         ...options.headers
@@ -127,48 +128,28 @@ export class DashboardService {
     return response.json();
   }
 
+  private async countTable(
+    table: 'work_items' | 'cover_letters' | 'stories' | 'saved_sections',
+    userId: string,
+    filters?: (query: any) => any
+  ): Promise<number> {
+    let query = supabase.from(table).select('id', { count: 'exact', head: true }).eq('user_id', userId);
+    if (filters) query = filters(query);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count ?? 0;
+  }
+
   /**
    * Get dashboard statistics using direct fetch
    */
   async getStats(userId: string): Promise<DashboardStats> {
     try {
       console.log('DashboardService: getStats called for user:', userId);
-      const accessToken = await this.getAccessToken();
-      const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
-      console.log('DashboardService: Starting work items count query...');
-
-      // Get work items count
-      const workItemsResponse = await fetch(`${supabaseUrl}/rest/v1/work_items?user_id=eq.${userId}&select=count`, {
-        method: 'HEAD',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': supabaseKey,
-          'Prefer': 'count=exact'
-        }
-      });
-      const storiesCount = parseInt(workItemsResponse.headers.get('content-range')?.split('/')[1] || '0');
-
-      // Get cover letters count
-      const coverLettersResponse = await fetch(`${supabaseUrl}/rest/v1/cover_letters?user_id=eq.${userId}&select=count`, {
-        method: 'HEAD',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': supabaseKey,
-          'Prefer': 'count=exact'
-        }
-      });
-      const coverLettersCount = parseInt(coverLettersResponse.headers.get('content-range')?.split('/')[1] || '0');
-
-      // Get approved content count
-      const approvedContentResponse = await fetch(`${supabaseUrl}/rest/v1/stories?user_id=eq.${userId}&status=eq.approved&select=count`, {
-        method: 'HEAD',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': supabaseKey,
-          'Prefer': 'count=exact'
-        }
-      });
-      const approvedContentCount = parseInt(approvedContentResponse.headers.get('content-range')?.split('/')[1] || '0');
+      const storiesCount = await this.countTable('work_items', userId);
+      const savedSectionsCount = await this.countTable('saved_sections', userId);
+      const coverLettersCount = await this.countTable('cover_letters', userId);
+      const approvedContentCount = await this.countTable('stories', userId, (q) => q.eq('status', 'approved'));
 
       // Calculate skills coverage
       const skillsCoverage = Math.min(100, Math.round((approvedContentCount || 0) * 8.33));
@@ -176,32 +157,17 @@ export class DashboardService {
       // Get last month data
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const lastMonthStoriesResponse = await fetch(`${supabaseUrl}/rest/v1/work_items?user_id=eq.${userId}&created_at=gte.${thirtyDaysAgo.toISOString()}&select=count`, {
-        method: 'HEAD',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': supabaseKey,
-          'Prefer': 'count=exact'
-        }
-      });
-      const lastMonthStories = parseInt(lastMonthStoriesResponse.headers.get('content-range')?.split('/')[1] || '0');
-
-      const lastMonthCoverLettersResponse = await fetch(`${supabaseUrl}/rest/v1/cover_letters?user_id=eq.${userId}&created_at=gte.${thirtyDaysAgo.toISOString()}&select=count`, {
-        method: 'HEAD',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': supabaseKey,
-          'Prefer': 'count=exact'
-        }
-      });
-      const lastMonthCoverLetters = parseInt(lastMonthCoverLettersResponse.headers.get('content-range')?.split('/')[1] || '0');
+      const lastMonthStories = await this.countTable('work_items', userId, (q) => q.gte('created_at', thirtyDaysAgo.toISOString()));
+      const lastMonthSavedSections = await this.countTable('saved_sections', userId, (q) => q.gte('created_at', thirtyDaysAgo.toISOString()));
+      const lastMonthCoverLetters = await this.countTable('cover_letters', userId, (q) => q.gte('created_at', thirtyDaysAgo.toISOString()));
 
       return {
         stories: storiesCount,
+        savedSections: savedSectionsCount,
         coverLetters: coverLettersCount,
         skillsCoverage,
         lastMonthStories: lastMonthStories,
+        lastMonthSavedSections,
         lastMonthCoverLetters: lastMonthCoverLetters,
         skillsImprovement: Math.round(Math.random() * 20) + 5 // Mock improvement for now
       };
@@ -209,9 +175,11 @@ export class DashboardService {
       console.error('Error fetching dashboard stats:', error);
       return {
         stories: 0,
+        savedSections: 0,
         coverLetters: 0,
         skillsCoverage: 0,
         lastMonthStories: 0,
+        lastMonthSavedSections: 0,
         lastMonthCoverLetters: 0,
         skillsImprovement: 0
       };
@@ -219,47 +187,43 @@ export class DashboardService {
   }
 
   /**
-   * Get top roles targeted using direct fetch
+   * Get top roles targeted (roles applied for) using job_descriptions
    */
   async getTopRoles(userId: string): Promise<TopRole[]> {
     try {
-      const accessToken = await this.getAccessToken();
-      const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
+      const { data, error } = await supabase
+        .from('job_descriptions')
+        .select('role, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1000);
 
-      // Get work items with role information
-      const workItemsResponse = await fetch(`${supabaseUrl}/rest/v1/work_items?user_id=eq.${userId}&select=*`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json'
+      if (error) throw error;
+
+      const rows = Array.isArray(data) ? data : [];
+
+      const roleCounts: Record<string, { title: string; count: number; lastApplied: string }> = {};
+
+      rows.forEach((row: any) => {
+        const roleRaw = typeof row?.role === 'string' ? row.role : '';
+        const role = roleRaw.trim() ? roleRaw.trim() : 'Unknown Role';
+        const bucket = classifyRoleToBucket(role);
+        const createdAt = row?.created_at || new Date().toISOString();
+        if (!roleCounts[bucket.key]) {
+          roleCounts[bucket.key] = { title: bucket.label, count: 0, lastApplied: createdAt };
         }
-      });
-
-      if (!workItemsResponse.ok) {
-        throw new Error('Failed to fetch work items');
-      }
-
-      const workItems = await workItemsResponse.json();
-      
-      // Count roles and calculate percentages
-      const roleCounts: Record<string, { count: number; lastApplied: string }> = {};
-      
-      workItems.forEach((item: any) => {
-        const role = item.role_title || 'Unknown Role';
-        if (!roleCounts[role]) {
-          roleCounts[role] = { count: 0, lastApplied: item.created_at };
-        }
-        roleCounts[role].count++;
-        if (new Date(item.created_at) > new Date(roleCounts[role].lastApplied)) {
-          roleCounts[role].lastApplied = item.created_at;
+        roleCounts[bucket.key].count += 1;
+        if (new Date(createdAt) > new Date(roleCounts[bucket.key].lastApplied)) {
+          roleCounts[bucket.key].lastApplied = createdAt;
         }
       });
 
       const total = Object.values(roleCounts).reduce((sum, role) => sum + role.count, 0);
       
       const topRoles: TopRole[] = Object.entries(roleCounts)
-        .map(([title, data]) => ({
-          title,
+        .map(([bucketKey, data]) => ({
+          title: data.title,
+          bucketKey,
           count: data.count,
           percentage: Math.round((data.count / total) * 100),
           lastApplied: new Date(data.lastApplied).toISOString().split('T')[0]
@@ -279,41 +243,9 @@ export class DashboardService {
    */
   async getContentHealth(userId: string): Promise<ContentHealth> {
     try {
-      const accessToken = await this.getAccessToken();
-      const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
-
-      // Get stories count
-      const storiesResponse = await fetch(`${supabaseUrl}/rest/v1/work_items?user_id=eq.${userId}&select=count`, {
-        method: 'HEAD',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': supabaseKey,
-          'Prefer': 'count=exact'
-        }
-      });
-      const storiesCount = parseInt(storiesResponse.headers.get('content-range')?.split('/')[1] || '0');
-
-      // Get approved content count (saved sections)
-      const savedSectionsResponse = await fetch(`${supabaseUrl}/rest/v1/stories?user_id=eq.${userId}&status=eq.approved&select=count`, {
-        method: 'HEAD',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': supabaseKey,
-          'Prefer': 'count=exact'
-        }
-      });
-      const savedSectionsCount = parseInt(savedSectionsResponse.headers.get('content-range')?.split('/')[1] || '0');
-
-      // Get cover letters count
-      const coverLettersResponse = await fetch(`${supabaseUrl}/rest/v1/cover_letters?user_id=eq.${userId}&select=count`, {
-        method: 'HEAD',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': supabaseKey,
-          'Prefer': 'count=exact'
-        }
-      });
-      const coverLettersCount = parseInt(coverLettersResponse.headers.get('content-range')?.split('/')[1] || '0');
+      const storiesCount = await this.countTable('work_items', userId);
+      const savedSectionsCount = await this.countTable('stories', userId, (q) => q.eq('status', 'approved'));
+      const coverLettersCount = await this.countTable('cover_letters', userId);
 
       const getStatus = (count: number) => {
         if (count >= 10) return 'healthy';

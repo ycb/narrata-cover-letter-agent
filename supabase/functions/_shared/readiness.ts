@@ -113,6 +113,7 @@ export interface DraftReadinessContext {
   draftId: string;
   userId: string;
   jobDescriptionId: string;
+  draftUpdatedAt: string;
   mergedDraft: string;
   promptDraft: string;
   wordCount: number;
@@ -133,7 +134,7 @@ export async function loadDraftReadinessContext(
 ): Promise<DraftReadinessContext> {
   const { data: draft, error: draftError } = await supabase
     .from('cover_letters')
-    .select('id, user_id, job_description_id, sections')
+    .select('id, user_id, job_description_id, sections, updated_at')
     .eq('id', draftId)
     .single();
 
@@ -182,6 +183,7 @@ export async function loadDraftReadinessContext(
     draftId,
     userId: draft.user_id,
     jobDescriptionId: draft.job_description_id,
+    draftUpdatedAt: draft.updated_at ?? new Date().toISOString(),
     mergedDraft,
     promptDraft,
     wordCount,
@@ -383,5 +385,4 @@ function buildReadinessPrompt(params: {
 }
 
 export { ZodError } from 'https://esm.sh/zod@3.23.8';
-
 

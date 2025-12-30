@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
+import { GrammarTextarea } from '@/components/ui/grammar-textarea';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { SectionInspector } from './SectionInspector';
@@ -386,6 +386,7 @@ export function CoverLetterDraftView({
             goNoGoAnalysis={goNoGoAnalysis || undefined}
             jobDescription={jobDescription || undefined}
             enhancedMatchData={enhancedMatchData || undefined}
+            contentStandards={contentStandards || null}
             sections={sections.map(s => ({ id: s.id, type: s.type, title: s.title }))}
             draftMws={draftMws}
             onEditGoals={onEditGoals}
@@ -425,9 +426,17 @@ export function CoverLetterDraftView({
         })();
         const totalStandardsForSection = getApplicableStandards(sectionCategory).length;
 
-        // Compute section-level attribution for requirements and standards
-        // During streaming (no data), show skeleton. Once data loads, show actual attribution.
-        const hasAttributionData = enhancedMatchData != null || contentStandards != null || (ratingCriteria && ratingCriteria.length > 0);
+        // Compute section-level attribution for requirements and standards.
+        // IMPORTANT: while Phase B is still computing, we should not show "0 core / 0 pref / 0 standards"
+        // because it reads like a real result. Use skeleton until we have the necessary attribution inputs.
+        const attributionReady = Boolean(
+          // Requirements attribution requires section-level mapping, which is produced during Phase B.
+          enhancedMatchData?.sectionGapInsights !== undefined ||
+            // Content standards can be computed independently of gaps, but is still Phase B.
+            contentStandards?.perSection?.length ||
+            // Legacy fallback (used in some flows)
+            (ratingCriteria && ratingCriteria.length > 0),
+        );
         const { attribution, summary } = computeSectionAttribution({
           sectionId: section.id,
           sectionType: section.slug || section.type,
@@ -451,8 +460,8 @@ export function CoverLetterDraftView({
               title={sectionTitle}
               content={isEditable ? undefined : section.content} // Don't show content if editable (textarea will display it)
               // NEW: Pass section attribution (skeleton during streaming, data when loaded)
-              sectionAttribution={summary}
-              sectionAttributionData={hasAttributionData ? attribution : undefined}
+              sectionAttribution={attributionReady ? summary : undefined}
+              sectionAttributionData={attributionReady ? attribution : undefined}
               totalCoreReqs={totalCoreReqs}
               totalPrefReqs={totalPrefReqs}
               totalStandards={totalStandardsForSection}
@@ -488,7 +497,7 @@ export function CoverLetterDraftView({
             >
               {isEditable && onSectionChange ? (
                 <div className="mb-6">
-                  <Textarea
+                  <GrammarTextarea
                     value={section.content}
                     ref={(textarea) => {
                       if (textarea) {

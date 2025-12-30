@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   buildEffectiveSectionGapMap, 
   buildEffectiveGlobalGaps,
@@ -25,8 +25,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
+import { GrammarTextarea } from '@/components/ui/grammar-textarea';
+import { GrammarInput } from '@/components/ui/grammar-input';
 import {
   Select,
   SelectContent,
@@ -93,12 +93,15 @@ import { useUserGoals } from '@/contexts/UserGoalsContext';
 	import { transformMetricsToMatchData, getUnresolvedRatingCriteria, useMatchMetricsDetails } from './useMatchMetricsDetails';
 	import { computeGoNoGoModel } from './goNoGoModel';
 	import { computeSectionAttribution } from './useSectionAttribution';
-	import type { CoverLetterDraft, JobDescriptionRecord, ParsedJobDescription } from '@/types/coverLetters';
+	import type { CoverLetterDraft, CoverLetterDraftSection, JobDescriptionRecord, ParsedJobDescription } from '@/types/coverLetters';
 	import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from '@/types/workHistory';
-	import { getApplicableStandards } from '@/config/contentStandards';
-	import { logAStreamEvent } from '@/lib/telemetry';
+		import { getApplicableStandards } from '@/config/contentStandards';
+		import { logAStreamEvent } from '@/lib/telemetry';
+		import { recordCoverLetterPerfEvent } from '@/lib/debug/coverLetterPerfDebug';
+		import { tokenizeCoverLetterText } from '@/lib/tokenize';
+		import type { ContentVariationInsert } from '@/types/variations';
 
-const MIN_JOB_DESCRIPTION_LENGTH = 50;
+	const MIN_JOB_DESCRIPTION_LENGTH = 50;
 
 function truncateHilText(value: string, maxChars: number): string {
   const trimmed = value.trim();
@@ -296,6 +299,10 @@ export const CoverLetterModal = ({
   const [templateSections, setTemplateSections] = useState<CoverLetterSection[]>([]); // Phase 2: for skeleton
   const [jobDescriptionRecord, setJobDescriptionRecord] = useState<JobDescriptionRecord | null>(null);
   const [sectionDrafts, setSectionDrafts] = useState<Record<string, string>>({});
+  // `sectionDrafts` should only contain local overrides (edited but not yet persisted).
+  // Do not mirror the full draft into this map; that causes user edits to be overwritten whenever
+  // the draft object updates due to background Phase B updates (gaps/metrics/slot fills).
+  const sectionDraftsDraftIdRef = useRef<string | null>(null);
   const [savingSections, setSavingSections] = useState<Record<string, boolean>>({});
   const [selectedGap, setSelectedGap] = useState<Gap & { section_id?: string } | null>(null);
   const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
@@ -311,6 +318,8 @@ export const CoverLetterModal = ({
   // Create flow: Go/No-go is a discrete step before showing the draft UI
   const [createFlowStep, setCreateFlowStep] = useState<'fit-check' | 'draft'>('draft');
   const [streamingJobId, setStreamingJobId] = useState<string | null>(null);
+  const editModePhaseBGapsDraftIdRef = useRef<string | null>(null);
+  const editModePhaseBRefreshDraftIdRef = useRef<string | null>(null);
   const aPhaseStartMsRef = useRef<number | null>(null);
   const [aPhaseTimeout, setAPhaseTimeout] = useState(false);
   const [aPhaseRetrying, setAPhaseRetrying] = useState(false);
@@ -320,9 +329,18 @@ export const CoverLetterModal = ({
   const streamingJobIdRef = useRef<string | null>(null);
   // Phase 3: Track draft generation separately from streaming
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
-  
-  // UNIFIED SKELETON: Track if user has ever clicked Generate
-  const [generationHasStarted, setGenerationHasStarted] = useState(false);
+	  const [phaseBTimeout, setPhaseBTimeout] = useState(false);
+	  const [phaseBRetryAttempts, setPhaseBRetryAttempts] = useState(0);
+	  const phaseBStartMsRef = useRef<number | null>(null);
+	  // Perf debug (opt-in): capture timings without affecting normal UX.
+	  const perfGenerateStartMsRef = useRef<number | null>(null);
+	  const perfDraftReadyMsRef = useRef<number | null>(null);
+	  const perfDraftIdRef = useRef<string | null>(null);
+	  const perfPhaseACompleteRef = useRef(false);
+	  const perfPhaseBGapsReadyDraftIdRef = useRef<string | null>(null);
+	  
+	  // UNIFIED SKELETON: Track if user has ever clicked Generate
+	  const [generationHasStarted, setGenerationHasStarted] = useState(false);
   
   // PROGRESS FIX: Track peak progress to prevent backwards movement during regeneration
   const [peakProgress, setPeakProgress] = useState(0);
@@ -344,16 +362,54 @@ export const CoverLetterModal = ({
   }, [isOpen, mode]);
   const [sectionFocusContent, setSectionFocusContent] = useState<Record<string, string>>({}); // Track content at focus time
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [isManualRefreshLoading, setIsManualRefreshLoading] = useState(false);
+  const [isAutosaving, setIsAutosaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [finalizationOpen, setFinalizationOpen] = useState(false);
   const [finalizationError, setFinalizationError] = useState<string | null>(null);
   const [showLibraryModal, setShowLibraryModal] = useState(false);
   const [libraryInvocation, setLibraryInvocation] = useState<InvocationType | null>(null);
+  const [libraryInitialContentType, setLibraryInitialContentType] = useState<'story' | 'saved' | null>(null);
+  const [libraryAutoAdvance, setLibraryAutoAdvance] = useState(false);
   const [workHistoryLibrary, setWorkHistoryLibrary] = useState<WorkHistoryCompany[]>([]);
   const [savedSections, setSavedSections] = useState<any[]>([]);
   const [isLibraryLoading, setIsLibraryLoading] = useState(false);
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const { toast } = useToast();
   const preParseControllerRef = useRef<AbortController | null>(null);
+  const autosaveTimerRef = useRef<number | null>(null);
+  const autosaveSeqRef = useRef(0);
+  const saveStatusTimerRef = useRef<number | null>(null);
+
+  const waitForJdAnalysisCache = useCallback(
+    async (jobDescriptionId: string, timeoutMs = 2500) => {
+      const start = Date.now();
+      const pollIntervalMs = 250;
+
+      while (Date.now() - start < timeoutMs) {
+        const { data, error } = await supabase
+          .from('job_descriptions')
+          .select('analysis')
+          .eq('id', jobDescriptionId)
+          .maybeSingle();
+
+        if (error) {
+          console.warn('[CoverLetterModal] Failed to check JD analysis cache:', error);
+          return { found: false, waitedMs: Date.now() - start };
+        }
+
+        const analysis = data?.analysis as Record<string, unknown> | null;
+        if (analysis?.roleInsights && analysis?.analyzedAt) {
+          return { found: true, waitedMs: Date.now() - start };
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+      }
+
+      return { found: false, waitedMs: Date.now() - start };
+    },
+    []
+  );
 
   // Feature flag: enable Cover Letter HIL V3 (iteration-first review/accept UX).
   // IMPORTANT: use direct `import.meta.env.VITE_*` access so Vite can statically replace it in builds.
@@ -560,6 +616,7 @@ export const CoverLetterModal = ({
     const analysis = (jobDescriptionRecord.analysis as Record<string, any> | null) ?? {};
     const llmAnalysis = analysis.llm ?? {};
     const structured =
+      (jobDescriptionRecord as any).structured_data ??
       jobDescriptionRecord.structuredData ??
       llmAnalysis.structuredData ??
       {};
@@ -569,11 +626,13 @@ export const CoverLetterModal = ({
       company: jobDescriptionRecord.company,
       standardRequirements:
         structured.standardRequirements ??
+        (jobDescriptionRecord as any).standard_requirements ??
         jobDescriptionRecord.standardRequirements ??
         llmAnalysis.standardRequirements ??
         [],
       preferredRequirements:
         structured.preferredRequirements ??
+        (jobDescriptionRecord as any).preferred_requirements ??
         jobDescriptionRecord.preferredRequirements ??
         llmAnalysis.preferredRequirements ??
         [],
@@ -802,19 +861,158 @@ export const CoverLetterModal = ({
     const status = (aPhaseStages as any)?.[key]?.status;
     return status === 'failed' || status === 'error';
   });
-  // Fit check is "complete" once the core Phase A artifacts are available:
-  // - JD totals (MwG denominator)
-  // - Requirement analysis (core/pref details)
-  // - MwS (can arrive before goalsAndStrengths stage completes)
+  // Fit check is "complete" once we can compute a stable Go/No-go model.
+  // Do NOT gate on MwS; it can arrive late and should be treated as a pending input (not a blocker).
   const aPhaseComplete = Boolean(
-    aPhaseInsights?.stageFlags?.hasJdRequirementSummary &&
-      aPhaseInsights?.stageFlags?.hasRequirementAnalysisData &&
-      aPhaseInsights?.stageFlags?.hasMws,
+    fitCheckMatchDetails.goalsComparisonReady &&
+      aPhaseInsights?.stageFlags?.hasJdRequirementSummary &&
+      aPhaseInsights?.stageFlags?.hasRequirementAnalysisData,
   );
 	  const aPhaseTerminal = aPhaseComplete || aPhaseFailed;
 	  const draftReady = Boolean(draft?.id);
-	  const isFitCheckStep = mode === 'create' && generationHasStarted && createFlowStep === 'fit-check';
-	  const autoAdvancedToDraftRef = useRef(false);
+		  const isFitCheckStep = mode === 'create' && generationHasStarted && createFlowStep === 'fit-check';
+		  const autoAdvancedToDraftRef = useRef(false);
+		  const phaseBGapsInFlight = Boolean(
+		    mode === 'create' &&
+		      generationHasStarted &&
+		      !isFitCheckStep &&
+		      draft &&
+		      draft.enhancedMatchData?.sectionGapInsights === undefined,
+		  );
+
+	  // Perf debug (opt-in): record milestones to localStorage for quick latency stats.
+	  useEffect(() => {
+	    if (mode !== 'create') return;
+	    if (!generationHasStarted) return;
+	    if (!draft?.id) return;
+	    if (perfDraftIdRef.current === draft.id) return;
+
+	    perfDraftIdRef.current = draft.id;
+	    perfDraftReadyMsRef.current = Date.now();
+
+	    const start = perfGenerateStartMsRef.current;
+	    recordCoverLetterPerfEvent('draft_ready', {
+	      draftId: draft.id,
+	      sectionCount: draft.sections?.length ?? 0,
+	      msSinceGenerate: start ? Date.now() - start : null,
+	    });
+	  }, [mode, generationHasStarted, draft?.id]);
+
+	  useEffect(() => {
+	    if (mode !== 'create') return;
+	    if (!generationHasStarted) return;
+	    if (!aPhaseComplete) return;
+	    if (perfPhaseACompleteRef.current) return;
+	    perfPhaseACompleteRef.current = true;
+
+	    const start = perfGenerateStartMsRef.current;
+	    recordCoverLetterPerfEvent('phase_a_complete', {
+	      jobId: streamingJobId,
+	      msSinceGenerate: start ? Date.now() - start : null,
+	    });
+	  }, [mode, generationHasStarted, aPhaseComplete, streamingJobId]);
+
+	  useEffect(() => {
+	    if (mode !== 'create') return;
+	    if (!generationHasStarted) return;
+	    if (!draft?.id) return;
+	    if (draft.enhancedMatchData?.sectionGapInsights === undefined) return;
+	    if (perfPhaseBGapsReadyDraftIdRef.current === draft.id) return;
+	    perfPhaseBGapsReadyDraftIdRef.current = draft.id;
+
+	    const start = perfGenerateStartMsRef.current;
+	    const ready = perfDraftReadyMsRef.current;
+	    recordCoverLetterPerfEvent('phase_b_gaps_ready', {
+	      draftId: draft.id,
+	      gapsCount: (draft.enhancedMatchData as any)?.sectionGapInsights?.length ?? null,
+	      msSinceGenerate: start ? Date.now() - start : null,
+	      msSinceDraftReady: ready ? Date.now() - ready : null,
+	    });
+	  }, [mode, generationHasStarted, draft?.id, draft?.enhancedMatchData?.sectionGapInsights]);
+
+	  const retryPhaseBGaps = useCallback(
+	    (source: 'manual' | 'auto') => {
+	      if (mode !== 'create') return;
+	      if (!generationHasStarted) return;
+	      if (isFitCheckStep) return;
+	      const draftId = draft?.id;
+	      const firstSectionId = draft?.sections?.[0]?.id;
+	      if (!draftId || !firstSectionId) return;
+	      // Don't enqueue concurrent refresh requests; they can pile up and worsen stalls.
+	      if (createModeHook.sectionInsightsRefreshing?.size) return;
+
+	      setPhaseBTimeout(false);
+	      phaseBStartMsRef.current = Date.now();
+	      setPhaseBRetryAttempts((n) => n + 1);
+	      recordCoverLetterPerfEvent('retry_gaps', { source, draftId, sectionId: firstSectionId });
+	      createModeHook.refreshSectionInsights(firstSectionId);
+	      logAStreamEvent('phase_b_retry_gaps', { source, jobId: streamingJobId, draftId });
+	    },
+	    [
+	      mode,
+	      generationHasStarted,
+	      isFitCheckStep,
+	      draft?.id,
+	      draft?.sections,
+	      createModeHook.sectionInsightsRefreshing,
+	      streamingJobId,
+	    ],
+	  );
+
+  // Phase B stall detection (gaps): surface retry UI instead of appearing "stuck".
+		  useEffect(() => {
+		    if (mode !== 'create') return;
+		    if (!generationHasStarted) {
+		      setPhaseBTimeout(false);
+		      phaseBStartMsRef.current = null;
+		      return;
+		    }
+		    if (isFitCheckStep) return;
+		    if (!draft?.id) return;
+
+		    if (!phaseBGapsInFlight) {
+		      setPhaseBTimeout(false);
+		      phaseBStartMsRef.current = null;
+		      return;
+		    }
+
+		    if (!phaseBStartMsRef.current) {
+		      phaseBStartMsRef.current = Date.now();
+		    }
+
+		    const timer = window.setTimeout(() => {
+		      setPhaseBTimeout(true);
+		    }, 30000);
+
+		    return () => window.clearTimeout(timer);
+		  }, [
+	      mode,
+	      generationHasStarted,
+	      isFitCheckStep,
+	      draft?.id,
+	      draft?.sections?.[0]?.id,
+	      phaseBGapsInFlight,
+	    ]);
+
+	  // Automatic gap retry: if Phase B gaps haven't landed after a short grace period,
+	  // trigger a single auto retry so users aren't forced to click "Retry gaps".
+	  useEffect(() => {
+	    if (mode !== 'create') return;
+	    if (!generationHasStarted) return;
+	    if (isFitCheckStep) return;
+	    if (!phaseBGapsInFlight) return;
+	    if (!phaseBTimeout) return;
+	    if (phaseBRetryAttempts > 0) return;
+	    retryPhaseBGaps('auto');
+	  }, [
+	    mode,
+	    generationHasStarted,
+	    isFitCheckStep,
+	    phaseBGapsInFlight,
+	    phaseBTimeout,
+	    phaseBRetryAttempts,
+	    retryPhaseBGaps,
+	  ]);
 
   useEffect(() => {
     aPhaseTerminalRef.current = aPhaseTerminal;
@@ -831,13 +1029,45 @@ export const CoverLetterModal = ({
 	    if (mode !== 'create') return;
 	    if (!isFitCheckStep) return;
 	    if (aPhaseHardError) return;
+	    // The draft row (id) exists very early; only auto-advance once the draft content is ready to view.
 	    if (!draftReady) return;
+	    if (isGeneratingDraft) return;
 	    if (autoAdvancedToDraftRef.current) return;
+	    // Only auto-advance once all A-phase results required for the Fit Check experience are present
+	    // (rating/confidence + MwS). Otherwise users get pushed to the draft before seeing the value.
+	    const phaseACompleteForFitCheck = Boolean(
+	      aPhaseInsights?.stageFlags?.phaseComplete &&
+	        fitCheckMatchDetails.goalsComparisonReady &&
+	        aPhaseInsights?.jdRequirementSummary &&
+	        aPhaseInsights?.requirementAnalysis &&
+	        aPhaseInsights?.mws,
+	    );
+	    if (!phaseACompleteForFitCheck) return;
+	    // Only auto-advance once gaps are computed; otherwise the draft view can appear "stuck"
+	    // at Computing gaps and score.
+	    const hasPhaseBGaps = draft?.enhancedMatchData?.sectionGapInsights !== undefined;
+	    if (!hasPhaseBGaps) return;
 	    autoAdvancedToDraftRef.current = true;
-	    setCreateFlowStep('draft');
-	    setMainTab('cover-letter');
-	    logAStreamEvent('gng_auto_advance_to_draft', { jobId: streamingJobId });
-	  }, [mode, isFitCheckStep, aPhaseHardError, draftReady, streamingJobId]);
+	    // Give React a beat to paint the final rating/confidence before switching views.
+	    window.setTimeout(() => {
+	      setCreateFlowStep('draft');
+	      setMainTab('cover-letter');
+	      logAStreamEvent('gng_auto_advance_to_draft', { jobId: streamingJobId });
+	    }, 1200);
+	  }, [
+	    mode,
+	    isFitCheckStep,
+	    aPhaseHardError,
+	    draftReady,
+	    isGeneratingDraft,
+	    aPhaseInsights?.stageFlags?.phaseComplete,
+	    aPhaseInsights?.jdRequirementSummary,
+	    aPhaseInsights?.requirementAnalysis,
+	    aPhaseInsights?.mws,
+	    fitCheckMatchDetails.goalsComparisonReady,
+	    draft?.enhancedMatchData?.sectionGapInsights,
+	    streamingJobId,
+	  ]);
 
   // If retrying and Phase A becomes terminal, clear retry state.
   useEffect(() => {
@@ -1070,16 +1300,108 @@ export const CoverLetterModal = ({
     });
   }, [mode, jobState?.status, jobState?.result]);
   
-  const updateSection = mode === 'create' ? createModeHook.updateSection : async (sectionId: string, content: string) => {
-    // Edit mode: update section locally
-    if (!draft) return;
-    const updatedSections = draft.sections?.map(s =>
-      s.id === sectionId ? { ...s, content } : s
-    ) || [];
-    setLocalDraft({ ...draft, sections: updatedSections });
-  };
+  const updateSection = useCallback(
+    async ({ sectionId, content }: { sectionId: string; content: string }) => {
+      if (mode === 'create') {
+        return createModeHook.updateSection({ sectionId, content });
+      }
+
+      // Edit mode: update section locally (server persistence handled by explicit "Save" button)
+      if (!draft) return null;
+      const updatedSections = draft.sections?.map((s) => (s.id === sectionId ? { ...s, content } : s)) || [];
+      const updatedDraft = { ...draft, sections: updatedSections };
+      setLocalDraft(updatedDraft);
+      return updatedDraft;
+    },
+    [mode, createModeHook.updateSection, draft],
+  );
+
+  useEffect(() => {
+    if (!draft?.id) return;
+    if (isFitCheckStep) return;
+    if (showSkeleton) return;
+
+    const hasLocalEdits = Object.keys(sectionDrafts).length > 0;
+    if (!hasLocalEdits) return;
+
+    if (autosaveTimerRef.current) {
+      window.clearTimeout(autosaveTimerRef.current);
+    }
+
+    autosaveTimerRef.current = window.setTimeout(async () => {
+      const pendingDrafts = { ...sectionDrafts };
+      if (Object.keys(pendingDrafts).length === 0) return;
+
+      const autosaveSeq = ++autosaveSeqRef.current;
+      setIsAutosaving(true);
+      setSaveStatus('saving');
+      if (saveStatusTimerRef.current) {
+        window.clearTimeout(saveStatusTimerRef.current);
+      }
+
+      try {
+        const mergedSections = (draft.sections || []).map((section) => ({
+          ...section,
+          content: pendingDrafts[section.id] ?? section.content,
+        }));
+        const updated = await coverLetterDraftService.updateDraft(draft.id, {
+          sections: mergedSections,
+        });
+        if (updated && autosaveSeqRef.current === autosaveSeq) {
+          setDraft(updated);
+        }
+
+        setSectionDrafts((prev) => {
+          if (!prev || Object.keys(prev).length === 0) return prev;
+          const next = { ...prev };
+          Object.keys(pendingDrafts).forEach((sectionId) => {
+            if (prev[sectionId] === pendingDrafts[sectionId]) {
+              delete next[sectionId];
+            }
+          });
+          return next;
+        });
+        setSaveStatus('saved');
+        saveStatusTimerRef.current = window.setTimeout(() => {
+          setSaveStatus('idle');
+        }, 2000);
+      } catch (error) {
+        console.error('[CoverLetterModal] Autosave failed:', error);
+        setSaveStatus('idle');
+        toast({
+          title: 'Autosave failed',
+          description:
+            error instanceof Error ? error.message : 'Unable to autosave draft changes.',
+          variant: 'destructive',
+        });
+      } finally {
+        if (autosaveSeqRef.current === autosaveSeq) {
+          setIsAutosaving(false);
+        }
+      }
+    }, 1200);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        window.clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [draft?.id, draft?.sections, isFitCheckStep, showSkeleton, sectionDrafts, setDraft, toast]);
   const recalculateMetrics = mode === 'create' ? createModeHook.recalculateMetrics : async () => {};
-  const finalizeDraft = mode === 'create' ? createModeHook.finalizeDraft : async () => {};
+  const finalizeDraft =
+    mode === 'create'
+      ? createModeHook.finalizeDraft
+      : async (args?: { sections?: CoverLetterDraftSection[] }) => {
+          if (!draft?.id) {
+            throw new Error('Draft not found.');
+          }
+          const { draft: finalized } = await coverLetterDraftService.finalizeDraft({
+            draftId: draft.id,
+            sections: args?.sections ?? draft.sections ?? [],
+          });
+          setDraft(finalized);
+          return finalized;
+        };
   const setWorkpad = mode === 'create' ? createModeHook.setWorkpad : () => {};
   const setTemplateId = mode === 'create' ? createModeHook.setTemplateId : () => {};
   const setJobDescriptionId = mode === 'create' ? createModeHook.setJobDescriptionId : () => {};
@@ -1087,22 +1409,66 @@ export const CoverLetterModal = ({
   const resetProgress = mode === 'create' ? createModeHook.resetProgress : () => {};
 
   // Phase 3: Initialize draft and load job description in edit mode
-  useEffect(() => {
-    const initializeEditMode = async () => {
-      if (mode === 'edit' && initialDraft && isOpen) {
-        setLocalDraft(initialDraft);
+	  useEffect(() => {
+	    const initializeEditMode = async () => {
+	      if (mode === 'edit' && initialDraft && isOpen) {
+	        // Always hydrate from DB; list views may pass a partial draft shape.
+	        setLocalDraft(initialDraft);
+	        try {
+	          const refreshed = await coverLetterDraftService.getDraft(initialDraft.id);
+	          if (refreshed) {
+	            setLocalDraft(refreshed);
+
+              // Older drafts may lack Phase B artifacts. If core requirements are missing, re-run Phase B.
+              // Otherwise, only refresh gaps (fast path).
+              const hasSectionGaps = refreshed.enhancedMatchData?.sectionGapInsights !== undefined;
+              const hasCoreReqs = Array.isArray(refreshed.enhancedMatchData?.coreRequirementDetails);
+              const hasPrefReqs = Array.isArray(refreshed.enhancedMatchData?.preferredRequirementDetails);
+              const needsFullPhaseB = !hasCoreReqs || !hasPrefReqs;
+
+              if (user?.id && initialDraft.jobDescriptionId) {
+                if (needsFullPhaseB && editModePhaseBRefreshDraftIdRef.current !== refreshed.id) {
+                  editModePhaseBRefreshDraftIdRef.current = refreshed.id;
+                  coverLetterDraftService
+                    .calculateMetricsForDraft(refreshed.id, user.id, initialDraft.jobDescriptionId)
+                    .then(async () => {
+                      const updated = await coverLetterDraftService.getDraft(refreshed.id);
+                      if (updated) setLocalDraft(updated);
+                    })
+                    .catch((phaseBError) => {
+                      console.warn('[CoverLetterModal] Phase B refresh failed in edit mode (non-blocking):', phaseBError);
+                    });
+                } else if (!hasSectionGaps && editModePhaseBGapsDraftIdRef.current !== refreshed.id) {
+                  editModePhaseBGapsDraftIdRef.current = refreshed.id;
+                  try {
+                    await coverLetterDraftService.calculateSectionGapsForDraft(
+                      refreshed.id,
+                      user.id,
+                      initialDraft.jobDescriptionId,
+                    );
+                    const updated = await coverLetterDraftService.getDraft(refreshed.id);
+                    if (updated) setLocalDraft(updated);
+                  } catch (gapError) {
+                    console.warn('[CoverLetterModal] Failed to auto-refresh gaps in edit mode (non-blocking):', gapError);
+                  }
+                }
+              }
+	          }
+	        } catch (error) {
+	          console.warn('[CoverLetterModal] Failed to hydrate draft for edit mode (non-blocking):', error);
+	        }
+	        
+	        // First check if draft has jobDescription field directly
+	        if ((initialDraft as any).jobDescription) {
+	          setJobContent((initialDraft as any).jobDescription);
+	        }
         
-        // First check if draft has jobDescription field directly
-        if ((initialDraft as any).jobDescription) {
-          setJobContent((initialDraft as any).jobDescription);
-        }
-        
-        // Load the job description record for metrics/analysis
-        if (initialDraft.jobDescriptionId) {
-          try {
-            const { data, error } = await supabase
-              .from('job_descriptions')
-              .select('*')
+	        // Load the job description record for metrics/analysis
+	        if (initialDraft.jobDescriptionId) {
+	          try {
+	            const { data, error } = await supabase
+	              .from('job_descriptions')
+	              .select('*')
               .eq('id', initialDraft.jobDescriptionId)
               .single();
             
@@ -1111,11 +1477,22 @@ export const CoverLetterModal = ({
               return;
             }
             
-            if (data) {
-              setJobDescriptionRecord(data);
-              
-              // Only set jobContent if not already set from draft
-              if (!jobContent) {
+	            if (data) {
+	              setJobDescriptionRecord(data);
+	              // Backfill MwS from JD analysis into the draft if missing (common for older drafts).
+	              const mwsFromJd = ((data as any)?.analysis as any)?.mws;
+	              if (mwsFromJd && !(initialDraft as any)?.mws && !((initialDraft as any)?.llmFeedback as any)?.mws) {
+	                try {
+	                  await coverLetterDraftService.saveMwsData(initialDraft.id, mwsFromJd);
+	                  const refreshed = await coverLetterDraftService.getDraft(initialDraft.id);
+	                  if (refreshed) setLocalDraft(refreshed);
+	                } catch (mwsError) {
+	                  console.warn('[CoverLetterModal] Failed to backfill MwS into draft (non-blocking):', mwsError);
+	                }
+	              }
+	              
+	              // Only set jobContent if not already set from draft
+	              if (!jobContent) {
                 // Try various field names for the raw text
                 const rawText = (data.structured_data as any)?.rawText 
                   || (data.structured_data as any)?.text
@@ -1127,15 +1504,52 @@ export const CoverLetterModal = ({
                 }
               }
             }
-          } catch (err) {
-            console.error('[CoverLetterModal] Exception loading job description:', err);
+	          } catch (err) {
+	            console.error('[CoverLetterModal] Exception loading job description:', err);
+	          }
+	        }
+
+        // If an existing draft is missing Phase B artifacts, backfill once (defensive).
+        try {
+          const latest = await coverLetterDraftService.getDraft(initialDraft.id);
+          if (latest && latest.jobDescriptionId && user?.id) {
+            const gapsReady = latest.enhancedMatchData?.sectionGapInsights !== undefined;
+            const hasCoreReqs = Array.isArray(latest.enhancedMatchData?.coreRequirementDetails);
+            const hasPrefReqs = Array.isArray(latest.enhancedMatchData?.preferredRequirementDetails);
+            const needsFullPhaseB = !hasCoreReqs || !hasPrefReqs;
+
+            if (needsFullPhaseB && editModePhaseBRefreshDraftIdRef.current !== latest.id) {
+              editModePhaseBRefreshDraftIdRef.current = latest.id;
+              coverLetterDraftService
+                .calculateMetricsForDraft(latest.id, user.id, latest.jobDescriptionId)
+                .then(async () => {
+                  const refreshed = await coverLetterDraftService.getDraft(latest.id);
+                  if (refreshed) setLocalDraft(refreshed);
+                })
+                .catch((phaseBError) => {
+                  console.warn('[CoverLetterModal] Phase B backfill failed in edit mode (non-blocking):', phaseBError);
+                });
+            } else if (!gapsReady && editModePhaseBGapsDraftIdRef.current !== latest.id) {
+              editModePhaseBGapsDraftIdRef.current = latest.id;
+              coverLetterDraftService
+                .calculateSectionGapsForDraft(latest.id, user.id, latest.jobDescriptionId)
+                .then(async () => {
+                  const refreshed = await coverLetterDraftService.getDraft(latest.id);
+                  if (refreshed) setLocalDraft(refreshed);
+                })
+                .catch((phaseBError) => {
+                  console.warn('[CoverLetterModal] Gaps backfill failed in edit mode (non-blocking):', phaseBError);
+                });
+            }
           }
+        } catch (phaseBInitError) {
+          console.warn('[CoverLetterModal] Failed to check Phase B status in edit mode (non-blocking):', phaseBInitError);
         }
-      }
-    };
-    
-    initializeEditMode();
-  }, [mode, initialDraft, isOpen]);
+	      }
+	    };
+	    
+	    initializeEditMode();
+	  }, [mode, initialDraft, isOpen, coverLetterDraftService, jobContent, user?.id]);
 
   // PHASE 3: Auto-load removed - draft is set directly in handleGenerateDraft
   // No need to wait for streaming completion, generateDraft() already saves and returns the draft
@@ -1158,7 +1572,10 @@ export const CoverLetterModal = ({
         .from('cover_letter_templates')
         .select('id, name')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: true })
+        // Most recent first, so edits show up immediately and the default selection
+        // is the template the user most likely cares about.
+        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(20);
 
       if (cancelled) return;
@@ -1172,8 +1589,22 @@ export const CoverLetterModal = ({
           name: name || 'Untitled Template',
         }));
         setTemplates(summaries);
-        if (summaries.length > 0) {
-          const nextTemplateId = selectedTemplateId ?? summaries[0].id;
+
+        const preferredFromStorage = (() => {
+          try {
+            return localStorage.getItem(`coverLetter:lastTemplateId:${user.id}`);
+          } catch {
+            return null;
+          }
+        })();
+
+        const availableIds = new Set(summaries.map(s => s.id));
+        const nextTemplateId =
+          (selectedTemplateId && availableIds.has(selectedTemplateId) ? selectedTemplateId : null) ||
+          (preferredFromStorage && availableIds.has(preferredFromStorage) ? preferredFromStorage : null) ||
+          (summaries[0]?.id ?? null);
+
+        if (nextTemplateId) {
           setSelectedTemplateId(nextTemplateId);
           setTemplateId(nextTemplateId);
         }
@@ -1185,7 +1616,7 @@ export const CoverLetterModal = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, user?.id, selectedTemplateId, setTemplateId]);
+  }, [isOpen, user?.id, setTemplateId]);
 
   // Phase 2: Load template sections for skeleton
   useEffect(() => {
@@ -1233,15 +1664,33 @@ export const CoverLetterModal = ({
 
   useEffect(() => {
     if (!draft) {
+      sectionDraftsDraftIdRef.current = null;
       setSectionDrafts({});
       return;
     }
-    const map = draft.sections.reduce((acc, section) => {
-      acc[section.id] = section.content;
-      return acc;
-    }, {} as Record<string, string>);
-    setSectionDrafts(map);
-  }, [draft]);
+
+    // Only clear local overrides when switching to a different draft.
+    if (sectionDraftsDraftIdRef.current !== draft.id) {
+      sectionDraftsDraftIdRef.current = draft.id;
+      setSectionDrafts({});
+      return;
+    }
+
+    // If the draft updates (Phase B, slot fills, etc.), keep local overrides,
+    // but drop overrides for any sections that no longer exist.
+    const currentSectionIds = new Set((draft.sections || []).map((s) => s.id));
+    setSectionDrafts((prev) => {
+      let changed = false;
+      const next: Record<string, string> = { ...prev };
+      for (const sectionId of Object.keys(next)) {
+        if (!currentSectionIds.has(sectionId)) {
+          delete next[sectionId];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [draft?.id, draft?.sections]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -1287,7 +1736,7 @@ export const CoverLetterModal = ({
     const timerId = window.setTimeout(async () => {
       setIsPreParsing(true);
       try {
-        const record = await jobDescriptionService.parseAndCreate(user.id, trimmed, {
+        const record = await jobDescriptionService.findOrCreateJobDescription(user.id, trimmed, {
           url: null,
           onProgress: () => {},
           onToken: () => {},
@@ -1303,11 +1752,13 @@ export const CoverLetterModal = ({
         
         // PERF: Fire-and-forget pre-analysis while user reviews the parsed JD
         // This saves 15-25s when they click "Generate" because jdAnalysis will be cached
-        supabase.functions.invoke('preanalyze-jd', {
-          body: { jobDescriptionId: record.id },
-        }).then(() => {
-          console.log('[CoverLetterModal] Pre-analysis triggered for JD:', record.id);
-        }).catch((err) => {
+        // Only trigger if this was a fresh parse (not cached)
+        if (!record.cached) {
+          supabase.functions.invoke('preanalyze-jd', {
+            body: { jobDescriptionId: record.id },
+          }).then(() => {
+            console.log('[CoverLetterModal] Pre-analysis triggered for JD:', record.id);
+          }).catch((err) => {
           // Non-blocking - if it fails, the main pipeline will just do the analysis
           console.warn('[CoverLetterModal] Pre-analysis failed (non-blocking):', err);
         });
@@ -1404,6 +1855,7 @@ export const CoverLetterModal = ({
     setJobInputError(null);
     setJobDescriptionRecord(null);
     setSectionDrafts({});
+    sectionDraftsDraftIdRef.current = null;
     setSavingSections({});
     setJdStreamingMessages([]);
     setPreParsedJD(null);
@@ -1420,9 +1872,13 @@ export const CoverLetterModal = ({
     setAPhaseRetrying(false);
     setAPhaseRetryAttempts(0);
     setAPhaseHardError(null);
-    aPhaseStartMsRef.current = null;
-    streamingJobIdRef.current = null;
-    aPhaseTerminalRef.current = false;
+    setPhaseBTimeout(false);
+	    setPhaseBRetryAttempts(0);
+	    aPhaseStartMsRef.current = null;
+	    phaseBStartMsRef.current = null;
+	    streamingJobIdRef.current = null;
+	    aPhaseTerminalRef.current = false;
+	    setIsGeneratingDraft(false);
     setGenerationHasStarted(false);
     setPeakProgress(0);
     setFinalizationOpen(false);
@@ -1432,6 +1888,13 @@ export const CoverLetterModal = ({
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplateId(templateId);
     setTemplateId(templateId);
+    if (user?.id) {
+      try {
+        localStorage.setItem(`coverLetter:lastTemplateId:${user.id}`, templateId);
+      } catch {
+        // ignore
+      }
+    }
   };
 
   const handleGenerateDraft = async () => {
@@ -1453,10 +1916,20 @@ export const CoverLetterModal = ({
     setJobInputError(null);
     clearError();
     resetProgress();
-    setFinalizationError(null);
-    setJdStreamingMessages([]);
+	    setFinalizationError(null);
+	    setJdStreamingMessages([]);
+	    // Perf debug (opt-in): track end-to-end generation latency.
+	    perfGenerateStartMsRef.current = Date.now();
+	    perfDraftReadyMsRef.current = null;
+	    perfDraftIdRef.current = null;
+	    perfPhaseACompleteRef.current = false;
+	    perfPhaseBGapsReadyDraftIdRef.current = null;
+	    recordCoverLetterPerfEvent('generate_click', {
+	      templateId: selectedTemplateId,
+	      jobDescriptionLength: jobContent.trim().length,
+	    });
 
-    try {
+	    try {
       let record: JobDescriptionRecord;
       
       // If we have a pre-parsed JD and the content hasn't changed, reuse it
@@ -1465,9 +1938,9 @@ export const CoverLetterModal = ({
         record = preParsedJD;
         setJdStreamingMessages(['Job description analysis complete (cached).']);
       } else {
-        // Otherwise, parse the JD with progress feedback
+        // Otherwise, find cached or parse the JD with progress feedback
         setIsParsingJobDescription(true);
-        record = await jobDescriptionService.parseAndCreate(user.id, jobContent.trim(), {
+        record = await jobDescriptionService.findOrCreateJobDescription(user.id, jobContent.trim(), {
           url: null, // URL ingestion hidden for MVP (see TODO in renderJobDescriptionTab)
           onProgress: (message) => {
             setJdStreamingMessages(prev => {
@@ -1486,12 +1959,22 @@ export const CoverLetterModal = ({
             });
           },
         });
-        setJdStreamingMessages(prev => [...prev, 'Job description analysis complete.']);
+        setJdStreamingMessages(prev => [...prev, record.cached ? 'Job description analysis complete (cached).' : 'Job description analysis complete.']);
         setIsParsingJobDescription(false);
       }
       
       setJobDescriptionRecord(record);
       setJobDescriptionId(record.id);
+
+      // PERF: Trigger JD pre-analysis on generate, so jdAnalysis can hit cache even if user skipped the pre-parse wait.
+      supabase.functions
+        .invoke('preanalyze-jd', { body: { jobDescriptionId: record.id } })
+        .then(() => {
+          console.log('[CoverLetterModal] Pre-analysis triggered (generate flow) for JD:', record.id);
+        })
+        .catch((err) => {
+          console.warn('[CoverLetterModal] Pre-analysis failed in generate flow (non-blocking):', err);
+        });
       
       // UNIFIED SKELETON: Switch to draft tab and mark generation as started
       setMainTab('cover-letter');
@@ -1609,10 +2092,13 @@ export const CoverLetterModal = ({
     if (!draft) return;
     const original = draft.sections.find(section => section.id === sectionId);
     if (!original) return;
-    setSectionDrafts(prev => ({
-      ...prev,
-      [sectionId]: original.content,
-    }));
+    // Remove local override so UI falls back to the server-backed draft content.
+    setSectionDrafts(prev => {
+      if (!(sectionId in prev)) return prev;
+      const next = { ...prev };
+      delete next[sectionId];
+      return next;
+    });
   };
 
   const handleSectionSave = async (sectionId: string) => {
@@ -1625,12 +2111,124 @@ export const CoverLetterModal = ({
     }));
 
     try {
-      const updatedDraft = await updateSection({ sectionId, content });
-      const map = updatedDraft.sections.reduce((acc, section) => {
-        acc[section.id] = section.content;
-        return acc;
-      }, {} as Record<string, string>);
-      setSectionDrafts(map);
+      await updateSection({ sectionId, content });
+      // Clear local override on successful persist; draft content will re-render from source of truth.
+      setSectionDrafts(prev => {
+        if (!(sectionId in prev)) return prev;
+        const next = { ...prev };
+        delete next[sectionId];
+        return next;
+      });
+
+	      // If the user meaningfully edits an Intro section, persist it as a reusable *variation*
+	      // (not a new saved section) so Saved Sections doesn't fill up with per-company intros.
+	      // We attach the variation to the underlying saved section (if present).
+	      try {
+	        if (user?.id) {
+	          const section = draft.sections.find(s => s.id === sectionId) as any;
+	          const sectionType = String(section?.type ?? section?.slug ?? '').toLowerCase();
+          const isIntro =
+            sectionType.includes('intro') ||
+            String(section?.slug ?? '').toLowerCase().includes('intro') ||
+            String(section?.title ?? '').toLowerCase().includes('intro');
+          const sourceKind = section?.source?.kind;
+          const sourceEntityId = section?.source?.entityId as string | null | undefined;
+          const parentSavedSectionId =
+            sourceKind === 'saved_section'
+              ? sourceEntityId
+              : sourceKind === 'template_static'
+              ? sourceEntityId
+              : null;
+
+	          if (isIntro && parentSavedSectionId) {
+            const tokenized = tokenizeCoverLetterText({
+              text: content,
+              company: jobDescriptionRecord?.company ?? draft.company ?? null,
+              role: jobDescriptionRecord?.role ?? draft.role ?? null,
+            }).trim();
+
+            if (tokenized) {
+              const { data: existingVariation } = await supabase
+                .from('content_variations')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('parent_entity_type', 'saved_section')
+                .eq('parent_entity_id', parentSavedSectionId)
+                .eq('content', tokenized)
+                .limit(1)
+                .maybeSingle();
+
+              if (!existingVariation?.id) {
+                const variationInsert: ContentVariationInsert = {
+                  user_id: user.id,
+                  parent_entity_type: 'saved_section',
+                  parent_entity_id: parentSavedSectionId,
+                  title: `Intro variation – ${jobDescriptionRecord?.company ?? draft.company ?? 'Cover Letter'}`,
+                  content: tokenized,
+                  target_company: jobDescriptionRecord?.company ?? draft.company ?? null,
+                  target_job_title: jobDescriptionRecord?.role ?? draft.role ?? null,
+                  job_description_id: draft.jobDescriptionId ?? null,
+                  created_by: 'user',
+                  times_used: 0,
+                };
+                const { error: variationError } = await supabase
+                  .from('content_variations')
+                  .insert(variationInsert as any);
+
+                if (variationError) {
+                  console.warn('[CoverLetterModal] Failed to create intro variation (non-blocking):', variationError);
+                }
+              }
+            }
+	          }
+
+	          // If this section was sourced from a story, do NOT mutate the base story from within the
+	          // cover letter flow. Instead, persist the edited content as a variation tied to the story.
+	          // Users can choose to update the base story explicitly via Work History.
+	          const sourceKindStory = section?.source?.kind;
+	          const sourceStoryId = section?.source?.entityId as string | null | undefined;
+	          if (sourceKindStory === 'work_story' && sourceStoryId) {
+	            const variationContent = String(content || '').trim();
+	            if (variationContent) {
+	              const { data: existingStoryVariation } = await supabase
+	                .from('content_variations')
+	                .select('id')
+	                .eq('user_id', user.id)
+	                .eq('parent_entity_type', 'approved_content')
+	                .eq('parent_entity_id', sourceStoryId)
+	                .eq('content', variationContent)
+	                .limit(1)
+	                .maybeSingle();
+
+	              if (!existingStoryVariation?.id) {
+	                const title = `CL variation – ${jobDescriptionRecord?.company ?? draft.company ?? 'Company'} – ${
+	                  section?.title ?? 'Story'
+	                }`;
+	                const variationInsert: ContentVariationInsert = {
+	                  user_id: user.id,
+	                  parent_entity_type: 'approved_content',
+	                  parent_entity_id: sourceStoryId,
+	                  title,
+	                  content: variationContent,
+	                  target_company: jobDescriptionRecord?.company ?? draft.company ?? null,
+	                  target_job_title: jobDescriptionRecord?.role ?? draft.role ?? null,
+	                  job_description_id: draft.jobDescriptionId ?? null,
+	                  created_by: 'user',
+	                  times_used: 0,
+	                };
+	                const { error: storyVariationError } = await supabase
+	                  .from('content_variations')
+	                  .insert(variationInsert as any);
+	                if (storyVariationError) {
+	                  console.warn('[CoverLetterModal] Failed to create story variation (non-blocking):', storyVariationError);
+	                }
+	              }
+	            }
+	          }
+	        }
+	      } catch (variationError) {
+	        console.warn('[CoverLetterModal] Exception creating intro variation (non-blocking):', variationError);
+	      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to update section content.';
@@ -1642,6 +2240,85 @@ export const CoverLetterModal = ({
       }));
     }
   };
+
+  const handleManualRefreshInsights = async () => {
+    if (!draft?.id) {
+      toast({
+        title: 'No draft available',
+        description: 'Generate or open a draft before refreshing insights.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!user?.id) {
+      toast({
+        title: 'Missing user session',
+        description: 'Please sign in again before refreshing insights.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const jobDescriptionId = draft.jobDescriptionId ?? jobDescriptionRecord?.id ?? null;
+    if (!jobDescriptionId) {
+      toast({
+        title: 'Missing job description',
+        description: 'Reload the draft to refresh requirements and gaps.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (isManualRefreshLoading) return;
+    setIsManualRefreshLoading(true);
+
+    try {
+      // Persist any local edits so metrics/gaps are computed against the latest content.
+      if (Object.keys(sectionDrafts).length > 0) {
+        const mergedSections = (draft.sections || []).map((section) => ({
+          ...section,
+          content: sectionDrafts[section.id] ?? section.content,
+        }));
+        await coverLetterDraftService.updateDraft(draft.id, { sections: mergedSections });
+        setSectionDrafts({});
+      }
+
+      await coverLetterDraftService.calculateMetricsForDraft(
+        draft.id,
+        user.id,
+        jobDescriptionId,
+      );
+
+      const refreshed = await coverLetterDraftService.getDraft(draft.id);
+      if (refreshed) {
+        setDraft(refreshed);
+      }
+
+      toast({
+        title: 'Insights refreshed',
+        description: 'Gaps, metrics, and readiness are up to date.',
+      });
+    } catch (error) {
+      console.error('[CoverLetterModal] Manual refresh failed:', error);
+      toast({
+        title: 'Refresh failed',
+        description:
+          error instanceof Error ? error.message : 'Unable to refresh insights. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsManualRefreshLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (saveStatusTimerRef.current) {
+        window.clearTimeout(saveStatusTimerRef.current);
+      }
+    };
+  }, []);
 
   // Add Section from Library handlers
   const handleInsertBetweenSections = (insertIndex: number) => {
@@ -1661,6 +2338,8 @@ export const CoverLetterModal = ({
       insertIndex,
       preferredSectionType: preferredType,
     });
+    setLibraryInitialContentType(null);
+    setLibraryAutoAdvance(false);
     setShowLibraryModal(true);
   };
 
@@ -1712,6 +2391,48 @@ export const CoverLetterModal = ({
     }
   };
 
+  const handleReorderSections = async (fromIndex: number, toIndex: number) => {
+    if (!draft) return;
+    const sections = [...draft.sections];
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= sections.length
+    ) {
+      return;
+    }
+
+    const [moved] = sections.splice(fromIndex, 1);
+    let insertIndex = toIndex;
+    if (fromIndex < toIndex) {
+      insertIndex = insertIndex - 1;
+    }
+
+    if (insertIndex < 0) insertIndex = 0;
+    if (insertIndex > sections.length) insertIndex = sections.length;
+
+    sections.splice(insertIndex, 0, moved);
+    const reorderedSections = sections.map((section, index) => ({
+      ...section,
+      order: index,
+    }));
+
+    setDraft({ ...draft, sections: reorderedSections });
+    try {
+      await coverLetterDraftService.updateDraft(draft.id, {
+        sections: reorderedSections,
+      });
+    } catch (error) {
+      console.error('[CoverLetterModal] Failed to reorder sections:', error);
+      toast({
+        title: 'Unable to reorder sections',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleReplaceSection = async (sectionId: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string; title?: string }) => {
     if (!draft) return;
 
@@ -1739,47 +2460,6 @@ export const CoverLetterModal = ({
       console.error('[CoverLetterCreateModal] Failed to replace section:', error);
       toast({
         title: "Failed to replace section",
-        description: error instanceof Error ? error.message : "Please try again",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Phase 1: Handlers extracted for DraftEditor
-  const handleSectionDuplicate = async (section: any, sectionIndex: number) => {
-    if (!draft) return;
-    try {
-      const newSection = {
-        id: `section-${Date.now()}`,
-        type: section.type,
-        slug: section.slug,
-        title: `${section.title} (Copy)`,
-        content: section.content,
-        order: sectionIndex + 1,
-      };
-
-      const updatedSections = [...draft.sections];
-      updatedSections.splice(sectionIndex + 1, 0, newSection);
-
-      const reorderedSections = updatedSections.map((s, index) => ({
-        ...s,
-        order: index,
-      }));
-
-      setDraft({ ...draft, sections: reorderedSections });
-
-      await coverLetterDraftService.updateDraft(draft.id, {
-        sections: reorderedSections,
-      });
-
-      toast({
-        title: "Section duplicated",
-        description: "A copy has been created below this section",
-      });
-    } catch (error) {
-      console.error('[CoverLetterCreateModal] Failed to duplicate section:', error);
-      toast({
-        title: "Failed to duplicate section",
         description: error instanceof Error ? error.message : "Please try again",
         variant: "destructive",
       });
@@ -1821,12 +2501,15 @@ export const CoverLetterModal = ({
   };
 
   const handleInsertFromLibrary = (sectionId: string, sectionType: 'intro' | 'body' | 'closing', sectionIndex: number) => {
+    const preferredContentType = sectionType === 'intro' || sectionType === 'closing' ? 'saved' : 'story';
     setLibraryInvocation({
       type: 'replace_or_insert_below',
       sectionId,
       sectionType,
       sectionIndex,
     });
+    setLibraryInitialContentType(preferredContentType);
+    setLibraryAutoAdvance(true);
     setShowLibraryModal(true);
   };
 
@@ -2009,6 +2692,8 @@ export const CoverLetterModal = ({
     );
   };
 
+  const generateButtonRef = useRef<HTMLButtonElement>(null);
+
   const renderJobDescriptionTab = () => {
     return (
       <div className="space-y-6">
@@ -2024,6 +2709,7 @@ export const CoverLetterModal = ({
               {/* Generate button - only show if draft hasn't been generated yet */}
               {!draft && (
                 <Button
+                  ref={generateButtonRef}
                   type="button"
                   className="gap-2"
                   onClick={handleGenerateDraft}
@@ -2052,11 +2738,17 @@ export const CoverLetterModal = ({
           <CardContent className="space-y-4">
             {/* TODO: Re-enable job description URL ingestion once MVP supports remote fetching. Tracked in docs/backlog/HIDDEN_FEATURES.md */}
             <div className="relative">
-              <Textarea
+              <GrammarTextarea
                 placeholder="Paste job description here..."
                 rows={8}
                 value={jobContent}
                 onChange={event => setJobContent(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Tab' && !event.shiftKey && generateButtonRef.current) {
+                    event.preventDefault();
+                    generateButtonRef.current.focus();
+                  }
+                }}
                 disabled={isBusy}
                 autoFocus={mode === 'create' && !draft}
                 className="resize-y"
@@ -2484,10 +3176,10 @@ export const CoverLetterModal = ({
         onSectionSave={handleSectionSave}
         onSectionFocus={handleSectionFocus}
         onSectionBlur={handleSectionBlur}
-        onSectionDuplicate={handleSectionDuplicate}
         onSectionDelete={handleSectionDelete}
         onInsertBetweenSections={handleInsertBetweenSections}
         onInsertFromLibrary={handleInsertFromLibrary}
+        onReorderSections={handleReorderSections}
         onEnhanceSection={(gapData) => {
           setSelectedGap(gapData);
           setShowContentGenerationModal(true);
@@ -2496,6 +3188,8 @@ export const CoverLetterModal = ({
           console.log('Add metrics to section:', sectionId);
         }}
         onEditGoals={() => setShowGoalsModal(true)}
+        onRefreshInsights={handleManualRefreshInsights}
+        isRefreshLoading={isManualRefreshLoading}
       />
       </>
     );
@@ -2537,27 +3231,53 @@ export const CoverLetterModal = ({
                 onClick={async () => {
                   if (draft?.id) {
                     try {
+                      setSaveStatus('saving');
+                      if (saveStatusTimerRef.current) {
+                        window.clearTimeout(saveStatusTimerRef.current);
+                      }
+                      const mergedSections = (draft.sections || []).map((section) => ({
+                        ...section,
+                        content: sectionDrafts[section.id] ?? section.content,
+                      }));
                       await coverLetterDraftService.updateDraft(draft.id, {
-                        sections: draft.sections,
+                        sections: mergedSections,
+                      });
+                      // Clear local overrides that were just persisted.
+                      setSectionDrafts((prev) => {
+                        if (!prev || Object.keys(prev).length === 0) return prev;
+                        return {};
                       });
                       toast({
                         title: 'Draft saved',
                         description: 'Your changes have been saved.',
                       });
                       onSave?.();
+                      setSaveStatus('saved');
+                      saveStatusTimerRef.current = window.setTimeout(() => {
+                        setSaveStatus('idle');
+                      }, 2000);
                     } catch (error) {
+                      console.error('[CoverLetterModal] Save failed:', error);
+                      setSaveStatus('idle');
                       toast({
                         title: 'Save failed',
-                        description: 'Unable to save draft. Please try again.',
+                        description:
+                          error instanceof Error
+                            ? error.message
+                            : 'Unable to save draft. Please try again.',
                         variant: 'destructive',
                       });
                     }
                   }
                 }}
-                disabled={showSkeleton}
+                disabled={showSkeleton || saveStatus === 'saving'}
               >
-                <Save className="h-4 w-4 mr-1" />
-                Save
+                {saveStatus === 'saving' ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-1" />
+                )}
+                {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved' : 'Save'}
               </Button>
             </div>
           )}
@@ -2568,12 +3288,9 @@ export const CoverLetterModal = ({
 	          if (mode !== 'create') return false;
 	          if (!generationHasStarted) return false;
 	          if (isFitCheckStep) return false;
-	          // Phase B still computing if gaps/score not yet materialized on the draft.
-	          const phaseBInFlight = Boolean(
-	            draft &&
-	              (draft.enhancedMatchData?.sectionGapInsights === undefined ||
-	                typeof (draft.analytics as any)?.overallScore !== 'number'),
-	          );
+	          // Phase B still computing if gaps not yet materialized on the draft.
+	          // Score/readiness can arrive before gaps; gaps are the gating artifact for this step.
+	          const phaseBInFlight = Boolean(draft && draft.enhancedMatchData?.sectionGapInsights === undefined);
 	          return showSkeleton || metricsLoading || phaseBInFlight;
 	        })() && (
           <div className="w-full mb-2">
@@ -2592,6 +3309,30 @@ export const CoverLetterModal = ({
             />
           </div>
         )}
+
+        {mode === 'create' && generationHasStarted && !isFitCheckStep && phaseBTimeout && phaseBGapsInFlight && draft?.sections?.length ? (
+          <Alert className="mb-2">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Gaps are taking longer than expected</AlertTitle>
+            <AlertDescription className="flex items-center justify-between gap-3">
+              <span>
+                You can keep editing, or retry gap detection.
+                {phaseBRetryAttempts > 0 ? ` (Retries: ${phaseBRetryAttempts})` : ''}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  retryPhaseBGaps('manual');
+                }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry gaps
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
 
 	        {isFitCheckStep ? (
 	          <div className="flex flex-col w-full">
@@ -3356,7 +4097,7 @@ export const CoverLetterModal = ({
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Title</label>
-            <Input value={saveToStoriesTitle} onChange={(e) => setSaveToStoriesTitle(e.target.value)} />
+            <GrammarInput value={saveToStoriesTitle} onChange={(e) => setSaveToStoriesTitle(e.target.value)} />
           </div>
 
           <div className="space-y-2">
@@ -3448,6 +4189,8 @@ export const CoverLetterModal = ({
         onClose={() => {
           setShowLibraryModal(false);
           setLibraryInvocation(null);
+          setLibraryInitialContentType(null);
+          setLibraryAutoAdvance(false);
         }}
         invocation={libraryInvocation}
         jobDescription={jobDescriptionRecord?.structured_data?.rawText || jobDescriptionRecord?.analysis?.llm?.rawText}
@@ -3455,6 +4198,8 @@ export const CoverLetterModal = ({
         savedSections={savedSections}
         isLibraryLoading={isLibraryLoading}
         libraryError={libraryError}
+        initialContentType={libraryInitialContentType ?? undefined}
+        initialShowSelectionPanel={libraryAutoAdvance}
         onReplace={handleReplaceSection}
         onInsertBelow={handleInsertBelow}
         onInsertHere={async (insertIndex: number, sectionType: string, content: string, source: any) => {

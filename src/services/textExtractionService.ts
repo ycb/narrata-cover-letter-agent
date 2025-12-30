@@ -1,5 +1,6 @@
 // Text extraction service for PDF and DOCX files
 import type { TextExtractionResult } from '@/types/fileUpload';
+import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 // Dynamic imports for production libraries
 let pdfjsLib: any = null;
@@ -13,8 +14,7 @@ export class TextExtractionService {
     if (!pdfjsLib) {
       try {
         pdfjsLib = await import('pdfjs-dist');
-        // Use local worker file that matches the installed pdfjs-dist version (5.4.149)
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
       } catch (error) {
         console.warn('pdfjs-dist not available, using fallback');
       }

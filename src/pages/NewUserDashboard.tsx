@@ -38,6 +38,7 @@ import { LowSeverityGapsWidget } from "@/components/dashboard/LowSeverityGapsWid
 import { useGapSummary } from "@/hooks/useGapSummary";
 import { useContentItemsWithGaps } from "@/hooks/useContentItemsWithGaps";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserGoals } from "@/contexts/UserGoalsContext";
 
 interface OnboardingTask {
   id: string;
@@ -51,7 +52,8 @@ interface OnboardingTask {
 export default function NewUserDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, profile, updateProfile } = useAuth();
+  const { user, profile, updateProfile, isDemo } = useAuth();
+  const { goals: userGoals, setGoals } = useUserGoals();
   const gapSummary = useGapSummary();
   const contentItemsWithGaps = useContentItemsWithGaps();
   const contentQualityWidgetRef = React.useRef<ContentQualityWidgetRef>(null);
@@ -317,7 +319,9 @@ export default function NewUserDashboard() {
       
       // If all completed and preference is still onboarding, flip to main
       if (allCompleted && preferredDashboard !== 'main') {
-        updateProfile({ preferred_dashboard: 'main' } as any);
+        if (!isDemo) {
+          updateProfile({ preferred_dashboard: 'main' } as any);
+        }
         // Show toast notification
         setTimeout(() => {
           alert("Nice! You've completed onboarding. The main dashboard is now your default home.");
@@ -427,7 +431,9 @@ export default function NewUserDashboard() {
     if (!user) return;
     
     // Update preference to main
-    await updateProfile({ preferred_dashboard: 'main' } as any);
+    if (!isDemo) {
+      await updateProfile({ preferred_dashboard: 'main' } as any);
+    }
     
     // Navigate to main dashboard
     navigate('/dashboard/main');
@@ -660,9 +666,10 @@ export default function NewUserDashboard() {
         isOpen={showGoalsModal} 
         onClose={() => setShowGoalsModal(false)}
         onSave={async (goals) => {
-          // Goals are auto-saved via UserGoalsContext, just close modal
+          await setGoals(goals);
           setShowGoalsModal(false);
         }}
+        initialGoals={userGoals || undefined}
       />
       <MyVoiceModal 
         isOpen={showVoiceModal} 

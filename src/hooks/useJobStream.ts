@@ -18,6 +18,51 @@ const devLog = (...args: unknown[]) => {
   }
 };
 
+const isPerfDebugEnabled = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('debugPerf') === '1') return true;
+  } catch {
+    // ignore
+  }
+  try {
+    return (
+      window.localStorage.getItem('debug:perf') === '1' ||
+      window.sessionStorage.getItem('debug:perf') === '1'
+    );
+  } catch {
+    return false;
+  }
+};
+
+type JobPerfTrace = {
+  jobId?: string;
+  jobType?: string;
+  createdAtMs?: number;
+  connectAtMs?: number;
+  firstEventAtMs?: number;
+  stageFirstUpdateAtMs: Record<string, number>;
+  stageFirstPartialAtMs: Record<string, number>;
+  stageCompletedAtMs: Record<string, number>;
+};
+
+const recordJobPerfTrace = (trace: JobPerfTrace) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const evt = { at: Date.now(), ...trace };
+    const listKey = 'debug:job-perf:events';
+    const lastKey = 'debug:job-perf:last';
+    const rawExisting = window.localStorage.getItem(listKey);
+    const existing = rawExisting ? (JSON.parse(rawExisting) as any[]) : [];
+    const next = [...existing, evt].slice(-25);
+    window.localStorage.setItem(lastKey, JSON.stringify(evt));
+    window.localStorage.setItem(listKey, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+};
+
 // ============================================================================
 // Hook Configuration
 // ============================================================================
@@ -129,6 +174,12 @@ export function useJobStream(
   const pollTimerRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);
   const jobIdRef = useRef<string | undefined>(initialJobId);
+  const perfEnabledRef = useRef<boolean>(isPerfDebugEnabled());
+  const perfTraceRef = useRef<JobPerfTrace>({
+    stageFirstUpdateAtMs: {},
+    stageFirstPartialAtMs: {},
+    stageCompletedAtMs: {},
+  });
 
   // ============================================================================
   // Helpers
@@ -159,10 +210,10 @@ export function useJobStream(
   // Create Job
   // ============================================================================
 
-  const createJob = useCallback(
-    async (type: JobType, input: JobInput): Promise<string> => {
-      try {
-        setError(null);
+	  const createJob = useCallback(
+	    async (type: JobType, input: JobInput): Promise<string> => {
+	      try {
+	        setError(null);
 
         // Get auth session
         const {
@@ -192,8 +243,18 @@ export function useJobStream(
           throw new Error('No job ID returned');
         }
 
-        const jobId = data.jobId;
-        log.info('[useJobStream] Created job:', jobId);
+	        const jobId = data.jobId;
+	        log.info('[useJobStream] Created job:', jobId);
+          if (perfEnabledRef.current) {
+            perfTraceRef.current = {
+              jobId,
+              jobType: type,
+              createdAtMs: Date.now(),
+              stageFirstUpdateAtMs: {},
+              stageFirstPartialAtMs: {},
+              stageCompletedAtMs: {},
+            };
+          }
 
         // Initialize state
         setState({
@@ -214,10 +275,10 @@ export function useJobStream(
           console.warn('[useJobStream] stream-job-process invoke failed (non-blocking):', procErr);
         }
 
-        // Auto-connect if enabled
-        if (autoStart) {
-          connect(jobId);
-        }
+	        // Auto-connect if enabled
+	        if (autoStart) {
+	          connect(jobId);
+	        }
 
         return jobId;
       } catch (err) {
@@ -236,10 +297,14 @@ export function useJobStream(
   // Connect (Polling implementation)
 // ============================================================================
 
-  const connect = useCallback(
-    (jobId: string) => {
-      // Helper: polling fallback
-      const startPolling = () => {
+	  const connect = useCallback(
+	    (jobId: string) => {
+        if (perfEnabledRef.current) {
+          perfTraceRef.current.jobId = jobId;
+          perfTraceRef.current.connectAtMs = Date.now();
+        }
+	      // Helper: polling fallback
+	      const startPolling = () => {
         log.info('[useJobStream] Falling back to polling for job:', jobId);
         // Clean up any previous job
         disconnect();
@@ -375,11 +440,23 @@ export function useJobStream(
           console.log('[useJobStream] SSE url:', primaryUrl.replace(/access_token=[^&]+/, 'access_token=***'), 'hasToken:', Boolean(token));
           let es = new EventSource(primaryUrl);
 
-          const handleProgress = (ev: MessageEvent) => {
-            try {
-              const payload = JSON.parse(ev.data || '{}');
-              const stage =
-                payload.stage || payload.stageName || payload.name || payload.stage_id;
+	          const handleProgress = (ev: MessageEvent) => {
+	            try {
+	              const payload = JSON.parse(ev.data || '{}');
+	              const stage =
+	                payload.stage || payload.stageName || payload.name || payload.stage_id;
+	              if (perfEnabledRef.current && stage) {
+	                const now = Date.now();
+	                const trace = perfTraceRef.current;
+	                trace.firstEventAtMs = trace.firstEventAtMs ?? now;
+	                trace.stageFirstUpdateAtMs[stage] = trace.stageFirstUpdateAtMs[stage] ?? now;
+	                if (payload.isPartial) {
+	                  trace.stageFirstPartialAtMs[stage] = trace.stageFirstPartialAtMs[stage] ?? now;
+	                }
+	                if (!payload.isPartial) {
+	                  trace.stageCompletedAtMs[stage] = trace.stageCompletedAtMs[stage] ?? now;
+	                }
+	              }
               
               // Task 5: Dev-only progress event logging - DETAILED
               devLog('[useJobStream] SSE progress event received', {
@@ -427,18 +504,37 @@ export function useJobStream(
                   stages: nextStages,
                   status: 'running',
                 } as JobStreamState;
-                if (!payload.isPartial) {
-                  devLog('[useJobStream] [STREAM] Stage complete:', stage);
-                  onProgress?.(stage, nextStages[stage].data);
-                }
-                return next;
-              });
+	                if (!payload.isPartial) {
+	                  devLog('[useJobStream] [STREAM] Stage complete:', stage);
+	                  onProgress?.(stage, nextStages[stage].data);
+	                  if (perfEnabledRef.current) {
+	                    try {
+	                      const trace = perfTraceRef.current;
+	                      const createdAt = trace.createdAtMs ?? trace.connectAtMs ?? Date.now();
+	                      const firstUpdate = trace.stageFirstUpdateAtMs[stage];
+	                      const firstPartial = trace.stageFirstPartialAtMs[stage];
+	                      const completedAt = trace.stageCompletedAtMs[stage] ?? Date.now();
+	                      // eslint-disable-next-line no-console
+	                      console.info('[perf][useJobStream] stage', {
+	                        jobId,
+	                        stage,
+	                        firstUpdate_ms: firstUpdate ? firstUpdate - createdAt : null,
+	                        firstPartial_ms: firstPartial ? firstPartial - createdAt : null,
+	                        completed_ms: completedAt - createdAt,
+	                      });
+	                    } catch {
+	                      // ignore
+	                    }
+	                  }
+	                }
+	                return next;
+	              });
             } catch (parseErr) {
               // Task 5: Dev-only parse error logging
               devLog('[useJobStream] SSE parse error:', parseErr);
             }
           };
-          const handleComplete = (ev: MessageEvent) => {
+	          const handleComplete = (ev: MessageEvent) => {
             // Task 5: Dev-only complete event logging
             devLog('[useJobStream] [STREAM] complete event received');
             try {
@@ -447,18 +543,21 @@ export function useJobStream(
                 hasResult: !!payload.result,
                 resultKeys: payload.result ? Object.keys(payload.result) : [],
               });
-              setState((prev) => ({
-                ...(prev as any),
-                status: 'complete',
-                result: payload.result || (prev as any)?.result,
-                completedAt: new Date(),
-              }));
-              if (payload.result) onComplete?.(payload.result);
-            } finally {
-              es.close();
-              setIsStreaming(false);
-            }
-          };
+	              setState((prev) => ({
+	                ...(prev as any),
+	                status: 'complete',
+	                result: payload.result || (prev as any)?.result,
+	                completedAt: new Date(),
+	              }));
+	              if (payload.result) onComplete?.(payload.result);
+                if (perfEnabledRef.current) {
+                  recordJobPerfTrace(perfTraceRef.current);
+                }
+	            } finally {
+	              es.close();
+	              setIsStreaming(false);
+	            }
+	          };
           const handleError = (e?: MessageEvent) => {
             // Task 5: Dev-only SSE error logging
             devLog('[useJobStream] [STREAM] SSE error occurred', {

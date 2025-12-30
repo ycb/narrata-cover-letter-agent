@@ -14,7 +14,7 @@ export interface GapContext {
 
 export const buildContentTaggingPrompt = (
   content: string, 
-  contentType: 'company' | 'role' | 'saved_section',
+  contentType: 'company' | 'role' | 'saved_section' | 'story',
   userGoals?: { industries?: string[]; businessModels?: string[] },
   companyResearch?: CompanyResearchResult | null,
   gapContext?: GapContext | null

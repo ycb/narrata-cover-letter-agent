@@ -12,8 +12,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { GrammarInput } from "@/components/ui/grammar-input";
+import { TagAutocompleteInput } from "@/components/ui/TagAutocompleteInput";
+import { GrammarTextarea } from "@/components/ui/grammar-textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,10 +22,15 @@ import { X, Loader2, Trash2, Link as LinkIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { addUserTag, mergeUserTags, removeUserTag } from "@/lib/userTags";
+import { GapDetectionService } from "@/services/gapDetectionService";
+import { UserTagService } from "@/services/userTagService";
 import { STORY_TEMPLATES } from "@/lib/constants/storyTemplates";
 import { LinkPicker } from "./LinkPicker";
 import type { ExternalLink, WorkHistoryBlurb } from "@/types/workHistory";
+import type { ContentVariationInsert } from "@/types/variations";
 import { isExternalLinksEnabled } from "@/lib/flags";
+import { clearDraft, loadDraft, saveDraft } from "@/lib/localDraft";
 
 interface AddStoryModalProps {
   open: boolean;
@@ -83,6 +89,14 @@ export function AddStoryModal({
   const { toast } = useToast();
 
   const isEditing = !!editingStory;
+  const draftKey = `draft:edit-story:${user?.id ?? 'anon'}:${editingStory?.id ?? workItemId ?? roleId ?? 'new'}`;
+
+  const baseStoryTitle = editingStory?.title || "";
+  const baseStoryContent = editingStory?.content || "";
+  const baseOutcomeMetrics = editingStory?.outcomeMetrics || [];
+  const baseStoryTags = editingStory?.tags || [];
+  const baseSelectedCompany = editingStory?.company || "";
+  const baseSelectedRole = editingStory?.role || "";
 
   // Update form when editing story changes
   useEffect(() => {
@@ -91,7 +105,7 @@ export function AddStoryModal({
       setStoryContent(editingStory.content);
       setStoryOutcomeMetrics(editingStory.outcomeMetrics || []);
       setOutcomeMetricInput("");
-      setStoryTags(editingStory.tags);
+      setStoryTags(editingStory.tags || []);
       setSelectedCompany(editingStory.company || "");
       setSelectedRole(editingStory.role || "");
     } else {
@@ -107,15 +121,115 @@ export function AddStoryModal({
     }
   }, [editingStory]);
 
-  const handleAddStoryTag = () => {
-    if (storyTagInput.trim() && !storyTags.includes(storyTagInput.trim())) {
-      setStoryTags([...storyTags, storyTagInput.trim()]);
-      setStoryTagInput("");
+  const persistDraftIfDirty = () => {
+    const dirty =
+      storyTitle !== baseStoryTitle ||
+      storyContent !== baseStoryContent ||
+      JSON.stringify(storyOutcomeMetrics) !== JSON.stringify(baseOutcomeMetrics) ||
+      JSON.stringify(storyTags) !== JSON.stringify(baseStoryTags) ||
+      (isViewAllContext && (selectedCompany !== baseSelectedCompany || selectedRole !== baseSelectedRole));
+
+    if (!dirty) {
+      clearDraft(draftKey);
+      return;
     }
+
+    saveDraft(draftKey, {
+      storyTitle,
+      storyContent,
+      storyOutcomeMetrics,
+      storyTags,
+      selectedTemplate,
+      selectedCompany,
+      selectedRole,
+      isViewAllContext,
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const draft = loadDraft<{
+      storyTitle?: string;
+      storyContent?: string;
+      storyOutcomeMetrics?: string[];
+      storyTags?: string[];
+      selectedTemplate?: string;
+      selectedCompany?: string;
+      selectedRole?: string;
+      isViewAllContext?: boolean;
+    }>(draftKey);
+    if (!draft?.data) return;
+
+    const pristine =
+      storyTitle === baseStoryTitle &&
+      storyContent === baseStoryContent &&
+      JSON.stringify(storyOutcomeMetrics) === JSON.stringify(baseOutcomeMetrics) &&
+      JSON.stringify(storyTags) === JSON.stringify(baseStoryTags) &&
+      (!isViewAllContext || (selectedCompany === baseSelectedCompany && selectedRole === baseSelectedRole));
+
+    if (!pristine) return;
+
+    setStoryTitle(draft.data.storyTitle ?? storyTitle);
+    setStoryContent(draft.data.storyContent ?? storyContent);
+    setStoryOutcomeMetrics(Array.isArray(draft.data.storyOutcomeMetrics) ? draft.data.storyOutcomeMetrics : storyOutcomeMetrics);
+    setStoryTags(Array.isArray(draft.data.storyTags) ? draft.data.storyTags : storyTags);
+    setSelectedTemplate(draft.data.selectedTemplate ?? selectedTemplate);
+    setSelectedCompany(draft.data.selectedCompany ?? selectedCompany);
+    setSelectedRole(draft.data.selectedRole ?? selectedRole);
+    toast({ title: "Restored draft", description: "Recovered your unsaved story edits." });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, draftKey]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = () => persistDraftIfDirty();
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, storyTitle, storyContent, storyOutcomeMetrics, storyTags, selectedCompany, selectedRole, selectedTemplate]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onVisibilityChange = () => {
+      if (document.hidden) persistDraftIfDirty();
+    };
+    const onPageHide = () => persistDraftIfDirty();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, storyTitle, storyContent, storyOutcomeMetrics, storyTags, selectedCompany, selectedRole, selectedTemplate]);
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => {
+      persistDraftIfDirty();
+    }, 500);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, storyTitle, storyContent, storyOutcomeMetrics, storyTags, selectedCompany, selectedRole, selectedTemplate]);
+
+  const handleModalOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      // Ignore Radix dismiss attempts caused by switching browser tabs (focus-loss).
+      if (typeof document !== "undefined" && document.hidden) return;
+      persistDraftIfDirty();
+    }
+    onOpenChange(nextOpen);
+  };
+
+  const handleAddStoryTag = () => {
+    const nextTags = addUserTag(storyTags, storyTagInput);
+    if (nextTags === storyTags) return;
+    setStoryTags(nextTags);
+    setStoryTagInput("");
   };
 
   const handleRemoveStoryTag = (tagToRemove: string) => {
-    setStoryTags(storyTags.filter(tag => tag !== tagToRemove));
+    setStoryTags(removeUserTag(storyTags, tagToRemove));
   };
 
   const handleTemplateSelect = (templateKey: string) => {
@@ -153,13 +267,14 @@ export function AddStoryModal({
 
     // If using legacy onSave callback without database operations
     if (onSave && !workItemId && !editingStory) {
+      const normalizedTags = mergeUserTags(storyTags);
       const storyData = {
         type: "story" as const,
         roleId: isViewAllContext ? undefined : roleId,
         title: storyTitle.trim(),
         content: storyContent.trim(),
         outcomeMetrics: storyOutcomeMetrics,
-        tags: storyTags,
+        tags: normalizedTags,
         source: "manual" as const,
         status: "draft" as const,
         confidence: "medium" as const,
@@ -172,6 +287,7 @@ export function AddStoryModal({
       };
 
       onSave(storyData);
+      clearDraft(draftKey);
       resetForm();
       onOpenChange(false);
       return;
@@ -191,15 +307,21 @@ export function AddStoryModal({
     try {
       // Convert outcomeMetrics to the expected format
       const metricsJson = storyOutcomeMetrics.map(m => ({ value: m, context: '', type: 'absolute' as const }));
+      const normalizedTags = mergeUserTags(storyTags);
 
       if (isEditing && editingStory) {
+        const nextTitle = storyTitle.trim();
+        const nextContent = storyContent.trim();
+        const previousContent = String((editingStory as any)?.content ?? '').trim();
+        const storyChanged = previousContent !== nextContent;
+
         // Update existing story
         const { error } = await supabase
           .from('stories')
           .update({
-            title: storyTitle.trim(),
-            content: storyContent.trim(),
-            tags: storyTags,
+            title: nextTitle,
+            content: nextContent,
+            tags: normalizedTags,
             metrics: metricsJson,
             updated_at: new Date().toISOString(),
           })
@@ -207,6 +329,60 @@ export function AddStoryModal({
           .eq('user_id', user.id);
 
         if (error) throw error;
+
+        // Create a variation snapshot for manual edits so we can track shifts over time.
+        // NOTE: We store stories as `approved_content` in the variation model for consistency with gaps.
+        if (storyChanged) {
+          try {
+            const { data: existingVariation } = await supabase
+              .from('content_variations')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('parent_entity_type', 'approved_content')
+              .eq('parent_entity_id', editingStory.id)
+              .eq('content', nextContent)
+              .limit(1)
+              .maybeSingle();
+
+            if (!existingVariation?.id) {
+              const variationInsert: ContentVariationInsert = {
+                user_id: user.id,
+                parent_entity_type: 'approved_content',
+                parent_entity_id: editingStory.id,
+                title: `${nextTitle} (manual edit)`,
+                content: nextContent,
+                created_by: 'user',
+                times_used: 0,
+              };
+
+              const { error: variationError } = await supabase
+                .from('content_variations')
+                .insert(variationInsert as any);
+
+              if (variationError) {
+                console.warn('[AddStoryModal] Failed to create story variation (non-blocking):', variationError);
+              }
+            }
+          } catch (variationError) {
+            console.warn('[AddStoryModal] Exception creating story variation (non-blocking):', variationError);
+          }
+        }
+
+        await GapDetectionService.resolveSatisfiedStoryMetricsGaps({
+          userId: user.id,
+          storyId: editingStory.id,
+          content: nextContent,
+          metrics: metricsJson,
+        });
+        await GapDetectionService.resolveSatisfiedStorySpecificsGaps({
+          userId: user.id,
+          storyId: editingStory.id,
+          content: nextContent,
+        });
+
+        if (normalizedTags.length > 0) {
+          await UserTagService.upsertTags(user.id, normalizedTags, 'story');
+        }
 
         toast({
           title: "Story updated",
@@ -219,35 +395,61 @@ export function AddStoryModal({
           throw new Error("No work item ID provided for new story");
         }
 
-        const { error } = await supabase
+        const { data: insertedStory, error } = await supabase
           .from('stories')
           .insert({
             user_id: user.id,
             work_item_id: targetWorkItemId,
             title: storyTitle.trim(),
             content: storyContent.trim(),
-            tags: storyTags,
+            tags: normalizedTags,
             metrics: metricsJson,
             source: 'manual',
             status: 'approved',
-          });
+          })
+          .select('id')
+          .single();
 
         if (error) throw error;
+
+        if (normalizedTags.length > 0) {
+          await UserTagService.upsertTags(user.id, normalizedTags, 'story');
+        }
+
+        if (insertedStory?.id) {
+          await GapDetectionService.resolveSatisfiedStoryMetricsGaps({
+            userId: user.id,
+            storyId: insertedStory.id,
+            content: storyContent.trim(),
+            metrics: metricsJson,
+          });
+          await GapDetectionService.resolveSatisfiedStorySpecificsGaps({
+            userId: user.id,
+            storyId: insertedStory.id,
+            content: storyContent.trim(),
+          });
+        }
 
         toast({
           title: "Story added",
           description: "Your new story has been added successfully.",
         });
-      }
+	      }
 
-      resetForm();
-      onStoryAdded?.();
-      onOpenChange(false);
-    } catch (error) {
+	      clearDraft(draftKey);
+	      resetForm();
+	      onStoryAdded?.();
+	      onOpenChange(false);
+	    } catch (error) {
       console.error('Error saving story:', error);
+      const message =
+        (error as any)?.message ||
+        (error as any)?.error_description ||
+        (error as any)?.details ||
+        "Failed to save story.";
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save story.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -276,14 +478,15 @@ export function AddStoryModal({
 
       if (error) throw error;
 
-      toast({
-        title: "Story deleted",
-        description: "Your story has been deleted.",
-      });
+	      toast({
+	        title: "Story deleted",
+	        description: "Your story has been deleted.",
+	      });
 
-      onStoryDeleted?.();
-      onOpenChange(false);
-    } catch (error) {
+	      clearDraft(draftKey);
+	      onStoryDeleted?.();
+	      onOpenChange(false);
+	    } catch (error) {
       console.error('Error deleting story:', error);
       toast({
         title: "Error",
@@ -331,8 +534,14 @@ export function AddStoryModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleModalOpenChange}>
+      <DialogContent
+        className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto"
+        onFocusOutside={(e) => {
+          // Prevent the dialog from closing when the browser window/tab loses focus.
+          e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{editingStory ? "Edit Story" : "Add Story"}</DialogTitle>
           <DialogDescription>
@@ -400,7 +609,7 @@ export function AddStoryModal({
               
               <div className="space-y-2">
                 <Label htmlFor="storyTitle">Story Title</Label>
-                <Input
+                <GrammarInput
                   id="storyTitle"
                   value={storyTitle}
                   onChange={(e) => setStoryTitle(e.target.value)}
@@ -411,7 +620,7 @@ export function AddStoryModal({
               <div className="space-y-2">
                 <Label htmlFor="storyContent">Story Content</Label>
                 <div className="space-y-3">
-                  <Textarea
+                  <GrammarTextarea
                     id="storyContent"
                     value={storyContent}
                     onChange={(e) => setStoryContent(e.target.value)}
@@ -443,15 +652,17 @@ export function AddStoryModal({
                 <div className="space-y-2">
                   {storyOutcomeMetrics.map((metric, index) => (
                     <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={metric}
-                        onChange={(e) => {
-                          const updatedMetrics = [...storyOutcomeMetrics];
-                          updatedMetrics[index] = e.target.value;
-                          setStoryOutcomeMetrics(updatedMetrics);
-                        }}
-                        placeholder="Enter outcome metric..."
-                      />
+                      <div className="flex-1">
+                        <GrammarInput
+                          value={metric}
+                          onChange={(e) => {
+                            const updatedMetrics = [...storyOutcomeMetrics];
+                            updatedMetrics[index] = e.target.value;
+                            setStoryOutcomeMetrics(updatedMetrics);
+                          }}
+                          placeholder="Enter outcome metric..."
+                        />
+                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -466,21 +677,23 @@ export function AddStoryModal({
                       </Button>
                     </div>
                   ))}
-                  <div className="flex gap-2">
-                    <Input
-                      value={outcomeMetricInput}
-                      onChange={(e) => setOutcomeMetricInput(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          if (outcomeMetricInput.trim() && !storyOutcomeMetrics.includes(outcomeMetricInput.trim())) {
-                            setStoryOutcomeMetrics([...storyOutcomeMetrics, outcomeMetricInput.trim()]);
-                            setOutcomeMetricInput('');
+                  <div className="flex w-full gap-2">
+                    <div className="flex-1">
+                      <GrammarInput
+                        value={outcomeMetricInput}
+                        onChange={(e) => setOutcomeMetricInput(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            if (outcomeMetricInput.trim() && !storyOutcomeMetrics.includes(outcomeMetricInput.trim())) {
+                              setStoryOutcomeMetrics([...storyOutcomeMetrics, outcomeMetricInput.trim()]);
+                              setOutcomeMetricInput('');
+                            }
                           }
-                        }
-                      }}
-                      placeholder="Add an outcome metric and press Enter"
-                    />
+                        }}
+                        placeholder="Add an outcome metric and press Enter"
+                      />
+                    </div>
                     <Button
                       type="button"
                       onClick={() => {
@@ -500,12 +713,15 @@ export function AddStoryModal({
               <div className="space-y-2">
                 <Label htmlFor="storyTags">Tags</Label>
                 <div className="flex gap-2">
-                  <Input
+                  <TagAutocompleteInput
                     id="storyTags"
                     value={storyTagInput}
                     onChange={(e) => setStoryTagInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
+                    onKeyDown={handleKeyPress}
                     placeholder="Add a tag and press Enter"
+                    category="story"
+                    localTags={storyTags}
+                    useGrammarInput
                   />
                   <Button type="button" onClick={handleAddStoryTag} size="sm">
                     Add
@@ -562,7 +778,7 @@ export function AddStoryModal({
                 {!isEditing && <div />}
                 
                 <div className="flex gap-2">
-                  <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={isSubmitting || isDeleting}>
+                  <Button type="button" variant="secondary" onClick={() => handleModalOpenChange(false)} disabled={isSubmitting || isDeleting}>
                     Cancel
                   </Button>
                   <Button type="submit" disabled={isSubmitting || isDeleting}>

@@ -145,7 +145,7 @@ export function ContentQualityActionItems({
       } else if (contentType === 'roleDescriptions' || contentType === 'outcomeMetrics') {
         navigate('/work-history?filter=gaps&severity=' + severity);
       } else if (contentType === 'savedSections') {
-        navigate('/cover-letter-template?filter=gaps&severity=' + severity);
+        navigate('/saved-sections?filter=gaps&severity=' + severity);
       } else {
         navigate('/dashboard');
       }
@@ -284,6 +284,5 @@ export function ContentQualityActionItems({
     </Card>
   );
 }
-
 
 

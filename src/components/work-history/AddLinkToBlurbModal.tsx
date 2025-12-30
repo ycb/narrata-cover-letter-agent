@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TagAutocompleteInput } from "@/components/ui/TagAutocompleteInput";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink, Plus, X, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ExternalLink as ExternalLinkType } from "@/types/workHistory";
+import { addUserTag, removeUserTag } from "@/lib/userTags";
 
 interface AddLinkToBlurbModalProps {
   open: boolean;
@@ -34,14 +36,14 @@ export function AddLinkToBlurbModal({
   const { toast } = useToast();
 
   const handleAddNewTag = () => {
-    if (newTagInput.trim() && !newTags.includes(newTagInput.trim())) {
-      setNewTags([...newTags, newTagInput.trim()]);
-      setNewTagInput("");
-    }
+    const nextTags = addUserTag(newTags, newTagInput);
+    if (nextTags === newTags) return;
+    setNewTags(nextTags);
+    setNewTagInput("");
   };
 
   const handleRemoveNewTag = (tagToRemove: string) => {
-    setNewTags(newTags.filter(tag => tag !== tagToRemove));
+    setNewTags(removeUserTag(newTags, tagToRemove));
   };
 
   const validateUrl = (url: string) => {
@@ -259,12 +261,14 @@ export function AddLinkToBlurbModal({
                   <div className="space-y-2">
                     <Label htmlFor="newTags">Tags (Optional)</Label>
                     <div className="flex gap-2">
-                      <Input
+                      <TagAutocompleteInput
                         id="newTags"
                         value={newTagInput}
                         onChange={(e) => setNewTagInput(e.target.value)}
-                        onKeyPress={handleKeyPress}
+                        onKeyDown={handleKeyPress}
                         placeholder="Add a tag and press Enter"
+                        category="link"
+                        localTags={newTags}
                       />
                       <Button type="button" onClick={handleAddNewTag} size="sm">
                         Add

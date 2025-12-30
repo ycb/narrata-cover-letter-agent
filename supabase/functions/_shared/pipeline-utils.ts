@@ -125,6 +125,7 @@ export async function callOpenAI(params: {
     // responseFormat is ignored - we parse JSON manually instead
   } = params;
 
+  const requestStartedAt = Date.now();
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -140,12 +141,41 @@ export async function callOpenAI(params: {
     }),
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+  const http_status = response.status;
+  const request_id = response.headers.get('x-request-id') ?? response.headers.get('cf-ray') ?? null;
+  const responseText = await response.text();
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(responseText);
+  } catch {
+    const parseError = new Error(`OpenAI response was not valid JSON (http ${http_status})`);
+    (parseError as any).name = 'OpenAIResponseParseError';
+    (parseError as any).http_status = http_status;
+    (parseError as any).request_id = request_id;
+    (parseError as any).response_snippet = responseText.slice(0, 280);
+    (parseError as any).max_output_tokens = maxTokens;
+    throw parseError;
   }
 
-  const data = await response.json();
+  if (!response.ok) {
+    const apiMessage = parsed?.error?.message || response.statusText;
+    const apiError = new Error(`OpenAI API error (http ${http_status}): ${apiMessage}`);
+    (apiError as any).name = 'OpenAIHTTPError';
+    (apiError as any).http_status = http_status;
+    (apiError as any).request_id = request_id;
+    (apiError as any).error_code = parsed?.error?.code ?? null;
+    (apiError as any).max_output_tokens = maxTokens;
+    throw apiError;
+  }
+
+  const data = parsed;
+  (data as any).__meta = {
+    http_status,
+    request_id,
+    max_output_tokens: maxTokens,
+    duration_ms: Date.now() - requestStartedAt,
+  };
   return data;
 }
 
@@ -863,4 +893,3 @@ export function wrapStageError(stage: string, error: Error): PipelineError {
     error
   );
 }
-

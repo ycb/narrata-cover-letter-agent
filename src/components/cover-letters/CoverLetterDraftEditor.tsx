@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Textarea } from '@/components/ui/textarea';
-import { Loader2, ZoomIn, ZoomOut } from 'lucide-react';
+import { GrammarTextarea } from '@/components/ui/grammar-textarea';
+import { GripVertical, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
@@ -11,9 +11,12 @@ import { DraftProgressBanner } from './DraftProgressBanner';
 import { computeSectionAttribution } from './useSectionAttribution';
 import { getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
 import { getApplicableStandards } from '@/config/contentStandards';
+import { parseLlmSlotTokens } from '@/lib/coverLetterSlots';
 import type { CoverLetterDraft, JobDescriptionRecord } from '@/types/coverLetters';
 import type { MatchMetricsData } from './useMatchMetricsDetails';
 import type { SectionGapInsight } from '@/types/coverLetters';
+import { useUiZoom } from "@/hooks/useUiZoom";
+import { FloatingZoomControls } from "@/components/shared/FloatingZoomControls";
 
 /**
  * Phase 1: Extract shared editor component from CreateModal
@@ -80,15 +83,17 @@ interface CoverLetterDraftEditorProps {
   onSectionBlur: (sectionId: string, newContent: string, jobDescriptionRecord: JobDescriptionRecord | null, goals: any, draft: CoverLetterDraft | null) => Promise<void>;
   
   // Callbacks for section operations
-  onSectionDuplicate: (section: CoverLetterSection, sectionIndex: number) => Promise<void>;
   onSectionDelete: (sectionId: string) => Promise<void>;
   onInsertBetweenSections: (insertIndex: number) => void;
   onInsertFromLibrary: (sectionId: string, sectionType: 'intro' | 'body' | 'closing', sectionIndex: number) => void;
+  onReorderSections: (fromIndex: number, toIndex: number) => void;
   
   // Callbacks for content generation (HIL)
   onEnhanceSection: (gapData: any) => void;
   onAddMetrics: (sectionId?: string) => void;
   onEditGoals: () => void;
+  onRefreshInsights?: () => void;
+  isRefreshLoading?: boolean;
 }
 
 export function CoverLetterDraftEditor({
@@ -114,38 +119,36 @@ export function CoverLetterDraftEditor({
   onSectionSave,
   onSectionFocus,
   onSectionBlur,
-  onSectionDuplicate,
   onSectionDelete,
   onInsertBetweenSections,
   onInsertFromLibrary,
+  onReorderSections,
   onEnhanceSection,
   onAddMetrics,
   onEditGoals,
+  onRefreshInsights,
+  isRefreshLoading,
 }: CoverLetterDraftEditorProps) {
-  
-  // Zoom control state - 30% to 100% in 10% increments
-  const [zoomLevel, setZoomLevel] = useState(100);
-  const MIN_ZOOM = 30;
-  const MAX_ZOOM = 100;
-  const ZOOM_STEP = 10;
-  
-  const handleZoomIn = () => {
-    if (zoomLevel < MAX_ZOOM) {
-      setZoomLevel(Math.min(zoomLevel + ZOOM_STEP, MAX_ZOOM));
-    }
-  };
-  
-  const handleZoomOut = () => {
-    if (zoomLevel > MIN_ZOOM) {
-      setZoomLevel(Math.max(zoomLevel - ZOOM_STEP, MIN_ZOOM));
-    }
-  };
-  
-  // ============================================================================
-  // DRAFT-ONLY DATA (NO STREAMING)
-  // ============================================================================
-  // Use draft directly (no streaming fallback, no mixing)
-  const effectiveEnhancedMatchData = draft?.enhancedMatchData || {};
+  const [dismissedGapSections, setDismissedGapSections] = useState<Set<string>>(new Set());
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    setDismissedGapSections(new Set());
+  }, [draft?.id]);
+  const { zoomLevel, minZoom, maxZoom, zoomIn, zoomOut } = useUiZoom({
+    storageKey: "uiZoom:coverLetterDraft",
+    minZoom: 30,
+    maxZoom: 100,
+    step: 10,
+    defaultZoom: 100
+  });
+
+	  // ============================================================================
+	  // DRAFT-ONLY DATA (NO STREAMING)
+	  // ============================================================================
+	  // Use draft directly (no streaming fallback, no mixing)
+	  const effectiveEnhancedMatchData = draft?.enhancedMatchData || {};
   
   // Sections to render - priority order
   // 1. If draft exists → use draft.sections (real content)
@@ -165,11 +168,10 @@ export function CoverLetterDraftEditor({
         { id: 'closing-placeholder', title: 'Closing', type: 'closing', slug: 'closing', content: '' },
       ];
   
-  // UNIFIED SKELETON: Trust isStreaming prop from parent (generationActive)
-  // Parent sets this true while streaming OR draft generation OR !draft
-  // We simply show skeleton when true, content when false
-  const isLoadingSection = isStreaming || metricsLoading;
-  const isToolbarLoading = toolbarIsLoading || metricsLoading || isLoadingSection;
+  // Allow users to edit draft text while Phase B (metrics/gaps) is still computing.
+  // Only block editing while the draft itself is being assembled (streaming/skeleton).
+  const isLoadingSection = isStreaming;
+  const isToolbarLoading = toolbarIsLoading || metricsLoading || isStreaming;
 
   // Calculate job-level totals for requirement denominators
   const totalCoreReqs = draft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
@@ -219,6 +221,63 @@ export function CoverLetterDraftEditor({
     };
   };
 
+  const handleDragStart = (
+    event: React.DragEvent<HTMLDivElement>,
+    index: number,
+    sectionId: string,
+  ) => {
+    dragIndexRef.current = index;
+    setDragOverIndex(index);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', sectionId);
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>, index: number) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index);
+    }
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>, index: number) => {
+    event.preventDefault();
+    const fromIndex = dragIndexRef.current;
+    if (fromIndex === null || fromIndex === index) {
+      dragIndexRef.current = null;
+      setDragOverIndex(null);
+      return;
+    }
+    onReorderSections(fromIndex, index);
+    dragIndexRef.current = null;
+    setDragOverIndex(null);
+  };
+
+  const handleDragOverEnd = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex !== sectionsToRender.length) {
+      setDragOverIndex(sectionsToRender.length);
+    }
+  };
+
+  const handleDropAtEnd = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const fromIndex = dragIndexRef.current;
+    if (fromIndex === null) {
+      setDragOverIndex(null);
+      return;
+    }
+    onReorderSections(fromIndex, sectionsToRender.length);
+    dragIndexRef.current = null;
+    setDragOverIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    dragIndexRef.current = null;
+    setDragOverIndex(null);
+  };
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left Sidebar - Toolbar */}
@@ -228,6 +287,7 @@ export function CoverLetterDraftEditor({
           isPostHIL={isPostHIL}
           isLoading={isToolbarLoading}
           enhancedMatchData={effectiveEnhancedMatchData} // Draft-only enhanced data
+          contentStandards={contentStandards || null}
           goNoGoAnalysis={undefined}
           jobDescription={jobDescription ?? undefined}
           draftId={draft?.id}
@@ -246,6 +306,9 @@ export function CoverLetterDraftEditor({
           aPhaseInsights={aPhaseInsights} // Task 7: A-phase streaming insights
           draftMws={draft?.mws ?? ((draft?.llmFeedback as any)?.mws ?? undefined)} // Persisted MwS from draft (fallback when streaming not available)
           onEditGoals={onEditGoals}
+          onRefreshInsights={onRefreshInsights}
+          isRefreshLoading={isRefreshLoading}
+          dismissedGapSectionIds={dismissedGapSections}
           onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
             // Open section enhancement flow with rating criteria if provided
             const section = draft?.sections.find(s => s.id === sectionId);
@@ -341,16 +404,15 @@ export function CoverLetterDraftEditor({
             />
           )}
 
-          {/* Zoomable content wrapper - includes everything */}
-          <div 
-            className="origin-top"
-            style={{ 
-              transform: `scale(${zoomLevel / 100})`,
-              transformOrigin: 'top center',
-              width: `${100 / (zoomLevel / 100)}%`, // Compensate for scale to maintain full width
-            }}
-          >
-            <div className="space-y-4">
+			          <div
+			            className="origin-top"
+			            style={{
+			              transform: `scale(${zoomLevel / 100})`,
+			              transformOrigin: "top left",
+			              width: `${100 / (zoomLevel / 100)}%`
+			            }}
+			          >
+		            <div className="space-y-4">
               {/* Top controls: Add section (centered) */}
               <div className="flex items-center justify-center">
                 {/* Add Section button - centered */}
@@ -364,8 +426,14 @@ export function CoverLetterDraftEditor({
               const isDirty = editedContent !== section.content;
               const isSaving = !!savingSections[section.id];
               
-              const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.id, section.slug || section.type, sectionIndex);
-              const hasGaps = gapObjects.length > 0;
+              const { promptSummary, gaps: gapObjects } = getSectionGapInsights(
+                section.id,
+                section.slug || section.type,
+                sectionIndex,
+              );
+              const gapInsightsReady = draft?.enhancedMatchData?.sectionGapInsights !== undefined;
+              const hasGaps = gapInsightsReady ? gapObjects.length > 0 : false;
+              const isGapDismissed = dismissedGapSections.has(section.id);
 
               // Strip trailing periods from gap summary for cover letters
               const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
@@ -380,9 +448,16 @@ export function CoverLetterDraftEditor({
                 if (sectionIndex === sectionsToRender.length - 1) return 'closing';
                 return 'body';
               })();
+              const sectionTypeForStandards = sectionCategory;
 
               // Compute section-level attribution from draft
-              const hasAttributionData = draft?.enhancedMatchData != null || contentStandards != null || (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0);
+              // IMPORTANT: while Phase B is still computing, do not show "0 core / 0 pref / 0 standards"
+              // because it reads like a real result. Use skeleton until we have the necessary attribution inputs.
+              const attributionReady = Boolean(
+                draft?.enhancedMatchData?.sectionGapInsights !== undefined ||
+                  contentStandards?.perSection?.length ||
+                  (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0),
+              );
               const { attribution: sectionAttribution } = computeSectionAttribution({
                 sectionId: section.id,
                 sectionType: section.slug || section.type,
@@ -400,29 +475,50 @@ export function CoverLetterDraftEditor({
               const totalStandardsForSection = getApplicableStandards(sectionCategory).length;
 
               return (
-                <div key={section.id}>
-                  <ContentCard
+                <div
+                  key={section.id}
+                  className={cn(
+                    'relative',
+                    dragOverIndex === sectionIndex && 'ring-2 ring-primary/40 rounded-xl'
+                  )}
+                  onDragOver={(event) => handleDragOver(event, sectionIndex)}
+                  onDrop={(event) => handleDrop(event, sectionIndex)}
+                >
+	                  <ContentCard
                     title={formattedTitle}
                     content={undefined} // Don't show preview when editable (Textarea displays it)
-                    sectionAttributionData={hasAttributionData ? sectionAttribution : undefined}
+                    titleLeading={
+                      <span
+                        className="cursor-grab text-muted-foreground"
+                        draggable
+                        onDragStart={(event) => handleDragStart(event, sectionIndex, section.id)}
+                        onDragEnd={handleDragEnd}
+                        title="Drag to reorder"
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </span>
+                    }
+                    sectionAttributionData={attributionReady ? sectionAttribution : undefined}
                     totalCoreReqs={totalCoreReqs}
                     totalPrefReqs={totalPrefReqs}
                     totalStandards={totalStandardsForSection}
                     tagsLabel={undefined}
-                    hasGaps={hasGaps}
-                    gaps={gapObjects}
-                    gapSummary={cleanGapSummary}
-                    isGapResolved={!hasGaps}
-                    isLoading={isLoadingSection}
-                    loadingMessage={isLoadingSection ? `Drafting ${section.title.toLowerCase()}...` : undefined}
-                    onEdit={() => {
-                      const textarea = document.querySelector(`textarea[data-section-id="${section.id}"]`) as HTMLTextAreaElement;
-                      if (textarea) {
-                        textarea.focus();
-                        textarea.select();
+	                    hasGaps={gapInsightsReady ? hasGaps : false}
+	                    gaps={gapInsightsReady ? gapObjects : []}
+	                    gapSummary={gapInsightsReady ? cleanGapSummary : null}
+	                    isGapResolved={gapInsightsReady ? !hasGaps || isGapDismissed : false}
+                      onDismissGap={
+                        gapInsightsReady && hasGaps
+                          ? () =>
+                              setDismissedGapSections(prev => {
+                                const next = new Set(prev);
+                                next.add(section.id);
+                                return next;
+                              })
+                          : undefined
                       }
-                    }}
-                    onDuplicate={() => onSectionDuplicate(section, sectionIndex)}
+	                    isLoading={isLoadingSection}
+	                    loadingMessage={isLoadingSection ? `Drafting ${section.title.toLowerCase()}...` : undefined}
                     onDelete={() => onSectionDelete(section.id)}
                     onInsertFromLibrary={() => onInsertFromLibrary(section.id, sectionTypeForStandards, sectionIndex)}
                     onGenerateContent={() => {
@@ -489,12 +585,21 @@ export function CoverLetterDraftEditor({
                     }}
                     showUsage={false}
                     renderChildrenBeforeTags={true}
-                    className={cn(hasGaps && 'border-warning')}
-                  >
+	                    className={cn(gapInsightsReady && hasGaps && 'border-warning')}
+	                  >
                     {/* Phase 3: Render textarea when loading ends (skeleton handled by ContentCard isLoading prop) */}
                     {!isLoadingSection && (
                       <div className="mb-6">
-                        <Textarea
+                        {(() => {
+                          const tokens = parseLlmSlotTokens(editedContent);
+                          if (tokens.length === 0) return null;
+                          return (
+                            <div className="mb-2 text-xs text-muted-foreground">
+                              AI placeholders detected: {tokens.length} (they’ll auto-fill if possible; otherwise become NOT_FOUND)
+                            </div>
+                          );
+                        })()}
+                        <GrammarTextarea
                           data-section-id={section.id}
                           value={editedContent}
                           onFocus={() => {
@@ -537,37 +642,29 @@ export function CoverLetterDraftEditor({
                 </div>
               );
             })}
+            <div
+              className={cn(
+                'mt-2 h-10 rounded-lg border-2 border-dashed transition-colors',
+                dragOverIndex === sectionsToRender.length
+                  ? 'border-primary/60 bg-primary/5'
+                  : 'border-muted'
+              )}
+              onDragOver={handleDragOverEnd}
+              onDrop={handleDropAtEnd}
+            />
             </div> {/* End space-y-4 */}
           </div> {/* End zoomable content wrapper */}
         </div>
 
-        {/* Floating zoom controls - bottom right of viewport */}
-        <div className="fixed bottom-6 right-6 flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border rounded-lg px-2 py-1.5 shadow-lg z-50">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleZoomOut}
-            disabled={zoomLevel === MIN_ZOOM}
-            className="h-7 w-7 p-0"
-            title="Zoom out (10%)"
-          >
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <span className="text-xs font-medium text-muted-foreground px-2 tabular-nums min-w-[3ch] text-center">
-            {zoomLevel}%
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleZoomIn}
-            disabled={zoomLevel === MAX_ZOOM}
-            className="h-7 w-7 p-0"
-            title="Zoom in (10%)"
-          >
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
+        <FloatingZoomControls
+          zoomLevel={zoomLevel}
+          minZoom={minZoom}
+          maxZoom={maxZoom}
+          onZoomIn={zoomIn}
+          onZoomOut={zoomOut}
+        />
+
+	      </div>
+	    </div>
+	  );
+	}

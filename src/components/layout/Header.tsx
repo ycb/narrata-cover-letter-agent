@@ -94,7 +94,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const gapSummary = useGapSummary();
-  const { user, profile, signOut, getOAuthData } = useAuth();
+  const { user, profile, signOut, getOAuthData, isDemo } = useAuth();
   const { isRunning } = useGapsJob();
   const ENABLE_EXTERNAL_LINKS = isExternalLinksEnabled();
   const { isAdmin } = useAdminAuth();
@@ -112,6 +112,8 @@ export const Header = ({ currentPage }: HeaderProps) => {
   const handleSignOut = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    const wasDemo = isDemo;
     
     if (isSigningOut) {
       return;
@@ -124,11 +126,15 @@ export const Header = ({ currentPage }: HeaderProps) => {
       
       // Always redirect regardless of signOut result
       // The AuthContext handles clearing local state
+      if (wasDemo) {
+        window.location.assign('/');
+        return;
+      }
       navigate('/signin', { replace: true });
     } catch (navError) {
       console.error('Navigation error:', navError);
       // Fallback to window.location
-      window.location.href = '/signin';
+      window.location.href = wasDemo ? '/' : '/signin';
     } finally {
       setIsSigningOut(false);
     }
@@ -159,6 +165,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
   // };
 
   const activePage = getCurrentPage(location.pathname);
+  const shouldShowLogoutSeparator = !isDemo;
 
   return (
     <header className="border-b sticky top-0 z-50" style={{ backgroundColor: '#121212' }}>
@@ -179,7 +186,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
             className="flex items-center gap-3 hover:opacity-90 transition-opacity cursor-pointer"
           >
             <img 
-              src="/narrata-logo.svg" 
+              src="/assets/narrata-logo.svg" 
               alt="Narrata" 
               className="h-12 w-auto"
             />
@@ -258,7 +265,6 @@ export const Header = ({ currentPage }: HeaderProps) => {
                             <FileText className="h-4 w-4" />
                             All Stories
                           </span>
-                          <Badge variant="secondary" className="ml-auto">47</Badge>
                         </Link>
                         {ENABLE_EXTERNAL_LINKS && (
                         <Link 
@@ -274,7 +280,6 @@ export const Header = ({ currentPage }: HeaderProps) => {
                             <LinkIcon className="h-4 w-4" />
                             All Links
                           </span>
-                          <Badge variant="secondary" className="ml-auto">12</Badge>
                         </Link>
                         )}
                       </div>
@@ -286,7 +291,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
               {/* Cover Letters - Main Link + Dropdown */}
               <div className="relative group">
                 <div className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium cursor-default transition-all rounded-md",
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium cursor-default transition-all rounded-md whitespace-nowrap",
                   activePage === "cover-letters" 
                     ? "bg-white text-[#121212] hover:bg-white" 
                     : "text-white opacity-90 hover:opacity-100"
@@ -297,51 +302,52 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 </div>
                 
                 {/* Hover Dropdown */}
-                <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                <div className="absolute top-full left-0 pt-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                   <div className="border-0 shadow-lg p-3 min-w-64" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
-                    <Link 
-                      to="/cover-letters" 
-                      className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
-                        location.pathname === "/cover-letters"
-                          ? "text-white bg-white/10"
-                          : "text-white"
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        <Trophy className="h-4 w-4" />
-                        All Cover Letters
-                      </span>
-                    </Link>
-                    <Link 
-                      to="/saved-sections" 
-                      className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
-                        location.pathname === "/saved-sections"
-                          ? "text-white bg-white/10"
-                          : "text-white"
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        <BookOpen className="h-4 w-4" />
-                        Saved Sections
-                      </span>
-                      <Badge variant="secondary" className="ml-auto">23</Badge>
-                    </Link>
-                    <Link 
-                      to="/cover-letter-template" 
-                      className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
-                        location.pathname === "/cover-letter-template"
-                          ? "text-white bg-white/10"
-                          : "text-white"
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        <LayoutTemplate className="h-4 w-4" />
-                        Edit Template
-                      </span>
-                    </Link>
+                    <div className="space-y-1">
+                      <Link 
+                        to="/cover-letters" 
+                        className={cn(
+                          "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
+                          location.pathname === "/cover-letters"
+                            ? "text-white bg-white/10"
+                            : "text-white"
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Trophy className="h-4 w-4" />
+                          All Cover Letters
+                        </span>
+                      </Link>
+                      <Link 
+                        to="/saved-sections" 
+                        className={cn(
+                          "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
+                          location.pathname === "/saved-sections"
+                            ? "text-white bg-white/10"
+                            : "text-white"
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <BookOpen className="h-4 w-4" />
+                          Saved Sections
+                        </span>
+                      </Link>
+                      <Link 
+                        to="/cover-letter-template" 
+                        className={cn(
+                          "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
+                          location.pathname === "/cover-letter-template"
+                            ? "text-white bg-white/10"
+                            : "text-white"
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <LayoutTemplate className="h-4 w-4" />
+                          Edit Template
+                        </span>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -363,13 +369,13 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                   <div className="border-0 shadow-lg p-3 min-w-80" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
                     {/* Overall Level - Spans full width */}
-                               <button
-             onClick={() => window.location.href = "/assessment/overall-level"}
-             className="flex items-center justify-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] mb-3 border border-white text-white group w-full"
-           >
-             <BarChart3 className="h-4 w-4 transition-colors" />
-             Overall Level
-           </button>
+                    <button
+                      onClick={() => navigate("/assessment/overall-level")}
+                      className="flex items-center justify-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] mb-3 border border-white text-white group w-full"
+                    >
+                      <BarChart3 className="h-4 w-4 transition-colors" />
+                      Overall Level
+                    </button>
                     
                     {/* Two-column layout */}
                     <div className="grid grid-cols-2 gap-4">
@@ -380,25 +386,25 @@ export const Header = ({ currentPage }: HeaderProps) => {
                         </div>
                                                  <div className="space-y-1">
                            <button 
-                             onClick={() => window.location.href = "/assessment/competencies/execution"}
+                             onClick={() => navigate("/assessment/competencies/execution")}
                              className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Execution
                            </button>
                            <button 
-                             onClick={() => window.location.href = "/assessment/competencies/customer-insight"}
+                             onClick={() => navigate("/assessment/competencies/customer-insight")}
                              className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Customer Insight
                            </button>
                            <button 
-                             onClick={() => window.location.href = "/assessment/competencies/strategy"}
+                             onClick={() => navigate("/assessment/competencies/strategy")}
                              className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Strategy
                            </button>
                            <button 
-                             onClick={() => window.location.href = "/assessment/competencies/influence"}
+                             onClick={() => navigate("/assessment/competencies/influence")}
                              className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Influence
@@ -413,25 +419,25 @@ export const Header = ({ currentPage }: HeaderProps) => {
                         </div>
                                                  <div className="space-y-1">
                            <button 
-                             onClick={() => window.location.href = "/assessment/specializations/growth"}
+                             onClick={() => navigate("/assessment/specializations/growth")}
                              className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Growth
                            </button>
                            <button 
-                             onClick={() => window.location.href = "/assessment/specializations/platform"}
+                             onClick={() => navigate("/assessment/specializations/platform")}
                              className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Platform
                            </button>
                            <button 
-                             onClick={() => window.location.href = "/assessment/specializations/ai-ml"}
+                             onClick={() => navigate("/assessment/specializations/ai-ml")}
                              className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              AI/ML
                            </button>
                            <button 
-                             onClick={() => window.location.href = "/assessment/specializations/founding"}
+                             onClick={() => navigate("/assessment/specializations/founding")}
                              className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Founding
@@ -590,15 +596,31 @@ export const Header = ({ currentPage }: HeaderProps) => {
             </button>
           )}
             <DropdownMenuContent align="end" className="w-56 p-3 rounded-t-none border-0" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)' }}>
-              <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
-                <span>My Data</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowGoalsModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
-                <span>My Goals</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
-                <span>My Voice</span>
-              </DropdownMenuItem>
+              {!isDemo && (
+                <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
+                  <span>My Data</span>
+                </DropdownMenuItem>
+              )}
+              {!isDemo && (
+                <DropdownMenuItem onClick={() => setShowGoalsModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
+                  <span>My Goals</span>
+                </DropdownMenuItem>
+              )}
+              {!isDemo && (
+                <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
+                  <span>My Voice</span>
+                </DropdownMenuItem>
+              )}
+              {!isDemo && (
+                <DropdownMenuItem onClick={() => navigate('/my-library')} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
+                  <span>My Library</span>
+                </DropdownMenuItem>
+              )}
+              {!isDemo && (
+                <DropdownMenuItem onClick={() => navigate('/my-tags')} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
+                  <span>My Tags</span>
+                </DropdownMenuItem>
+              )}
               {gapSummary.data && gapSummary.data.total > 0 && (
                 <DropdownMenuItem 
                   onClick={() => navigate('/dashboard/onboarding?contentType=all&severity=all&scrollTo=tabs')}
@@ -610,15 +632,15 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </Badge>
                 </DropdownMenuItem>
               )}
-              <SyntheticUserSelectorWrapper />
+              {!isDemo && <SyntheticUserSelectorWrapper />}
               {/* Separator before Log out */}
-              <DropdownMenuSeparator />
+              {shouldShowLogoutSeparator && <DropdownMenuSeparator />}
               <DropdownMenuItem 
                 onClick={handleSignOut}
                 disabled={isSigningOut}
                 className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>{isSigningOut ? 'Signing out...' : 'Log out'}</span>
+                <span>{isSigningOut ? 'Signing out...' : (isDemo ? 'Exit demo' : 'Log out')}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -762,7 +784,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
               <div className="ml-7 space-y-1">
                 <button
                   onClick={() => {
-                    window.location.href = "/assessment/overall-level";
+                    navigate("/assessment/overall-level");
                     setIsMobileMenuOpen(false);
                   }}
                   className="flex items-center gap-3 px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
@@ -777,7 +799,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </div>
                   <button
                     onClick={() => {
-                      window.location.href = "/assessment/competencies/execution";
+                      navigate("/assessment/competencies/execution");
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
@@ -786,7 +808,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </button>
                   <button
                     onClick={() => {
-                      window.location.href = "/assessment/competencies/customer-insight";
+                      navigate("/assessment/competencies/customer-insight");
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
@@ -795,7 +817,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </button>
                   <button
                     onClick={() => {
-                      window.location.href = "/assessment/competencies/strategy";
+                      navigate("/assessment/competencies/strategy");
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
@@ -804,7 +826,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </button>
                   <button
                     onClick={() => {
-                      window.location.href = "/assessment/competencies/influence";
+                      navigate("/assessment/competencies/influence");
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
@@ -819,7 +841,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </div>
                   <button
                     onClick={() => {
-                      window.location.href = "/assessment/specializations/growth";
+                      navigate("/assessment/specializations/growth");
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
@@ -828,7 +850,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </button>
                   <button
                     onClick={() => {
-                      window.location.href = "/assessment/specializations/platform";
+                      navigate("/assessment/specializations/platform");
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
@@ -837,7 +859,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </button>
                   <button
                     onClick={() => {
-                      window.location.href = "/assessment/specializations/ai-ml";
+                      navigate("/assessment/specializations/ai-ml");
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
@@ -846,7 +868,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </button>
                   <button
                     onClick={() => {
-                      window.location.href = "/assessment/specializations/founding";
+                      navigate("/assessment/specializations/founding");
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
@@ -924,24 +946,30 @@ export const Header = ({ currentPage }: HeaderProps) => {
         </div>
       )}
       
-      <MyDataModal
-        isOpen={showDataModal}
-        onClose={() => setShowDataModal(false)}
-      />
+      {!isDemo && (
+        <MyDataModal
+          isOpen={showDataModal}
+          onClose={() => setShowDataModal(false)}
+        />
+      )}
       
-      <UserGoalsModal
-        isOpen={showGoalsModal}
-        onClose={() => setShowGoalsModal(false)}
-        onSave={setGoals}
-        initialGoals={goals || undefined}
-      />
+      {!isDemo && (
+        <UserGoalsModal
+          isOpen={showGoalsModal}
+          onClose={() => setShowGoalsModal(false)}
+          onSave={setGoals}
+          initialGoals={goals || undefined}
+        />
+      )}
       
-      <MyVoiceModal
-        isOpen={showVoiceModal}
-        onClose={() => setShowVoiceModal(false)}
-        onSave={setVoice}
-        initialVoice={voice || undefined}
-      />
+      {!isDemo && (
+        <MyVoiceModal
+          isOpen={showVoiceModal}
+          onClose={() => setShowVoiceModal(false)}
+          onSave={setVoice}
+          initialVoice={voice || undefined}
+        />
+      )}
     </header>
   );
 };

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import { TourProvider } from "@/contexts/TourContext";
@@ -12,10 +12,14 @@ import { UploadProgressProvider } from "@/contexts/UploadProgressContext";
 import { GapsJobProvider } from "@/contexts/GapsJobContext";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { DemoBanner } from "@/components/layout/DemoBanner";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { isExternalLinksEnabled, isSignupEnabled } from "@/lib/flags";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUiZoom } from "@/hooks/useUiZoom";
+import { FloatingZoomControls } from "@/components/shared/FloatingZoomControls";
 
 // Environment-based feedback system initialization
 const shouldShowFeedbackSystem = (): boolean => {
@@ -49,6 +53,8 @@ import StreamingDemo from "./pages/StreamingDemo";
 import ShowAllStories from "./pages/ShowAllStories";
 import ShowAllLinks from "./pages/ShowAllLinks";
 import SavedSections from "./pages/SavedSections";
+import MyLibrary from "./pages/MyLibrary";
+import MyTags from "./pages/MyTags";
 import NewUserOnboarding from "./pages/NewUserOnboarding";
 import GoNoGoDemo from "./pages/GoNoGoDemo";
 import { EvaluationDashboard } from "./components/evaluation/EvaluationDashboard";
@@ -67,19 +73,58 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import JobCleaningTest from "./pages/JobCleaningTest";
 import NotFound from "./pages/NotFound";
+import Demo from "./pages/Demo";
+import DemoLauncher from "./pages/DemoLauncher";
 
 const queryClient = new QueryClient();
 
 function AppLayout() {
   const signupEnabled = isSignupEnabled();
+  const { isDemo, user } = useAuth();
+  const location = useLocation();
+  const shouldHideFeedbackOnLanding = location.pathname === '/';
+  const isPublicRoute =
+    location.pathname === "/" ||
+    location.pathname === "/waitlist" ||
+    location.pathname === "/marketing" ||
+    location.pathname === "/signin" ||
+    location.pathname === "/signup" ||
+    location.pathname === "/forgot-password" ||
+    location.pathname.startsWith("/demo") ||
+    location.pathname === "/peter" ||
+    location.pathname.startsWith("/auth/");
+
+  const isZoomExcludedRoute = location.pathname.startsWith("/cover-letters");
+  const shouldShowUiZoom = Boolean(user) && !isPublicRoute && !isZoomExcludedRoute;
+  const { zoomLevel, minZoom, maxZoom, zoomIn, zoomOut } = useUiZoom({
+    storageKey: "uiZoom:global",
+    minZoom: 30,
+    maxZoom: 100,
+    step: 10,
+    defaultZoom: 100
+  });
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className={`min-h-screen flex flex-col ${isDemo ? 'pb-14' : ''}`}>
       <div className="flex-1">
-        <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/waitlist" element={<WaitlistSignup />} />
-        <Route path="/marketing" element={<Landing />} />
+        <div
+          style={
+            shouldShowUiZoom
+              ? {
+                  transform: `scale(${zoomLevel / 100})`,
+                  transformOrigin: "top left",
+                  width: `${100 / (zoomLevel / 100)}%`
+                }
+              : undefined
+          }
+        >
+          <Routes>
+	        <Route path="/" element={<LandingPage />} />
+	        <Route path="/waitlist" element={<WaitlistSignup />} />
+	        <Route path="/marketing" element={<Landing />} />
+	        <Route path="/peter" element={<DemoLauncher slugOverride="peter" />} />
+	        <Route path="/demo/:slug" element={<DemoLauncher />} />
+	        <Route path="/demo-data/:slug" element={<Demo />} />
         <Route path="/work-history" element={
           <ProtectedRoute>
             <Header />
@@ -205,6 +250,18 @@ function AppLayout() {
             <SavedSections />
           </ProtectedRoute>
         } />
+        <Route path="/my-library" element={
+          <ProtectedRoute>
+            <Header />
+            <MyLibrary />
+          </ProtectedRoute>
+        } />
+        <Route path="/my-tags" element={
+          <ProtectedRoute>
+            <Header />
+            <MyTags />
+          </ProtectedRoute>
+        } />
         <Route path="/new-user" element={
           <ProtectedRoute>
             <NewUserOnboarding />
@@ -296,19 +353,33 @@ function AppLayout() {
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/terms" element={<TermsOfService />} />
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-      </div>
-      
-      {/* Show prototype banner on all pages - DISABLED FOR USABILITY TESTING */}
-      {/* <PrototypeStateBanner /> */}
+	        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+	        <Route path="*" element={<NotFound />} />
+	      </Routes>
+        </div>
+	      </div>
+
+        {shouldShowUiZoom && (
+          <FloatingZoomControls
+            zoomLevel={zoomLevel}
+            minZoom={minZoom}
+            maxZoom={maxZoom}
+            onZoomIn={zoomIn}
+            onZoomOut={zoomOut}
+          />
+        )}
+	      
+	      {/* Show prototype banner on all pages - DISABLED FOR USABILITY TESTING */}
+	      {/* <PrototypeStateBanner /> */}
       
       {/* Feedback system available on all pages */}
-      {shouldShowFeedbackSystem() && <FeedbackSystem />}
+      {shouldShowFeedbackSystem() && !shouldHideFeedbackOnLanding && (
+        <FeedbackSystem hideFloatingButton={isDemo} />
+      )}
       
       {/* Footer on all pages */}
       <Footer />
+      <DemoBanner />
     </div>
   );
 }

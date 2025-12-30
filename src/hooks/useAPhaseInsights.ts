@@ -2,11 +2,9 @@ import { useMemo } from 'react';
 import type { JobStreamState, APhaseInsights } from '@/types/jobs';
 
 // Dev-only logging (Task 5: A-phase streaming diagnostics)
-const IS_DEV = process.env.NODE_ENV !== 'production';
+const IS_DEV = Boolean((import.meta as any)?.env?.DEV);
 const devLog = (...args: unknown[]) => {
-  if (IS_DEV) {
-    console.log(...args);
-  }
+  if (IS_DEV) console.log(...args);
 };
 
 /**
@@ -55,20 +53,30 @@ export function useAPhaseInsights(
 
     const unwrapStageData = <T,>(raw: T): any => {
       if (!raw || typeof raw !== 'object') return raw;
-      const inner = (raw as any).data;
-      if (!inner || typeof inner !== 'object' || Array.isArray(inner)) return raw;
-      const expectedKeys = [
+      const expectedKeys = new Set([
         'roleInsights',
         'jdRequirementSummary',
         'coreRequirements',
         'preferredRequirements',
         'requirementsMet',
         'totalRequirements',
+        'coreCount',
+        'preferredCount',
         'mws',
         'companyContext',
-      ];
-      const hasExpectedKey = expectedKeys.some((key) => key in inner);
-      return hasExpectedKey ? inner : raw;
+      ]);
+
+      let current: any = raw;
+      for (let depth = 0; depth < 4; depth += 1) {
+        if (!current || typeof current !== 'object' || Array.isArray(current)) break;
+        const keys = Object.keys(current);
+        if (keys.some((key) => expectedKeys.has(key))) return current;
+        const inner = current.data;
+        if (!inner || typeof inner !== 'object' || Array.isArray(inner)) break;
+        current = inner;
+      }
+
+      return raw;
     };
 
     // Extract stage data with safe accessors
@@ -100,12 +108,18 @@ export function useAPhaseInsights(
     // Treat presence of the fields as readiness, independent of stage status, so UI can update early.
     const hasMws = !!goalsAndStrengthsData?.mws;
     const hasCompanyContext = !!goalsAndStrengthsData?.companyContext || !!companyContextData?.companyContext;
-    const hasRequirementAnalysisData =
-      hasRequirementAnalysis &&
+    // Requirement analysis readiness:
+    // - Accept the "full" payload (arrays + counts), OR
+    // - Accept the "light" payload (counts only) so Fit Check doesn't false-timeout.
+    const hasRequirementArrays =
       Array.isArray(requirementAnalysisData?.coreRequirements) &&
-      Array.isArray(requirementAnalysisData?.preferredRequirements) &&
-      typeof requirementAnalysisData?.requirementsMet === 'number' &&
-      typeof requirementAnalysisData?.totalRequirements === 'number';
+      Array.isArray(requirementAnalysisData?.preferredRequirements);
+    const hasRequirementCounts =
+      typeof requirementAnalysisData?.requirementsMet === 'number' ||
+      typeof requirementAnalysisData?.totalRequirements === 'number' ||
+      typeof requirementAnalysisData?.coreCount === 'number' ||
+      typeof requirementAnalysisData?.preferredCount === 'number';
+    const hasRequirementAnalysisData = hasRequirementAnalysis && (hasRequirementArrays || hasRequirementCounts);
 
     // Phase is complete when all three A-phase stages are complete
     // Note: Does NOT check draft state
@@ -163,11 +177,13 @@ export function useAPhaseInsights(
 
       requirementAnalysis: hasRequirementAnalysisData
         ? {
-            coreRequirements: requirementAnalysisData.coreRequirements ?? [],
-            preferredRequirements: requirementAnalysisData.preferredRequirements ?? [],
-            requirementsMet: requirementAnalysisData.requirementsMet ?? 0,
-            totalRequirements: requirementAnalysisData.totalRequirements ?? 0,
-          }
+          coreRequirements: requirementAnalysisData?.coreRequirements ?? [],
+          preferredRequirements: requirementAnalysisData?.preferredRequirements ?? [],
+          coreCount: requirementAnalysisData?.coreCount,
+          preferredCount: requirementAnalysisData?.preferredCount,
+          requirementsMet: requirementAnalysisData?.requirementsMet ?? 0,
+          totalRequirements: requirementAnalysisData?.totalRequirements ?? 0,
+        }
         : undefined,
 
       // Stage flags

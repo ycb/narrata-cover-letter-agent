@@ -1,4 +1,4 @@
-import { SHARED_STORY_GUIDANCE } from './sharedStoryGuidance';
+import { SHARED_STORY_GUIDANCE } from './sharedStoryGuidance.ts';
 
 /**
  * Simplified LLM prompt for cover letter analysis

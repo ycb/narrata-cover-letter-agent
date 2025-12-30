@@ -3,6 +3,40 @@
  * NO LLM needed - just text parsing
  */
 
+/**
+ * Normalize content by removing excess line breaks within paragraphs
+ * This fixes content from old parser versions that preserved single newlines
+ */
+export function normalizeContent(content: string): string {
+  if (!content) return '';
+  
+  return content
+    // First split by double newlines (actual paragraph breaks)
+    .split(/\n\s*\n+/)
+    // For each paragraph, collapse single newlines to spaces
+    .map(para => para
+      .replace(/\n/g, ' ')           // Convert newlines to spaces
+      .replace(/\s+/g, ' ')          // Normalize multiple spaces
+      .trim()
+    )
+    // Rejoin paragraphs with double newlines
+    .filter(para => para.length > 0)
+    .join('\n\n');
+}
+
+/**
+ * Normalize content for final rendering while preserving intentional line breaks
+ * (e.g. signatures and multi-line closings).
+ */
+export function normalizeFinalContent(content: string): string {
+  if (!content) return '';
+
+  return content
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export interface ParsedCoverLetter {
   greeting: string | null;
   introduction: string;
@@ -117,9 +151,9 @@ function extractParagraphs(text: string): string[] {
     .map(para => {
       // Normalize whitespace within each paragraph
       return para
-        .replace(/\n{2,}/g, '\n')       // Remove any internal double newlines
+        .replace(/\n{2,}/g, ' ')        // Remove any internal double+ newlines → space
+        .replace(/\n/g, ' ')            // Convert remaining single newlines → space
         .replace(/[ \t]+/g, ' ')        // Normalize spaces/tabs
-        .replace(/\n /g, '\n')          // Remove leading spaces after newlines
         .trim();
     });
   

@@ -667,7 +667,7 @@ export function ContentGenerationModalV3({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Generate Content (V3)
+            Generate Content
           </DialogTitle>
           <DialogDescription>Generate content, then review and apply targeted improvements.</DialogDescription>
         </DialogHeader>
@@ -999,13 +999,13 @@ export function ContentGenerationModalV3({
         <div className="-mx-6 -mb-6 border-t bg-background">
           <div className="p-6 flex items-center justify-between gap-3 w-full">
             <div className="space-y-2">
-              {allowSaveToSavedSections && (
+              {allowSaveToSavedSections && !allowSaveToStories && (
                 <label className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Checkbox checked={saveToSavedSections} onCheckedChange={(v) => setSaveToSavedSections(Boolean(v))} />
                   Save to Saved Sections after apply
                 </label>
               )}
-              {allowSaveToStories && (
+              {allowSaveToStories && !allowSaveToSavedSections && (
                 <label className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Checkbox checked={saveToStories} onCheckedChange={(v) => setSaveToStories(Boolean(v))} />
                   Add to Stories after apply

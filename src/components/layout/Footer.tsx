@@ -44,7 +44,7 @@ export function Footer() {
 
   return (
     <>
-      <footer className="border-t mt-16 bg-background">
+      <footer className="border-t bg-background">
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
             <div>
@@ -55,7 +55,7 @@ export function Footer() {
                 to="/terms" 
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-muted-foreground hover:underline transition-colors"
               >
                 Terms of Service
               </Link>
@@ -63,13 +63,13 @@ export function Footer() {
                 to="/privacy" 
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-muted-foreground hover:underline transition-colors"
               >
                 Privacy Policy
               </Link>
               <button
                 onClick={() => setShowContactModal(true)}
-                className="hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-muted-foreground hover:underline transition-colors"
               >
                 Contact
               </button>
@@ -118,4 +118,3 @@ export function Footer() {
     </>
   );
 }
-

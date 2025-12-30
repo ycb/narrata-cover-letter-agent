@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { evaluateSectionGap } from '@/services/sectionGapEvaluator';
 import type {
@@ -159,6 +159,10 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
     }));
   }, []);
 
+  // Phase B should be launched exactly once per draft id (and retried automatically on error).
+  const phaseBKickDraftIdRef = useRef<string | null>(null);
+  const phaseBAutoRetryCountRef = useRef<Record<string, number>>({});
+
   const generateDraft = useCallback<UseCoverLetterDraftReturn['generateDraft']>(
     async (args = {}) => {
       const resolvedTemplateId = args.templateId ?? context.templateId;
@@ -242,6 +246,58 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
               ],
         }));
 
+        // PHASE 2: Kick off metrics + gap detection in the background (caller-managed).
+        // This prevents "gap stall" cases where the background run never starts or fails silently.
+        if (phaseBKickDraftIdRef.current !== result.draft.id) {
+          phaseBKickDraftIdRef.current = result.draft.id;
+          phaseBAutoRetryCountRef.current[result.draft.id] = 0;
+
+          const runPhaseB = async () => {
+            const attempt = (phaseBAutoRetryCountRef.current[result.draft.id] ?? 0) + 1;
+            phaseBAutoRetryCountRef.current[result.draft.id] = attempt;
+            try {
+              await service.calculateMetricsForDraft(
+                result.draft.id,
+                options.userId,
+                resolvedJobDescriptionId,
+                update =>
+                  setState(prev => ({
+                    ...prev,
+                    progress: [...prev.progress, update],
+                  })),
+              );
+            } catch (error) {
+              console.warn('[useCoverLetterDraft] Phase B run failed:', error);
+              // Auto-retry quickly (once) to avoid forcing users to click "Retry gaps".
+              if (attempt < 2) {
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                return runPhaseB();
+              }
+            } finally {
+              // Fetch updated draft regardless (Phase B persists status + sectionGapInsights even on error).
+              try {
+                const updated = await service.getDraft(result.draft.id);
+                if (updated) {
+                  setState(prev => {
+                    const hasGapInsights = updated.enhancedMatchData?.sectionGapInsights !== undefined;
+                    return {
+                      ...prev,
+                      draft: updated,
+                      ...(hasGapInsights ? { metricsLoading: false, pendingSectionInsights: {} } : null),
+                    };
+                  });
+                }
+              } catch (fetchError) {
+                console.error('[useCoverLetterDraft] Failed to fetch draft after Phase B:', fetchError);
+              }
+            }
+          };
+
+          runPhaseB().catch(error => {
+            console.error('[useCoverLetterDraft] Phase B background runner crashed:', error);
+          });
+        }
+
         // PHASE 2: Metrics calculating in background with 3 parallel calls
         // Set up polling to check when metrics are complete
         const pollForMetrics = async () => {
@@ -256,22 +312,23 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
               if (updatedDraft) {
                 lastDraft = updatedDraft;
 
-                const hasMetrics = Array.isArray(updatedDraft.metrics) && updatedDraft.metrics.length > 0;
+                // Keep draft content in sync while Phase B runs (e.g., template slot fills),
+                // but keep `metricsLoading` true until `sectionGapInsights` lands.
+                setState(prev => {
+                  if (!prev.draft) return prev;
+                  if (prev.draft.updatedAt === updatedDraft.updatedAt) return prev;
+                  return { ...prev, draft: updatedDraft };
+                });
+
                 // IMPORTANT:
-                // Phase A can populate enhancedMatchData early (e.g., requirement details) via edge pipeline persistence.
-                // Phase B (gaps/score/content-standards) arrives later and is what should clear metricsLoading.
-                // So we DO NOT treat "any enhancedMatchData keys" as "metrics ready".
+                // For the cover letter draft UI, gap detection is the critical Phase B artifact.
+                // We must keep polling until `sectionGapInsights` lands; otherwise the UI can
+                // stall in a "Gaps" skeleton state even if other Phase B artifacts (score/readiness)
+                // arrive first.
                 const hasSectionGapInsights =
                   updatedDraft.enhancedMatchData?.sectionGapInsights !== undefined;
-                const hasContentStandards = !!(updatedDraft.llmFeedback as any)?.contentStandards;
-                const hasOverallScore =
-                  typeof (updatedDraft as any)?.analytics?.overallScore === 'number';
 
-                // Mark Phase B ready when any Phase B artifact lands.
-                // - metrics: classic metrics array (may be empty in some failure cases)
-                // - sectionGapInsights: gaps computed (can be [] for "no gaps")
-                // - contentStandards / overallScore: content quality pass completed
-                if (hasMetrics || hasSectionGapInsights || hasContentStandards || hasOverallScore) {
+                if (hasSectionGapInsights) {
                   setState(prev => ({
                     ...prev,
                     draft: updatedDraft,
@@ -317,21 +374,17 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
     [context.jobDescriptionId, context.templateId, options.userId, service],
   );
 
-  // If Phase B artifacts arrive through any path, clear metricsLoading so UI can render data.
+  // If gap detection arrives through any path, clear metricsLoading so UI can render data.
   useEffect(() => {
     setState(prev => {
-      const hasPhaseB =
-        prev.draft?.enhancedMatchData?.sectionGapInsights !== undefined ||
-        !!(prev.draft?.llmFeedback as any)?.contentStandards ||
-        typeof (prev.draft as any)?.analytics?.overallScore === 'number' ||
-        (Array.isArray(prev.draft?.metrics) && (prev.draft?.metrics?.length ?? 0) > 0);
+      const hasGapInsights = prev.draft?.enhancedMatchData?.sectionGapInsights !== undefined;
 
-      if (prev.metricsLoading && hasPhaseB) {
+      if (prev.metricsLoading && hasGapInsights) {
         return { ...prev, metricsLoading: false, pendingSectionInsights: {} };
       }
       return prev;
     });
-  }, [state.draft?.enhancedMatchData, state.draft?.llmFeedback, state.draft?.analytics, state.draft?.metrics]);
+  }, [state.draft?.enhancedMatchData?.sectionGapInsights]);
 
   const updateSection = useCallback<UseCoverLetterDraftReturn['updateSection']>(
     async ({ sectionId, content }) => {
@@ -547,51 +600,19 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
       }));
 
       try {
-        // Trigger full metrics recalculation (includes sectionGapInsights)
-        // This is the same flow as background metrics calculation
         console.log(`[useCoverLetterDraft] Refreshing insights for section ${sectionId}...`);
-        
-        // For now, just trigger the background metrics calculation
-        // The full implementation will be added when we integrate with MetricsUpdateService
-        await service.calculateMetricsForDraft(
+        // Fast retry path: only recompute sectionGapInsights so "Retry gaps" doesn't
+        // wait on the entire Phase B bundle (requirements, content standards, etc).
+        await service.calculateSectionGapsForDraft(
           state.draft.id,
           options.userId,
           context.jobDescriptionId,
-          (phase, message) => {
+          update => {
             setState(prev => ({
               ...prev,
-              progress: [
-                ...prev.progress,
-                {
-                  phase: phase as any,
-                  message,
-                  timestamp: Date.now(),
-                },
-              ],
+              progress: [...prev.progress, update],
             }));
           },
-          // Progressive callback for refresh
-          (partial) => {
-            setState(prev => {
-              const currentDraft = prev.draft;
-              if (!currentDraft) return prev;
-
-              const mergedEnhancedMatchData = {
-                ...(currentDraft.enhancedMatchData || {}),
-                ...(partial.enhancedMatchData || {}),
-              };
-
-              return {
-                ...prev,
-                draft: {
-                  ...currentDraft,
-                  ...(partial.metrics ? { metrics: partial.metrics } : {}),
-                  ...(partial.atsScore !== undefined ? { atsScore: partial.atsScore } : {}),
-                  enhancedMatchData: mergedEnhancedMatchData,
-                },
-              };
-            });
-          }
         );
 
         // Fetch updated draft with new insights

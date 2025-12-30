@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 type EntityType = "work_item" | "approved_content" | "saved_section" | "company";
 
@@ -26,6 +26,7 @@ type OpenModalArgs =
 export function useContentGeneration(options: UseContentGenerationOptions = {}) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalConfig, setModalConfig] = useState<OpenModalConfig>({});
+  const didApplyRef = useRef(false);
 
   const openModal = useCallback((...args: OpenModalArgs) => {
     setModalConfig((prev) => {
@@ -51,8 +52,15 @@ export function useContentGeneration(options: UseContentGenerationOptions = {}) 
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
-    options.onContentApplied?.();
+    if (didApplyRef.current) {
+      didApplyRef.current = false;
+      options.onContentApplied?.();
+    }
   }, [options]);
+
+  const markContentApplied = useCallback(() => {
+    didApplyRef.current = true;
+  }, []);
 
   const openGapModal = useCallback(
     (gap: any, entityType?: EntityType, entityId?: string, existingContent?: string) => {
@@ -69,7 +77,7 @@ export function useContentGeneration(options: UseContentGenerationOptions = {}) 
     isLoadingContext: false,
     openModal,
     closeModal,
+    markContentApplied,
     openGapModal,
   };
 }
-

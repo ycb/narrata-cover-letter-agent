@@ -5,6 +5,7 @@ import { ReactNode } from "react";
 type TemplateBannerProps = {
   onDone: () => void | Promise<void>;
   previewButton?: ReactNode;
+  statusNode?: ReactNode;
   doneLabel?: string;
   isDoneDisabled?: boolean;
   isDoneLoading?: boolean;
@@ -13,6 +14,7 @@ type TemplateBannerProps = {
 export const TemplateBanner = ({
   onDone,
   previewButton,
+  statusNode,
   doneLabel = 'Done',
   isDoneDisabled,
   isDoneLoading
@@ -26,6 +28,7 @@ export const TemplateBanner = ({
             <h1 className="text-xl font-semibold">Editing Cover Letter Template</h1>
             <div className="flex items-center gap-3">
               {previewButton}
+              {statusNode}
               <Button onClick={onDone} variant="primary" size="sm" disabled={isDoneDisabled}>
                 {isDoneLoading ? (
                   <span className="flex items-center gap-2">

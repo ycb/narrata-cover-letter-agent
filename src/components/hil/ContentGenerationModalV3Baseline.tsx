@@ -11,6 +11,7 @@ import { ContentGapBanner } from '@/components/shared/ContentGapBanner';
 import { useUserVoice } from '@/contexts/UserVoiceContext';
 import { ContentGenerationService } from '@/services/contentGenerationService';
 import type { Gap as GapRecord } from '@/services/gapDetectionService';
+import { clearDraft, loadDraft, saveDraft } from '@/lib/localDraft';
 import {
   HilReviewNotesStreamingService,
   type ReviewNotes,
@@ -39,7 +40,12 @@ export interface ContentGenerationModalV3BaselineProps {
   isOpen: boolean;
   onClose: () => void;
   gap?: GapAnalysisLite | null;
-  onApplyContent?: (content: string) => void;
+  onApplyContent?: (content: string) => void | Promise<void>;
+  /**
+   * Defaults to true. Set to false when the caller needs to persist content
+   * asynchronously and wants to keep the modal open until the save succeeds.
+   */
+  closeOnApply?: boolean;
 
   userId?: string;
   entityType?: EntityType;
@@ -132,6 +138,7 @@ export function ContentGenerationModalV3Baseline({
   onClose,
   gap,
   onApplyContent,
+  closeOnApply = true,
   userId,
   entityType,
   entityId,
@@ -142,6 +149,7 @@ export function ContentGenerationModalV3Baseline({
 
   const [generatedContent, setGeneratedContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [restoredDraft, setRestoredDraft] = useState(false);
 
   const [reviewNotes, setReviewNotes] = useState<ReviewNotes | null>(null);
   const [reviewRaw, setReviewRaw] = useState('');
@@ -154,8 +162,131 @@ export function ContentGenerationModalV3Baseline({
 
   const [workHistorySummary, setWorkHistorySummary] = useState<string>('');
 
+  const latestGeneratedContentRef = React.useRef('');
+  const latestReviewRawRef = React.useRef('');
+  const latestLastReviewedTextRef = React.useRef('');
+  const latestReviewFilterRef = React.useRef<ReviewFilter>('P0');
+  const latestReviewTabRef = React.useRef<ReviewTab>('priority');
+  const latestReviewNotesRef = React.useRef<ReviewNotes | null>(null);
+
+  useEffect(() => {
+    latestGeneratedContentRef.current = generatedContent;
+  }, [generatedContent]);
+  useEffect(() => {
+    latestReviewRawRef.current = reviewRaw;
+  }, [reviewRaw]);
+  useEffect(() => {
+    latestLastReviewedTextRef.current = lastReviewedText;
+  }, [lastReviewedText]);
+  useEffect(() => {
+    latestReviewFilterRef.current = reviewFilter;
+  }, [reviewFilter]);
+  useEffect(() => {
+    latestReviewTabRef.current = reviewTab;
+  }, [reviewTab]);
+  useEffect(() => {
+    latestReviewNotesRef.current = reviewNotes;
+  }, [reviewNotes]);
+
   const generationService = useMemo(() => new ContentGenerationService(), []);
   const reviewService = useMemo(() => new HilReviewNotesStreamingService(), []);
+
+  const draftKey = useMemo(() => {
+    const entity = entityType && entityId ? `${entityType}:${entityId}` : `gap:${gap?.id ?? 'unknown'}`;
+    // Avoid key churn if `userId` is temporarily undefined (e.g. auth still loading).
+    // Keeping the key stable makes restores reliable even if the page refreshes mid-session.
+    return `draft:hil:v3:${entity}:${savedSectionType}`;
+  }, [entityId, entityType, gap?.id, savedSectionType, userId]);
+
+  const persistDraft = (opts?: { clearIfEmpty?: boolean }) => {
+    if (!draftKey) return;
+    const currentGenerated = latestGeneratedContentRef.current;
+    const currentReviewRaw = latestReviewRawRef.current;
+    const currentReviewNotes = latestReviewNotesRef.current;
+    const currentLastReviewedText = latestLastReviewedTextRef.current;
+    const currentReviewFilter = latestReviewFilterRef.current;
+    const currentReviewTab = latestReviewTabRef.current;
+    const hasWork =
+      currentGenerated.trim().length > 0 ||
+      currentReviewRaw.trim().length > 0 ||
+      (currentReviewNotes?.suggestions?.length ?? 0) > 0;
+
+    if (!hasWork && opts?.clearIfEmpty) {
+      clearDraft(draftKey);
+      return;
+    }
+
+    if (!hasWork) return;
+
+    saveDraft(draftKey, {
+      generatedContent: currentGenerated,
+      reviewNotes: currentReviewNotes,
+      reviewRaw: currentReviewRaw,
+      lastReviewedText: currentLastReviewedText,
+      reviewFilter: currentReviewFilter,
+      reviewTab: currentReviewTab,
+      savedSectionType,
+    });
+  };
+
+  useEffect(() => {
+    if (!isOpen || !draftKey) return;
+    const draft = loadDraft<{
+      generatedContent?: string;
+      reviewNotes?: ReviewNotes | null;
+      reviewRaw?: string;
+      lastReviewedText?: string;
+      reviewFilter?: ReviewFilter;
+      reviewTab?: ReviewTab;
+    }>(draftKey);
+
+    if (!draft?.data) return;
+    if (generatedContent.trim()) return;
+
+    if (draft.data.generatedContent?.trim()) {
+      setGeneratedContent(draft.data.generatedContent);
+      setReviewNotes(draft.data.reviewNotes ?? null);
+      setReviewRaw(draft.data.reviewRaw ?? '');
+      setLastReviewedText(draft.data.lastReviewedText ?? '');
+      setReviewFilter(draft.data.reviewFilter ?? 'P0');
+      setReviewTab(draft.data.reviewTab ?? 'priority');
+      setRestoredDraft(true);
+      toast({ title: 'Restored draft', description: 'Recovered your unsaved HIL content.' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, draftKey]);
+
+  useEffect(() => {
+    if (!isOpen || !draftKey) return;
+    const timer = window.setTimeout(() => {
+      persistDraft({ clearIfEmpty: true });
+    }, 500);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, draftKey, generatedContent, reviewRaw, reviewNotes, lastReviewedText, reviewFilter, reviewTab]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = () => persistDraft();
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, draftKey, generatedContent, reviewRaw, reviewNotes, lastReviewedText, reviewFilter, reviewTab]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onVisibilityChange = () => {
+      if (document.hidden) persistDraft();
+    };
+    const onPageHide = () => persistDraft();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, draftKey, generatedContent, reviewRaw, reviewNotes, lastReviewedText, reviewFilter, reviewTab]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -170,11 +301,21 @@ export function ContentGenerationModalV3Baseline({
       setExpandedSuggestionId(null);
       setRegeneratingSuggestionId(null);
       setWorkHistorySummary('');
+      setRestoredDraft(false);
+
+      latestGeneratedContentRef.current = '';
+      latestReviewRawRef.current = '';
+      latestLastReviewedTextRef.current = '';
+      latestReviewFilterRef.current = 'P0';
+      latestReviewTabRef.current = 'priority';
+      latestReviewNotesRef.current = null;
     }
   }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && gap && !generatedContent && !isGenerating) {
+      // If we restored a draft, don't immediately clobber it by auto-generating again.
+      if (restoredDraft) return;
       void handleGenerate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -249,6 +390,7 @@ export function ContentGenerationModalV3Baseline({
           entityType,
           entityId,
           workHistoryContext,
+          userVoicePrompt: voice?.prompt,
           sectionType: entityType === 'saved_section' ? savedSectionType : undefined,
         },
         { userId },
@@ -274,7 +416,16 @@ export function ContentGenerationModalV3Baseline({
 
   const handleReview = async (textOverride?: string, workSummaryOverride?: string) => {
     if (!gap) return;
-    if (!reviewService.isAvailable()) return;
+    if (!reviewService.isAvailable()) {
+      toast({
+        title: 'Feedback unavailable',
+        description: 'No OpenAI key is configured for feedback.',
+        variant: 'destructive',
+      });
+      setReviewRaw('Feedback unavailable (missing OpenAI configuration).');
+      setReviewNotes(null);
+      return;
+    }
 
     const textToReview = String(textOverride ?? generatedContent).trim();
     if (!textToReview) return;
@@ -316,6 +467,9 @@ export function ContentGenerationModalV3Baseline({
       setReviewFilter('P0');
     } catch (error) {
       console.error('[ContentGenerationModalV3Baseline] Review failed:', error);
+      setReviewRaw(
+        `Feedback failed: ${error instanceof Error ? error.message : 'Unknown error'}\n\nTry again, or refresh the page.`,
+      );
       toast({
         title: 'Feedback failed',
         description: 'Unable to generate feedback. Please try again.',
@@ -412,12 +566,37 @@ export function ContentGenerationModalV3Baseline({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (open) return;
+        // Switching browser tabs can trigger Radix "dismiss" via focus-loss.
+        // Ignore dismiss attempts while the document is hidden.
+        if (typeof document !== 'undefined' && document.hidden) return;
+        persistDraft({ clearIfEmpty: true });
+        onClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-5xl max-h-[90vh] overflow-y-auto"
+        onEscapeKeyDown={(e) => {
+          if (isGenerating || isReviewing) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (isGenerating || isReviewing) e.preventDefault();
+          // Prevent closing when the browser window/tab loses focus (Radix reports this as an "interact outside").
+          const originalEvent = (e as any)?.detail?.originalEvent;
+          if (originalEvent instanceof FocusEvent) e.preventDefault();
+        }}
+        onFocusOutside={(e) => {
+          // Prevent the dialog from closing when the browser window/tab loses focus.
+          e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Generate Content (V3)
+            Generate Content
           </DialogTitle>
           <DialogDescription>Generate content, then review and apply targeted improvements.</DialogDescription>
         </DialogHeader>
@@ -487,6 +666,11 @@ export function ContentGenerationModalV3Baseline({
                   )}
                 </Button>
               </div>
+              {!canReview && generatedContent.trim() && lastReviewedText.trim() ? (
+                <p className="text-xs text-muted-foreground text-center">
+                  Feedback is up to date. Make an edit to enable “Get Feedback”.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
         </div>
@@ -622,7 +806,13 @@ export function ContentGenerationModalV3Baseline({
               </TabsContent>
 
               <TabsContent value="notes">
-                {reviewNotes?.summary ? <p className="text-sm text-muted-foreground">{reviewNotes.summary}</p> : null}
+                {reviewNotes?.summary ? (
+                  <p className="text-sm text-muted-foreground">{reviewNotes.summary}</p>
+                ) : reviewNotes ? (
+                  <p className="text-sm text-muted-foreground">
+                    No review notes were returned. Check Priority Fixes and Open Questions.
+                  </p>
+                ) : null}
                 {reviewRaw.trim() && !reviewNotes ? (
                   <pre className="text-sm whitespace-pre-wrap font-sans">{reviewRaw.trim()}</pre>
                 ) : null}
@@ -657,11 +847,21 @@ export function ContentGenerationModalV3Baseline({
 
         <div className="-mx-6 -mb-6 border-t bg-background">
           <div className="p-6 flex items-center justify-end gap-3 w-full">
-            <Button
-              onClick={() => {
-                if (!generatedContent.trim()) return;
-                onApplyContent?.(generatedContent);
-                onClose();
+	            <Button
+	              onClick={async () => {
+	                if (!generatedContent.trim()) return;
+	                try {
+	                  await onApplyContent?.(generatedContent);
+	                  if (draftKey) clearDraft(draftKey);
+	                  if (closeOnApply) onClose();
+	                } catch (error) {
+	                  console.error('Error applying generated content:', error);
+	                  toast({
+                    title: 'Save failed',
+                    description: 'Unable to apply content. Please try again.',
+                    variant: 'destructive',
+                  });
+                }
               }}
               disabled={isGenerating || isReviewing || !generatedContent.trim()}
             >
@@ -673,4 +873,3 @@ export function ContentGenerationModalV3Baseline({
     </Dialog>
   );
 }
-

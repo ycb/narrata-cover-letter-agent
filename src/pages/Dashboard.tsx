@@ -4,26 +4,22 @@ import { useAuth } from "@/contexts/AuthContext";
 import ProfileCompletionModal from "@/components/auth/ProfileCompletionModal";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ConfidenceBar } from "@/components/ui/confidence-bar";
 import {
   FileText,
-  TrendingUp,
+  LayoutTemplate,
   Plus,
   ArrowRight,
   ArrowLeft,
   Mail,
-  Loader2,
-  AlertTriangle
 } from "lucide-react";
 import { LoadingState } from '@/components/shared/LoadingState';
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 
-// Import new simplified v2 components
-import { StoryGapsAndStrength } from "@/components/dashboard/StoryGapsAndStrength";
-import { TopActionNeeded } from "@/components/dashboard/TopActionNeeded";
-import { LevelCard } from "@/components/dashboard/LevelCard";
+  // Import new simplified v2 components
+  import { LevelCard } from "@/components/dashboard/LevelCard";
 
 // Import real data hook
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -38,8 +34,9 @@ const Dashboard = () => {
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const { data: dashboardData, isLoading, error, refetch } = useDashboardData();
   const { levelData, isLoading: isLevelLoading, recalculate } = usePMLevel();
-  const { user, profile, getOAuthData, needsProfileCompletion, updateProfile } = useAuth();
+  const { user, profile, getOAuthData, needsProfileCompletion, updateProfile, isDemo } = useAuth();
   const gapSummary = useGapSummary();
+  const interactiveRowBase = "w-full text-left rounded-lg p-3 transition-colors hover:bg-muted/50";
 
   // Check if user needs profile completion (e.g., magic link users)
   useEffect(() => {
@@ -90,18 +87,6 @@ const Dashboard = () => {
     );
   }
 
-  // Transform data for TopActionNeeded (using mock actions for now)
-  const topActions = [
-    {
-      id: 'strategy-gap',
-      title: 'Strengthen Product Strategy',
-      description: 'Add strategic planning examples',
-      priority: 'high' as const,
-      action: '/work-history',
-      context: { role: 'Senior PM', company: 'TechCorp' }
-    }
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <main className="container mx-auto px-4 pb-8">
@@ -151,7 +136,9 @@ const Dashboard = () => {
               <Button
                 variant="secondary"
                 onClick={async () => {
-                  await updateProfile({ preferred_dashboard: 'onboarding' } as any);
+                  if (!isDemo) {
+                    await updateProfile({ preferred_dashboard: 'onboarding' } as any);
+                  }
                   navigate('/dashboard/onboarding');
                 }}
                 className="bg-white hover:bg-purple-100 border border-purple-300"
@@ -171,8 +158,8 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Metrics Overview - 3 Widgets */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Metrics Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <StatsCard
             title="Stories"
             value={dashboardData.stats.stories}
@@ -184,6 +171,18 @@ const Dashboard = () => {
               change: dashboardData.stats.lastMonthStories
             }}
             onClick={() => navigate('/work-history')}
+          />
+          <StatsCard
+            title="Saved Sections"
+            value={dashboardData.stats.savedSections}
+            description="Reusable cover letter blocks"
+            icon={LayoutTemplate}
+            trend={{
+              value: `+${dashboardData.stats.lastMonthSavedSections} this month`,
+              isPositive: dashboardData.stats.lastMonthSavedSections > 0,
+              change: dashboardData.stats.lastMonthSavedSections,
+            }}
+            onClick={() => navigate('/saved-sections')}
           />
           <StatsCard
             title="Cover Letters"
@@ -207,106 +206,47 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* 4 Small Modules - Top Action + Content Health + Top Roles + Level Card */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-          {/* Top Action Needed */}
-          <TopActionNeeded actions={topActions} />
-
-          {/* Content Health */}
+        {/* MVP Dashboard Modules */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Top Roles Targeted (based on roles applied for) */}
           <Card className="shadow-soft">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold">
-                Content Health
-              </CardTitle>
+              <CardTitle className="text-xl font-semibold">Top Roles Targeted</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-success/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-success rounded-full"></div>
-                    <Link to="/work-history" className="text-sm font-medium hover:underline">
-                      Stories
-                    </Link>
+            <CardContent className="space-y-3">
+              {dashboardData.topRoles.map((role, index) => (
+                <button
+                  key={index}
+                  className={`${interactiveRowBase} bg-transparent`}
+                  onClick={() => navigate(`/cover-letters?roleBucket=${encodeURIComponent(role.bucketKey)}`)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">{role.title}</span>
+                    <Badge variant="secondary" className="shrink-0">
+                      {role.percentage}%
+                    </Badge>
                   </div>
-                  <Badge variant="secondary">12 active</Badge>
-                </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-warning/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-warning rounded-full"></div>
-                    <Link to="/cover-letter-template?tab=saved" className="text-sm font-medium hover:underline">
-                      Saved Sections
-                    </Link>
+                  <div className="text-xs text-muted-foreground">
+                    Last applied: {role.lastApplied} • {role.count} {role.count === 1 ? 'job' : 'jobs'}
                   </div>
-                  <Badge variant="secondary">8 sections</Badge>
+                </button>
+              ))}
+              {dashboardData.topRoles.length === 0 && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <p className="text-sm">No role targeting data available</p>
+                  <p className="text-xs">Paste a job description to start tracking roles</p>
                 </div>
-
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-destructive/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-destructive rounded-full"></div>
-                    <Link to="/cover-letters" className="text-sm font-medium hover:underline">
-                      Cover Letters
-                    </Link>
-                  </div>
-                  <Badge variant="secondary">3 drafts</Badge>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Top Roles Targeted */}
+          {/* Current PM Level */}
+          <LevelCard levelData={levelData} isLoading={isLevelLoading} onRecalculate={() => recalculate()} />
+
+          {/* PM Skills */}
           <Card className="shadow-soft">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold">
-                Top Roles Targeted
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                {dashboardData.topRoles.map((role, index) => (
-                  <div key={index} className="p-3 border rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-sm">{role.title}</span>
-                      <Badge variant="secondary">{role.count} jobs ({role.percentage}%)</Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Last applied: {role.lastApplied}
-                    </div>
-                  </div>
-                ))}
-                {dashboardData.topRoles.length === 0 && (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <p className="text-sm">No role targeting data available</p>
-                    <p className="text-xs">Complete onboarding to see your targets</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* PM Level Card */}
-          <LevelCard 
-            levelData={levelData} 
-            isLoading={isLevelLoading}
-            onRecalculate={() => recalculate()}
-          />
-        </div>
-
-
-        {/* 2 Large Modules Side by Side - Story Gaps + PM Competency */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Story Gaps & Strength - Left Side */}
-          <StoryGapsAndStrength
-            storyStrength={dashboardData.storyStrength}
-            gaps={dashboardData.resumeGaps}
-            coverage={dashboardData.coverageMap.competencies}
-          />
-
-          {/* PM Core Competencies - Right Side */}
-          <Card className="shadow-soft col-span-1 lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold">
-                PM Skills
-              </CardTitle>
+              <CardTitle className="text-xl font-semibold">PM Skills</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -334,12 +274,12 @@ const Dashboard = () => {
                     }
                   ].map((competency) => {
                     const percentage = Math.round((competency.score / 3) * 100);
-                    
+
                     return (
                       <button
                         key={competency.key}
                         onClick={() => navigate(`/assessment?competency=${competency.key}`)}
-                        className="w-full text-left hover:bg-accent/50 rounded-lg p-3 transition-all"
+                        className={interactiveRowBase}
                       >
                         <div className="mb-2">
                           <span className="text-sm font-medium">{competency.name}</span>

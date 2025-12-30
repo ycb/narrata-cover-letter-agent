@@ -1,42 +1,88 @@
 import { createClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
 
 const supabaseUrl = (import.meta.env?.VITE_SUPABASE_URL) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined)
 const supabaseAnonKey = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined)
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file.')
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+export const supabaseConfigError: string | null = (() => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return 'Missing Supabase environment variables. Please check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
+  }
+  if (!isValidHttpUrl(String(supabaseUrl))) {
+    return `Invalid supabaseUrl: Must be a valid HTTP or HTTPS URL. Received: ${String(supabaseUrl)}`;
+  }
+  return null;
+})();
+
+if (import.meta.env?.DEV) {
+  // eslint-disable-next-line no-console
+  console.log('[supabase] env', {
+    VITE_SUPABASE_URL: supabaseUrl,
+    hasAnonKey: Boolean(supabaseAnonKey),
+    supabaseConfigError,
+  });
 }
 
 // Create Supabase client with proper configuration for RLS
 // Using optimized settings to prevent hanging issues
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    // Enable RLS by ensuring we always have a user context
-    flowType: 'pkce',
-    // Add timeout to prevent hanging
-    debug: false,
-    // Disable storage key to prevent conflicts
-    storageKey: 'cover-letter-agent-auth'
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'cover-letter-agent-frontend'
-    }
-  },
-  // Add timeout for all requests
-  db: {
-    schema: 'public'
+let supabaseClient: SupabaseClient<Database>;
+try {
+  if (supabaseConfigError) {
+    throw new Error(supabaseConfigError);
   }
-})
+  supabaseClient = createClient<Database>(supabaseUrl as string, supabaseAnonKey as string, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      // Enable RLS by ensuring we always have a user context
+      flowType: 'pkce',
+      // Add timeout to prevent hanging
+      debug: false,
+      // Disable storage key to prevent conflicts
+      storageKey: 'cover-letter-agent-auth'
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      }
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'cover-letter-agent-frontend'
+      }
+    },
+    // Add timeout for all requests
+    db: {
+      schema: 'public'
+    }
+  });
+} catch (e) {
+  const message = e instanceof Error ? e.message : String(e);
+  // eslint-disable-next-line no-console
+  console.error('[supabase] client initialization failed:', message);
+  // Export a proxy so imports don't hard-crash the whole app. Any attempted use will throw with context.
+  supabaseClient = new Proxy(
+    {},
+    {
+      get() {
+        throw new Error(message);
+      },
+    },
+  ) as unknown as SupabaseClient<Database>;
+}
+
+export const supabase = supabaseClient;
 
 // Timeout wrapper to prevent hanging operations
 const withTimeout = <T>(promise: Promise<T>, timeoutMs: number = 10000): Promise<T> => {
@@ -50,9 +96,18 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number = 10000): Promise
 
 // Safe auth operations with timeout protection
 export const safeAuthOperations = {
-  getSession: () => withTimeout(supabase.auth.getSession(), 15000), // Increased to 15 seconds
-  getUser: () => withTimeout(supabase.auth.getUser(), 15000), // Increased to 15 seconds
-  signOut: () => withTimeout(supabase.auth.signOut(), 10000) // Keep signOut at 10 seconds
+  getSession: () =>
+    supabaseConfigError
+      ? Promise.reject(new Error(supabaseConfigError))
+      : withTimeout(supabase.auth.getSession(), 15000), // Increased to 15 seconds
+  getUser: () =>
+    supabaseConfigError
+      ? Promise.reject(new Error(supabaseConfigError))
+      : withTimeout(supabase.auth.getUser(), 15000), // Increased to 15 seconds
+  signOut: () =>
+    supabaseConfigError
+      ? Promise.reject(new Error(supabaseConfigError))
+      : withTimeout(supabase.auth.signOut(), 10000) // Keep signOut at 10 seconds
 }
 
 // Helper function to get the current user with error handling

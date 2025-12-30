@@ -4,6 +4,8 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { mergeUserTags } from '@/lib/userTags';
+import { UserTagService } from '@/services/userTagService';
 import { schedulePMLevelBackgroundRun } from './pmLevelsEdgeClient';
 
 const getActiveSyntheticProfileId = () => {
@@ -40,7 +42,7 @@ export class TagService {
     userId: string
   ): Promise<void> {
     // Deduplicate and normalize tags
-    const normalizedTags = [...new Set(tags.map(t => t.trim()).filter(Boolean))];
+    const normalizedTags = mergeUserTags(tags);
 
     const { error } = await supabase
       .from('companies')
@@ -56,6 +58,7 @@ export class TagService {
     }
 
     triggerPMLevelRefresh(userId, 'Company tags updated');
+    await UserTagService.upsertTags(userId, normalizedTags, 'company');
   }
 
   /**
@@ -66,7 +69,7 @@ export class TagService {
     tags: string[],
     userId: string
   ): Promise<void> {
-    const normalizedTags = [...new Set(tags.map(t => t.trim()).filter(Boolean))];
+    const normalizedTags = mergeUserTags(tags);
 
     const { error } = await supabase
       .from('work_items')
@@ -82,6 +85,7 @@ export class TagService {
     }
 
     triggerPMLevelRefresh(userId, 'Work item tags updated');
+    await UserTagService.upsertTags(userId, normalizedTags, 'role');
   }
 
   /**
@@ -92,7 +96,7 @@ export class TagService {
     tags: string[],
     userId: string
   ): Promise<void> {
-    const normalizedTags = [...new Set(tags.map(t => t.trim()).filter(Boolean))];
+    const normalizedTags = mergeUserTags(tags);
 
     const { error } = await supabase
       .from('saved_sections')
@@ -106,5 +110,33 @@ export class TagService {
     if (error) {
       throw new Error(`Failed to update saved section tags: ${error.message}`);
     }
+
+    await UserTagService.upsertTags(userId, normalizedTags, 'saved_section');
+  }
+
+  /**
+   * Update story tags
+   */
+  static async updateStoryTags(
+    storyId: string,
+    tags: string[],
+    userId: string
+  ): Promise<void> {
+    const normalizedTags = mergeUserTags(tags);
+
+    const { error } = await supabase
+      .from('stories')
+      .update({
+        tags: normalizedTags,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', storyId)
+      .eq('user_id', userId);
+
+    if (error) {
+      throw new Error(`Failed to update story tags: ${error.message}`);
+    }
+
+    await UserTagService.upsertTags(userId, normalizedTags, 'story');
   }
 }

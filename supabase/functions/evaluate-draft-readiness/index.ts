@@ -206,7 +206,20 @@ export async function evaluateDraftReadinessCore(
   } catch {
     /* no-op */
   }
-  if (cached && cached.ttl_expires_at && new Date(cached.ttl_expires_at) > now) {
+  const cachedDraftUpdatedAt =
+    cached?.metadata && typeof cached.metadata === 'object'
+      ? String((cached.metadata as Record<string, unknown>).draftUpdatedAt ?? '')
+      : '';
+  const isCacheFreshForDraft =
+    cachedDraftUpdatedAt &&
+    cachedDraftUpdatedAt === context.draftUpdatedAt;
+
+  if (
+    cached &&
+    cached.ttl_expires_at &&
+    new Date(cached.ttl_expires_at) > now &&
+    isCacheFreshForDraft
+  ) {
     try {
       elog.info('readiness_eval_cached', {
         draftId: params.draftId,
@@ -235,6 +248,7 @@ export async function evaluateDraftReadinessCore(
         reason: 'MIN_WORD_COUNT',
         wordCount: context.wordCount,
         verdict: 'Needs Work',
+        draftUpdatedAt: context.draftUpdatedAt,
       },
     });
 
@@ -318,6 +332,7 @@ export async function evaluateDraftReadinessCore(
       wordCount: context.wordCount,
       verdict: result.verdict,
       dimensions: result.dimensions,
+      draftUpdatedAt: context.draftUpdatedAt,
     },
   });
 

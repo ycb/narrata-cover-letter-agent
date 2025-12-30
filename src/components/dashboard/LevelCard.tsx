@@ -8,9 +8,8 @@ import {
   Loader2,
   AlertCircle
 } from "lucide-react";
-import { useState } from "react";
-import { LevelRecommendationsModal } from "./LevelRecommendationsModal";
 import type { PMLevelInference } from "@/types/content";
+import { Link } from "react-router-dom";
 
 interface LevelCardProps {
   levelData: PMLevelInference | null;
@@ -19,8 +18,6 @@ interface LevelCardProps {
 }
 
 export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProps) {
-  const [showRecommendations, setShowRecommendations] = useState(false);
-
   if (isLoading) {
     return (
       <Card className="shadow-soft">
@@ -81,37 +78,17 @@ export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProp
           {/* Confidence Bar */}
           <ConfidenceBar percentage={confidencePercentage} showLabel={false} />
 
-          {/* Delta Summary */}
-          {levelData.deltaSummary && (
-            <div className="p-3 bg-muted/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">
-                {levelData.deltaSummary.replace(/^Current level: [^.]+\.\s*/, '')}
-              </p>
-            </div>
-          )}
+          {/* Delta Summary (internal notes only; not user-facing) */}
 
           {/* Action Button */}
-            <Button
-              variant="secondary"
-            className="w-full"
-              onClick={() => setShowRecommendations(true)}
-            >
+          <Button variant="secondary" className="w-full" asChild>
+            <Link to="/assessment/overall-level?section=overall-level&evidence=overall">
               <TrendingUp className="h-4 w-4 mr-2" />
-              View Recommendations
-            </Button>
+              View Evidence
+            </Link>
+          </Button>
         </CardContent>
       </Card>
-
-      {/* Recommendations Modal */}
-      {showRecommendations && (
-        <LevelRecommendationsModal
-          isOpen={showRecommendations}
-          onClose={() => setShowRecommendations(false)}
-          recommendations={levelData.recommendations}
-          currentLevel={levelData.displayLevel}
-        />
-      )}
     </>
   );
 }
-

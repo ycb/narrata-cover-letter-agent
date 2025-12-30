@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -9,12 +9,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { GrammarInput } from "@/components/ui/grammar-input";
 import { 
   Calendar,
   LayoutTemplate,
+  MoreHorizontal,
   Plus,
-  Search
+  Search,
+  Trash2
 } from "lucide-react";
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
@@ -22,9 +24,28 @@ import { CoverLetterEditModal } from "@/components/cover-letters/CoverLetterEdit
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
 import { AddStoryModal } from "@/components/work-history/AddStoryModal";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserGoals } from "@/contexts/UserGoalsContext";
+import { useToast } from "@/components/ui/use-toast";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { StatsCard } from "@/components/dashboard/StatsCard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   CoverLetterTemplateService,
   type CoverLetterSummary
@@ -33,11 +54,14 @@ import type {
   CoverLetterGeneratedSection,
   CoverLetterSection
 } from "@/types/workHistory";
+import { classifyRoleToBucket } from "@/lib/roleBuckets";
 
 type CoverLetterStatus = "draft" | "reviewed" | "finalized";
 
 interface CoverLetterAnalytics {
   atsScore?: number | null;
+  overallScore?: number | null;
+  readiness?: string | null;
   rating?: string | null;
   summary?: string | null;
 }
@@ -117,12 +141,56 @@ const parseRating = (feedback: Record<string, unknown> | null): string | null =>
     : null;
 };
 
+const parseOverallScore = (feedback: Record<string, unknown> | null): number | null => {
+  if (!feedback) {
+    return null;
+  }
+
+  const candidate =
+    (feedback as any)?.contentStandards?.aggregated?.overallScore ??
+    (feedback as any)?.content_standards?.aggregated?.overallScore ??
+    (feedback as any)?.metrics?.overallScore ??
+    (feedback as any)?.metrics?.overall_score ??
+    (feedback as any)?.overallScore ??
+    (feedback as any)?.overall_score ??
+    null;
+
+  if (typeof candidate === "number") {
+    return Number.isFinite(candidate) ? candidate : null;
+  }
+
+  if (typeof candidate === "string") {
+    const parsed = Number.parseFloat(candidate);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+};
+
 const parseSummary = (feedback: Record<string, unknown> | null): string | null => {
   if (!feedback) {
     return null;
   }
   const candidate = feedback.summary ?? feedback.notes ?? null;
   return typeof candidate === "string" && candidate.trim().length > 0 ? candidate : null;
+};
+
+const parseReadiness = (analytics: Record<string, unknown> | null): string | null => {
+  if (!analytics) {
+    return null;
+  }
+  const candidate = (analytics as any).readiness ?? null;
+  if (typeof candidate === "string" && candidate.trim().length > 0) {
+    return candidate;
+  }
+  if (candidate && typeof candidate === "object") {
+    const rating = (candidate as any).rating ?? (candidate as any).label ?? null;
+    return typeof rating === "string" && rating.trim().length > 0 ? rating : null;
+  }
+  const readinessLabel = (analytics as any).readinessLabel ?? null;
+  return typeof readinessLabel === "string" && readinessLabel.trim().length > 0
+    ? readinessLabel
+    : null;
 };
 
 const transformSummary = (summary: CoverLetterSummary): CoverLetterListItem => {
@@ -148,6 +216,8 @@ const transformSummary = (summary: CoverLetterSummary): CoverLetterListItem => {
     llmFeedback: summary.llmFeedback,
     analytics: {
       atsScore: parseAtsScore(summary.llmFeedback),
+      overallScore: parseOverallScore(summary.llmFeedback),
+      readiness: parseReadiness(summary.analytics),
       rating: parseRating(summary.llmFeedback),
       summary: parseSummary(summary.llmFeedback)
     }
@@ -249,7 +319,10 @@ const formatShortDate = (value: string): string =>
   });
 
 export default function CoverLetters() {
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
+  const { goals: userGoals, setGoals } = useUserGoals();
+  const { toast } = useToast();
+  const [searchParams] = useSearchParams();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | CoverLetterStatus>("all");
@@ -264,6 +337,9 @@ export default function CoverLetters() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false); // Agent C: goals CTA
   const [isAddStoryModalOpen, setIsAddStoryModalOpen] = useState(false); // Agent C: add story CTA
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [coverLetterToDelete, setCoverLetterToDelete] = useState<CoverLetterListItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [storyCTAContext, setStoryCTAContext] = useState<{requirement?: string; severity?: string} | null>(null);
   const [selectedCoverLetter, setSelectedCoverLetter] = useState<CoverLetterListItem | null>(null);
   const [coverLetters, setCoverLetters] = useState<CoverLetterListItem[]>([]);
@@ -322,6 +398,7 @@ export default function CoverLetters() {
 
   const filteredCoverLetters = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
+    const roleBucket = (searchParams.get('roleBucket') || '').trim();
     return coverLetters.filter((letter) => {
       const matchesSearch =
         term.length === 0 ||
@@ -331,9 +408,14 @@ export default function CoverLetters() {
 
       const matchesStatus =
         statusFilter === "all" ? true : letter.status === statusFilter;
-      return matchesSearch && matchesStatus;
+
+      const matchesRoleBucket = roleBucket
+        ? classifyRoleToBucket(letter.position).key === roleBucket
+        : true;
+
+      return matchesSearch && matchesStatus && matchesRoleBucket;
     });
-  }, [coverLetters, searchTerm, statusFilter]);
+  }, [coverLetters, searchParams, searchTerm, statusFilter]);
 
   const stats = useMemo(() => {
     if (coverLetters.length === 0) {
@@ -406,14 +488,43 @@ export default function CoverLetters() {
     setIsEditModalOpen(true);
   };
 
+  const handleConfirmDelete = (coverLetter: CoverLetterListItem) => {
+    setCoverLetterToDelete(coverLetter);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!coverLetterToDelete) return;
+    try {
+      setIsDeleting(true);
+      await CoverLetterTemplateService.deleteCoverLetter(coverLetterToDelete.id);
+      toast({
+        title: "Cover letter deleted",
+        description: "The draft has been removed.",
+      });
+      setIsDeleteDialogOpen(false);
+      setCoverLetterToDelete(null);
+      await fetchCoverLetters();
+    } catch (error) {
+      console.error("[CoverLetters] deleteCoverLetter failed:", error);
+      toast({
+        title: "Delete failed",
+        description: "Unable to delete cover letter. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Agent C: Handler for "Edit Goals" CTA
   const handleEditGoals = () => {
     setIsGoalsModalOpen(true);
   };
 
-  const handleGoalsSaved = async () => {
+  const handleGoalsSaved = async (updatedGoals: import('@/types/userGoals').UserGoals) => {
+    await setGoals(updatedGoals);
     setIsGoalsModalOpen(false);
-    // Optionally refresh data to show updated goals
     await fetchCoverLetters();
   };
 
@@ -460,16 +571,20 @@ export default function CoverLetters() {
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Button variant="secondary" asChild>
-                <Link to="/cover-letter-template">
-                  <LayoutTemplate className="h-4 w-4 mr-2" />
-                  Edit Template
-                </Link>
-              </Button>
-              <Button onClick={handleCreateNew}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create New Letter
-              </Button>
+              {!isDemo && (
+                <Button variant="secondary" asChild>
+                  <Link to="/cover-letter-template">
+                    <LayoutTemplate className="h-4 w-4 mr-2" />
+                    Edit Template
+                  </Link>
+                </Button>
+              )}
+              {!isDemo && (
+                <Button onClick={handleCreateNew}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New Letter
+                </Button>
+              )}
             </div>
           </div>
 
@@ -528,7 +643,7 @@ export default function CoverLetters() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
               <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <GrammarInput
                 placeholder="Search by company, role, or title"
                   value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
@@ -577,9 +692,37 @@ export default function CoverLetters() {
                 <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-3">
                       <CardTitle className="text-lg">{coverLetter.title}</CardTitle>
-                      <Badge className={getStatusTone(coverLetter.status)}>
-                        {getStatusLabel(coverLetter.status)}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge className={getStatusTone(coverLetter.status)}>
+                          {getStatusLabel(coverLetter.status)}
+                        </Badge>
+                        {!isDemo && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleConfirmDelete(coverLetter)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete cover letter
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleEdit(coverLetter)}>Open</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
                     </div>
                     <div className="mt-2">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -595,7 +738,9 @@ export default function CoverLetters() {
                           Overall Score
                         </p>
                         <p className="text-lg font-semibold text-foreground">
-                          27%
+                          {coverLetter.analytics.overallScore !== null && coverLetter.analytics.overallScore !== undefined
+                            ? `${Math.round(coverLetter.analytics.overallScore)}%`
+                            : "—"}
                         </p>
                       </div>
                       <div className="rounded-lg border border-muted/40 bg-muted/10 p-3">
@@ -603,7 +748,15 @@ export default function CoverLetters() {
                           Readiness
                         </p>
                         <p className="text-lg font-semibold text-foreground">
-                          Strong
+                          {coverLetter.analytics.readiness
+                            ? coverLetter.analytics.readiness
+                                .replace(/_/g, " ")
+                                .replace(/\b\w/g, (char) => char.toUpperCase())
+                            : coverLetter.analytics.rating
+                              ? coverLetter.analytics.rating
+                                  .replace(/_/g, " ")
+                                  .replace(/\b\w/g, (char) => char.toUpperCase())
+                              : "—"}
                         </p>
                       </div>
                     </div>
@@ -636,7 +789,10 @@ export default function CoverLetters() {
       
       <CoverLetterEditModal
         isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
+        onClose={async () => {
+          setIsEditModalOpen(false);
+          await fetchCoverLetters();
+        }}
         coverLetter={modalPayload}
         onSave={fetchCoverLetters}
         onEditGoals={handleEditGoals}
@@ -649,6 +805,7 @@ export default function CoverLetters() {
         isOpen={isGoalsModalOpen}
         onClose={() => setIsGoalsModalOpen(false)}
         onSave={handleGoalsSaved}
+        initialGoals={userGoals || undefined}
       />
 
       <AddStoryModal
@@ -657,6 +814,27 @@ export default function CoverLetters() {
         onSave={handleStorySaved}
         isViewAllContext={true}
       />
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete cover letter?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this cover letter draft.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

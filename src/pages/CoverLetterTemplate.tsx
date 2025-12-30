@@ -61,6 +61,9 @@ export default function CoverLetterTemplate() {
   const [previewCoverLetter, setPreviewCoverLetter] = useState<any>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [autoSaveError, setAutoSaveError] = useState<string | null>(null);
+  const [lastSavedAtIso, setLastSavedAtIso] = useState<string | null>(null);
   const [userContentTypes, setUserContentTypes] = useState<Array<{
     type: string;
     label: string;
@@ -84,6 +87,12 @@ export default function CoverLetterTemplate() {
   const [selectedReusableType, setSelectedReusableType] = useState<string>('');
   const [selectedContent, setSelectedContent] = useState<any>(null);
   const loadMountedRef = useRef(true);
+  const templateRef = useRef(template);
+  const isDirtyRef = useRef(isDirty);
+  const revisionRef = useRef(0);
+  const [dirtyRevision, setDirtyRevision] = useState(0);
+  const autoSaveTimeoutRef = useRef<number | null>(null);
+  const saveInFlightRef = useRef<Promise<boolean> | null>(null);
 
   
   // Tour integration
@@ -116,6 +125,7 @@ export default function CoverLetterTemplate() {
           setTemplateBlurbs([]);
           setWorkHistoryLibrary([]);
           setIsDirty(false);
+          setLastSavedAtIso(null);
         }
         return;
       }
@@ -230,7 +240,9 @@ export default function CoverLetterTemplate() {
         const templateWithSignatures = {
           ...templateToUse,
           sections: (templateToUse.sections || []).map((section) => {
-            if (section.type !== "closer") {
+            // For static sections, prefer the latest saved section content so edits to
+            // saved_sections are reflected in the template view without manual copy/paste.
+            if (!section.isStatic) {
               return section;
             }
 
@@ -266,6 +278,7 @@ export default function CoverLetterTemplate() {
         setTemplate(templateWithSignatures);
         setTemplateBlurbs(blurbs);
         setIsDirty(false);
+        setLastSavedAtIso(templateWithSignatures.updatedAt ?? null);
         setWorkHistoryLibrary(libraryCompanies);
       } catch (err) {
         if (!loadMountedRef.current) {
@@ -278,6 +291,7 @@ export default function CoverLetterTemplate() {
         setTemplateBlurbs([]);
         setWorkHistoryLibrary([]);
         setIsDirty(false);
+        setLastSavedAtIso(null);
       } finally {
         if (loadMountedRef.current) {
           setIsLoading(false);
@@ -311,11 +325,97 @@ export default function CoverLetterTemplate() {
     setTemplate((prev) => {
       const next = updater(prev);
       if (next !== prev) {
+        revisionRef.current += 1;
+        setDirtyRevision(revisionRef.current);
         setIsDirty(true);
+        setAutoSaveError(null);
       }
       return next;
     });
   };
+
+  useEffect(() => {
+    templateRef.current = template;
+  }, [template]);
+
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
+  const isPersistableTemplate = (templateId: string | undefined) =>
+    Boolean(templateId && templateId !== 'draft-template');
+
+  const saveTemplate = async (reason: 'autosave' | 'done'): Promise<boolean> => {
+    const templateId = templateRef.current.id;
+    if (!isPersistableTemplate(templateId)) return true;
+
+    if (saveInFlightRef.current) {
+      await saveInFlightRef.current;
+    }
+
+    if (!isDirtyRef.current) return true;
+
+    const revisionAtStart = revisionRef.current;
+    const payload = {
+      name: templateRef.current.name,
+      sections: templateRef.current.sections,
+    };
+
+    const savePromise = (async () => {
+      if (reason === 'autosave') setIsAutoSaving(true);
+      else setIsSaving(true);
+      setAutoSaveError(null);
+
+      try {
+        await CoverLetterTemplateService.updateTemplate(templateId, payload);
+        const nowIso = new Date().toISOString();
+        setLastSavedAtIso(nowIso);
+
+        if (revisionRef.current === revisionAtStart) {
+          setIsDirty(false);
+        }
+
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Please try again.';
+        console.error('[CoverLetterTemplate] saveTemplate failed:', err);
+        setAutoSaveError(message);
+        return false;
+      } finally {
+        if (reason === 'autosave') setIsAutoSaving(false);
+        else setIsSaving(false);
+      }
+    })();
+
+    saveInFlightRef.current = savePromise;
+    const ok = await savePromise;
+    if (saveInFlightRef.current === savePromise) {
+      saveInFlightRef.current = null;
+    }
+    return ok;
+  };
+
+  useEffect(() => {
+    if (autoSaveTimeoutRef.current) {
+      window.clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
+
+    if (!isDirty) return;
+    if (!isPersistableTemplate(template.id)) return;
+    if (isSaving) return;
+
+    autoSaveTimeoutRef.current = window.setTimeout(() => {
+      void saveTemplate('autosave');
+    }, 1200);
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        window.clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
+    };
+  }, [dirtyRevision, isDirty, template.id, isSaving]);
 
   const updateSection = (sectionId: string, updates: Partial<CoverLetterSection>) => {
     updateTemplateState(prev => ({
@@ -336,10 +436,12 @@ export default function CoverLetterTemplate() {
     if (editingSection) {
       // Update existing section
       if (contentMethod === 'static' && selectedContent) {
+        const isSavedSection = selectedContentType === 'saved';
         updateSection(editingSection, {
           contentType: selectedContentType === 'story' ? 'work-history' : 'saved',
           isStatic: true,
           staticContent: selectedContent.content || selectedContent.staticContent,
+          savedSectionId: isSavedSection ? selectedContent.id ?? selectedContent.savedSectionId : undefined,
           blurbCriteria: undefined
         });
       } else if (contentMethod === 'dynamic') {
@@ -347,6 +449,7 @@ export default function CoverLetterTemplate() {
           contentType: selectedContentType === 'story' ? 'work-history' : 'saved',
           isStatic: false,
           staticContent: undefined,
+          savedSectionId: undefined,
           blurbCriteria: {
             goals: [`add ${selectedContentType === 'story' ? 'work history story' : 'saved section'} based on job description`]
           }
@@ -377,6 +480,7 @@ export default function CoverLetterTemplate() {
         contentType: selectedContentType === 'story' ? 'work-history' : 'saved',
         isStatic: false,
         staticContent: undefined,
+        savedSectionId: undefined,
         blurbCriteria: {
           goals: [`add ${selectedContentType === 'story' ? 'work history story' : 'saved section'} based on job description`]
         },
@@ -386,12 +490,14 @@ export default function CoverLetterTemplate() {
       // For static selection, require selected content
       if (!selectedContent) return;
       
+      const isSavedSection = selectedContentType === 'saved';
       newSection = {
         id: `section-${Date.now()}`,
         type: 'paragraph',
         contentType: selectedContentType === 'story' ? 'work-history' : 'saved',
         isStatic: true,
         staticContent: selectedContent.content || selectedContent.staticContent,
+        savedSectionId: isSavedSection ? selectedContent.id ?? selectedContent.savedSectionId : undefined,
         blurbCriteria: undefined,
         order: template.sections.length + 1
       };
@@ -420,8 +526,10 @@ export default function CoverLetterTemplate() {
 
   const selectBlurbForSection = (sectionId: string, blurb: TemplateBlurb) => {
     updateSection(sectionId, { 
-      isStatic: true, 
+      contentType: 'saved',
+      isStatic: true,
       staticContent: blurb.content,
+      savedSectionId: blurb.id,
       blurbCriteria: undefined
     });
     setShowBlurbSelector(false);
@@ -436,8 +544,10 @@ export default function CoverLetterTemplate() {
   const handleSelectWorkHistoryBlurb = (blurb: WorkHistoryBlurb) => {
     if (selectedSection) {
       updateSection(selectedSection, { 
-        isStatic: true, 
+        contentType: 'work-history',
+        isStatic: true,
         staticContent: blurb.content,
+        savedSectionId: undefined,
         blurbCriteria: undefined
       });
       setShowWorkHistorySelector(false);
@@ -865,48 +975,68 @@ const handleDragEnd = () => {
   setDragOverIndex(null);
 };
 
-const persistTemplate = async () => {
-  if (!template.id || template.id === 'draft-template') {
+const handleDone = async () => {
+  if (!isPersistableTemplate(template.id)) {
     setIsDirty(false);
     navigate('/cover-letters');
     return;
   }
 
-  if (!isDirty) {
-    navigate('/cover-letters');
-    return;
+  const wasDirty = isDirtyRef.current;
+  if (wasDirty) {
+    const ok = await saveTemplate('done');
+    if (!ok) {
+      toast({
+        title: 'Unable to save template',
+        description: autoSaveError ?? 'Please try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
   }
 
-  setIsSaving(true);
-  try {
-    await CoverLetterTemplateService.updateTemplate(template.id, {
-      name: template.name,
-      sections: template.sections
-    });
-    setIsDirty(false);
+  if (wasDirty) {
     toast({
       title: 'Template saved',
-      description: 'Your cover letter template is up to date.'
+      description: 'Your cover letter template is up to date.',
     });
-    navigate('/cover-letters');
-  } catch (err) {
-    console.error('Error saving template:', err);
-    toast({
-      title: 'Unable to save template',
-      description: err instanceof Error ? err.message : 'Please try again.',
-      variant: 'destructive'
-    });
-  } finally {
-    setIsSaving(false);
   }
-  };
+  navigate('/cover-letters');
+};
 
   return (
     <div className="min-h-screen bg-background">
       <TemplateBanner
-        onDone={persistTemplate}
-        doneLabel={isDirty ? 'Save' : 'Done'}
-        isDoneDisabled={isSaving}
+        onDone={handleDone}
+        doneLabel="Done"
+        isDoneDisabled={isSaving || isAutoSaving}
+        statusNode={
+          isPersistableTemplate(template.id) ? (
+            <div className="flex items-center gap-2 text-xs">
+              {isAutoSaving ? (
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  Saving…
+                </span>
+              ) : autoSaveError ? (
+                <span className="flex items-center gap-1 text-destructive">
+                  <X className="h-3.5 w-3.5" />
+                  Auto-save failed
+                </span>
+              ) : isDirty ? (
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  Unsaved changes
+                </span>
+              ) : lastSavedAtIso ? (
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <CheckCircle className="h-3.5 w-3.5 text-success" />
+                  Saved
+                </span>
+              ) : null}
+            </div>
+          ) : null
+        }
         isDoneLoading={isSaving}
         previewButton={
           <Button

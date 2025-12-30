@@ -66,6 +66,9 @@ export interface MatchJobDescription {
   location?: string;
   salary?: string;
   workType?: string;
+  companyIndustry?: string;
+  companyBusinessModel?: string;
+  companyMaturity?: string;
   standardRequirements?: Array<any>;
   preferredRequirements?: Array<any>;
   standard_requirements?: Array<any>;
@@ -74,6 +77,12 @@ export interface MatchJobDescription {
   structuredData?: {
     standardRequirements?: Array<any>;
     preferredRequirements?: Array<any>;
+    companyIndustry?: string | null;
+    companyBusinessModel?: string | null;
+    companyMaturity?: string | null;
+    workType?: string | null;
+    salary?: string | null;
+    location?: string | null;
   };
 }
 

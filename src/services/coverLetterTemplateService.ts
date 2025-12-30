@@ -99,6 +99,7 @@ export interface CoverLetterSummary {
   status: 'draft' | 'reviewed' | 'finalized';
   sections: CoverLetterGeneratedSection[];
   llmFeedback: Record<string, unknown> | null;
+  analytics: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -503,6 +504,7 @@ export class CoverLetterTemplateService {
         status,
         sections,
         llm_feedback,
+        analytics,
         created_at,
         updated_at,
         job_descriptions:job_description_id (
@@ -534,6 +536,7 @@ export class CoverLetterTemplateService {
         status: 'draft' | 'reviewed' | 'finalized';
         sections: unknown;
         llm_feedback: unknown;
+        analytics: unknown;
         created_at: string;
         updated_at: string;
         job_descriptions: {
@@ -572,6 +575,10 @@ export class CoverLetterTemplateService {
         row.llm_feedback && typeof row.llm_feedback === 'object'
           ? (row.llm_feedback as Record<string, unknown>)
           : null;
+      const analytics =
+        row.analytics && typeof row.analytics === 'object'
+          ? (row.analytics as Record<string, unknown>)
+          : null;
 
       return {
         id: row.id,
@@ -591,6 +598,7 @@ export class CoverLetterTemplateService {
         status: row.status,
         sections,
         llmFeedback,
+        analytics,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       } satisfies CoverLetterSummary;
@@ -601,27 +609,31 @@ export class CoverLetterTemplateService {
    * Load user's saved sections from database
    * Supports synthetic profile filtering when profileId is provided
    */
-  static async getUserSavedSections(
-    userId: string,
-    profileId?: string
-  ): Promise<SavedSection[]> {
-    console.log(`[SavedSections] Loading saved sections for user ${userId}${profileId ? ` (profile ${profileId})` : ''}`);
+	  static async getUserSavedSections(
+	    userId: string,
+	    profileId?: string
+	  ): Promise<SavedSection[]> {
+	    console.log(`[SavedSections] Loading saved sections for user ${userId}${profileId ? ` (profile ${profileId})` : ''}`);
 
     const sources = await this.getCoverLetterSources(userId, profileId);
     const sourceIds = sources.map((source) => source.id);
 
-    const fetchSavedSections = async (): Promise<SavedSection[]> => {
-      const client = await this.getClient();
-      let builder = client
-        .from('saved_sections')
-        .select('*')
-        .eq('user_id', userId);
+	    const fetchSavedSections = async (): Promise<SavedSection[]> => {
+	      const client = await this.getClient();
+	      let builder = client
+	        .from('saved_sections')
+	        .select('*')
+	        .eq('user_id', userId);
 
-      if (sourceIds.length > 0) {
-        builder = builder.in('source_id', sourceIds);
-      }
+	      // Only constrain to cover letter sources when explicitly in a synthetic profile context.
+	      // In normal usage we want *all* user saved sections, including manually created ones
+	      // (which typically have `source_id = null`).
+	      if (profileId && sourceIds.length > 0) {
+	        const escapedSourceIds = sourceIds.map((id) => `"${id}"`).join(',');
+	        builder = builder.or(`source_id.in.(${escapedSourceIds}),source_id.is.null`);
+	      }
 
-      const { data, error } = await builder.order('created_at', { ascending: false });
+	      const { data, error } = await builder.order('created_at', { ascending: false });
 
       if (error) {
         console.error('[SavedSections] Database error loading saved sections:', error);
@@ -780,6 +792,22 @@ export class CoverLetterTemplateService {
 
     if (error) {
       console.error('Error deleting saved section:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete cover letter draft
+   */
+  static async deleteCoverLetter(coverLetterId: string): Promise<void> {
+    const client = await this.getClient();
+    const { error } = await client
+      .from('cover_letters')
+      .delete()
+      .eq('id', coverLetterId);
+
+    if (error) {
+      console.error('Error deleting cover letter:', error);
       throw error;
     }
   }

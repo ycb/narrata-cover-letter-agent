@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingState } from '@/components/shared/LoadingState';
+import { getPreferredDashboardCache, type PreferredDashboard } from '@/lib/dashboardPreference';
 
 /**
  * Dashboard Router - Redirects to preferred dashboard view
@@ -16,12 +17,14 @@ import { LoadingState } from '@/components/shared/LoadingState';
 export default function DashboardRouter() {
   const navigate = useNavigate();
   const { profile, loading } = useAuth();
+  const cachedPreference = useMemo(() => getPreferredDashboardCache(), []);
 
   console.log('🔀 [DashboardRouter] Component render:', {
     loading,
     hasProfile: !!profile,
     profileId: profile?.id,
-    preferredDashboard: (profile as any)?.preferred_dashboard
+    preferredDashboard: (profile as any)?.preferred_dashboard,
+    cachedPreference
   });
 
   useEffect(() => {
@@ -32,13 +35,10 @@ export default function DashboardRouter() {
       return;
     }
 
-    if (!profile) {
-      console.log('⏳ [DashboardRouter] Profile not loaded yet, waiting...');
-      return;
-    }
-
-    // Get preferred dashboard from profile (default: 'onboarding')
-    const preferredDashboard = (profile as any)?.preferred_dashboard || 'onboarding';
+    const preferredDashboard: PreferredDashboard =
+      ((profile as any)?.preferred_dashboard as PreferredDashboard | undefined) ||
+      cachedPreference ||
+      'onboarding';
 
     console.log('🔀 [DashboardRouter] Routing decision:', {
       loading,
@@ -66,4 +66,3 @@ export default function DashboardRouter() {
     </div>
   );
 }
-

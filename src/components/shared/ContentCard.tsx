@@ -64,6 +64,7 @@ interface ContentCardProps {
   renderChildrenBeforeTags?: boolean; // If true, render children before tags (for cover letter inline editing)
   isLoading?: boolean; // NEW: Streaming skeleton state (default: false)
   loadingMessage?: string; // NEW: Custom loading message (e.g., "Drafting intro...")
+  titleLeading?: React.ReactNode;
 }
 
 /**
@@ -105,7 +106,8 @@ export const ContentCard = ({
   children,
   renderChildrenBeforeTags = false,
   isLoading = false, // Default: false (prevents breaking existing callers)
-  loadingMessage
+  loadingMessage,
+  titleLeading
 }: ContentCardProps) => {
   // Helper to check if a tag is structured
   const isStructuredTag = (tag: string | RequirementTag): tag is RequirementTag => {
@@ -140,7 +142,12 @@ export const ContentCard = ({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <div className="mb-2">
+            <div className="mb-2 flex items-center gap-2 min-w-0">
+              {titleLeading ? (
+                <div className="flex-shrink-0">
+                  {titleLeading}
+                </div>
+              ) : null}
               <CardTitle className="text-lg truncate">
                 {title ? title.charAt(0).toUpperCase() + title.slice(1) : ''}
               </CardTitle>
@@ -316,4 +323,3 @@ export const ContentCard = ({
     </Card>
   );
 };
-

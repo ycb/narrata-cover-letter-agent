@@ -122,13 +122,14 @@ EXTRACTION RULES:
    - Extract the work arrangement or location flexibility
    - Look for: "remote", "hybrid", "in-office", "on-site", "flexible"
    - Examples: "Remote", "Hybrid", "In-person", "Remote (US only)", "Hybrid (2 days/week)"
-   - Return null if not mentioned in JD
+   - If JD explicitly says remote (or location type: remote), return "Remote" (or the exact remote variant)
+   - Return null only if not mentioned in JD
 
 8. LOCATION:
    - Extract the primary work location or office location
    - Look for: city, state, region mentioned
    - Examples: "Seattle, WA", "San Francisco Bay Area", "New York, NY", "Austin, TX"
-   - Return null if not mentioned or if fully remote
+   - Return null if not mentioned or if fully remote and no location is specified
 
 9. COMPANY MISSION:
    - Extract the company's mission statement or purpose
@@ -261,4 +262,3 @@ CRITICAL:
 - Requirements will be automatically ranked by priority based on keywords, position, repetition, and uniqueness
 `;
 };
-

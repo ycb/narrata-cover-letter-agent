@@ -1,25 +1,14 @@
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Search,
-  Plus,
-  Filter,
-  ChevronDown,
-  ChevronUp,
-  ChevronRight
-} from "lucide-react";
+import { Search, Plus, Filter, ChevronDown, ChevronUp, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 export interface FilterOption {
   label: string;
@@ -65,88 +54,56 @@ export function ShowAllTemplate<T>({
   filters,
 }: ShowAllTemplateProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilters, setActiveFilters] = useState<Partial<Record<SortOption['category'], string>>>({});
+  const [activeSimpleFilter, setActiveSimpleFilter] = useState("all");
   const [sortField, setSortField] = useState<keyof T | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
-
   const hasAdvancedFilters = Boolean(sortOptions && sortOptions.length);
   const hasSimpleFilters = !hasAdvancedFilters && Boolean(filters && filters.length);
-
-  // Filter and search data
-  const filteredData = useMemo(() => {
-    let result = data;
-
-    // Apply filter
-    if (activeFilter !== "all") {
-      if (hasAdvancedFilters && sortOptions) {
-        result = result.filter(item => {
-          return sortOptions.some(option => {
-            if (option.value === activeFilter) {
-              // For company, role, tag, and section-type categories, we need to map to the correct field
-              let fieldToCheck: keyof T;
-              switch (option.category) {
-                case 'company':
-                  fieldToCheck = 'company' as keyof T;
-                  break;
-                case 'role':
-                  fieldToCheck = 'role' as keyof T;
-                  break;
-                case 'tag':
-                  fieldToCheck = 'tags' as keyof T;
-                  break;
-                case 'section-type':
-                  fieldToCheck = 'type' as keyof T;
-                  break;
-                case 'gap':
-                  // Gap filtering - check hasGaps property
-                  const hasGaps = (item as any).hasGaps || false;
-                  if (option.value === 'gap-detected') {
-                    return hasGaps === true;
-                  } else if (option.value === 'no-gaps') {
-                    return hasGaps === false;
-                  }
-                  return false;
-                default:
-                  fieldToCheck = option.value as keyof T;
-              }
-
-              // Skip fieldToCheck if we already handled gap category
-              if (option.category === 'gap') {
-                return false; // Already handled above
-              }
-
-              const itemValue = item[fieldToCheck];
-              if (typeof itemValue === 'string') {
-                return itemValue === option.label;
-              }
-              if (Array.isArray(itemValue)) {
-                return itemValue.includes(option.label);
-              }
-            }
-            return false;
-          });
-        });
-      } else if (hasSimpleFilters && filters) {
-        const selectedFilter = filters.find(filter => filter.value === activeFilter || filter.label === activeFilter);
-        if (selectedFilter) {
-          const searchToken = selectedFilter.label.toLowerCase();
-          result = result.filter(item =>
-            Object.values(item).some(value => {
-              if (typeof value === 'string') {
-                return value.toLowerCase().includes(searchToken);
-              }
-              if (Array.isArray(value)) {
-                return value.some(entry =>
-                  typeof entry === 'string' && entry.toLowerCase().includes(searchToken),
-                );
-              }
-              return false;
-            }),
-          );
-        }
-      }
+  const groupedSortOptions = useMemo(() => {
+    const grouped = new Map<SortOption['category'], SortOption[]>();
+    (sortOptions || []).forEach((option) => {
+      const current = grouped.get(option.category) || [];
+      current.push(option);
+      grouped.set(option.category, current);
+    });
+    return grouped;
+  }, [sortOptions]);
+  const getCategoryLabel = (category: SortOption['category']) => {
+    switch (category) {
+      case 'company':
+        return 'Company';
+      case 'role':
+        return 'Role';
+      case 'tag':
+        return 'Tag';
+      case 'section-type':
+        return 'Section';
+      case 'gap':
+        return 'Gap';
+      default:
+        return 'Filter';
     }
+  };
+
+  const getOptionLabel = (category: SortOption['category'], value: string) => {
+    return sortOptions?.find((option) => option.category === category && option.value === value)?.label ?? value;
+  };
+
+  const activeFilterChips = useMemo(() => {
+    return Object.entries(activeFilters)
+      .filter(([, value]) => Boolean(value))
+      .map(([category, value]) => ({
+        category: category as SortOption['category'],
+        value: value as string,
+        label: getOptionLabel(category as SortOption['category'], value as string),
+      }));
+  }, [activeFilters, sortOptions]);
+
+  const hasActiveFilters = activeFilterChips.length > 0;
+
+  const searchFilteredData = useMemo(() => {
+    let result = data;
 
     // Apply search
     if (searchTerm && searchKeys.length > 0) {
@@ -163,6 +120,74 @@ export function ShowAllTemplate<T>({
           return false;
         });
       });
+    }
+
+    return result;
+  }, [data, searchTerm, searchKeys]);
+
+  const matchesAdvancedFilter = (
+    item: any,
+    category: SortOption['category'],
+    value: string,
+  ) => {
+    switch (category) {
+      case 'company':
+        return item.company === value;
+      case 'role':
+        return item.role === value;
+      case 'tag':
+        return Array.isArray(item.tags) && item.tags.includes(value);
+      case 'section-type':
+        return item.type === value;
+      case 'gap': {
+        const hasGaps = Boolean(item.hasGaps);
+        return value === 'gap-detected' ? hasGaps : !hasGaps;
+      }
+      default:
+        return false;
+    }
+  };
+
+  const filterByActiveFilters = (items: T[], excludeCategory?: SortOption['category']) => {
+    if (!hasAdvancedFilters || !sortOptions) {
+      return items;
+    }
+    return items.filter((item) =>
+      Object.entries(activeFilters).every(([category, value]) => {
+        if (!value) return true;
+        const typedCategory = category as SortOption['category'];
+        if (excludeCategory && typedCategory === excludeCategory) return true;
+        return matchesAdvancedFilter(item, typedCategory, value);
+      }),
+    );
+  };
+
+  // Filter and search data
+  const filteredData = useMemo(() => {
+    let result = searchFilteredData;
+
+    if (hasAdvancedFilters && sortOptions) {
+      result = filterByActiveFilters(result);
+    } else if (hasSimpleFilters && filters && activeSimpleFilter !== "all") {
+      const selectedFilter = filters.find(
+        (filter) => filter.value === activeSimpleFilter || filter.label === activeSimpleFilter,
+      );
+      if (selectedFilter) {
+        const searchToken = selectedFilter.label.toLowerCase();
+        result = result.filter((item) =>
+          Object.values(item).some((value) => {
+            if (typeof value === 'string') {
+              return value.toLowerCase().includes(searchToken);
+            }
+            if (Array.isArray(value)) {
+              return value.some(
+                (entry) => typeof entry === 'string' && entry.toLowerCase().includes(searchToken),
+              );
+            }
+            return false;
+          }),
+        );
+      }
     }
 
     // Apply sorting
@@ -198,20 +223,101 @@ export function ShowAllTemplate<T>({
 
     return result;
   }, [
-    data,
-    activeFilter,
-    searchTerm,
-    searchKeys,
+    searchFilteredData,
+    hasAdvancedFilters,
+    sortOptions,
+    hasSimpleFilters,
+    filters,
+    activeSimpleFilter,
     sortField,
     sortDirection,
-    sortOptions,
-    filters,
-    hasAdvancedFilters,
-    hasSimpleFilters,
+    activeFilters,
   ]);
 
-  const handleFilterChange = (filter: string) => {
-    setActiveFilter(filter);
+  const collectValuesForCategory = (items: T[], category: SortOption['category']) => {
+    const values = new Set<string>();
+    let hasGapDetected = false;
+    let hasNoGaps = false;
+
+    items.forEach((item: any) => {
+      switch (category) {
+        case 'company':
+          if (item.company) values.add(item.company);
+          break;
+        case 'role':
+          if (item.role) values.add(item.role);
+          break;
+        case 'tag':
+          if (Array.isArray(item.tags)) {
+            item.tags.forEach((tag: string) => values.add(tag));
+          }
+          break;
+        case 'section-type':
+          if (item.type) values.add(item.type);
+          break;
+        case 'gap': {
+          const itemHasGaps = Boolean(item.hasGaps);
+          if (itemHasGaps) {
+            hasGapDetected = true;
+          } else {
+            hasNoGaps = true;
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    });
+
+    if (category === 'gap') {
+      if (hasGapDetected) values.add('gap-detected');
+      if (hasNoGaps) values.add('no-gaps');
+    }
+
+    return values;
+  };
+
+  const availableValuesByCategory = useMemo(() => {
+    if (!sortOptions || sortOptions.length === 0 || !hasAdvancedFilters) {
+      return new Map<SortOption['category'], Set<string>>();
+    }
+
+    const categories = new Set<SortOption['category']>();
+    sortOptions.forEach((option) => categories.add(option.category));
+
+    const valuesByCategory = new Map<SortOption['category'], Set<string>>();
+
+    categories.forEach((category) => {
+      const scopedItems = filterByActiveFilters(searchFilteredData, category);
+      valuesByCategory.set(category, collectValuesForCategory(scopedItems, category));
+    });
+
+    return valuesByCategory;
+  }, [sortOptions, searchFilteredData, activeFilters, hasAdvancedFilters]);
+
+  const getOptionsForCategory = (category: SortOption['category']) => {
+    const baseOptions = (sortOptions || []).filter((option) => option.category === category);
+    const available = availableValuesByCategory.get(category);
+    let options = baseOptions;
+    if (available && available.size > 0) {
+      options = options.filter((option) => available.has(option.value));
+    }
+    const selectedValue = activeFilters[category];
+    if (selectedValue) {
+      options = options.filter((option) => option.value !== selectedValue);
+    }
+    return options;
+  };
+
+  const handleFilterChange = (category: SortOption['category'], value: string | null) => {
+    setActiveFilters((prev) => ({
+      ...prev,
+      [category]: value ?? undefined,
+    }));
+  };
+
+  const handleClearFilters = () => {
+    setActiveFilters({});
   };
 
   const handleSort = (field: keyof T | string) => {
@@ -270,191 +376,129 @@ export function ShowAllTemplate<T>({
                   </div>
                 </div>
 
-                {/* Single Filter Fly-out Component */}
+                {/* Horizontal Filter Bar */}
                 {hasAdvancedFilters && sortOptions && (
-                  <div className="flex gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Filter className="h-4 w-4 mr-2" />
-                          Filter
-                          {activeFilter !== "all" && (
-                            <Badge variant="secondary" className="ml-2">
-                              {activeFilter}
-                            </Badge>
-                          )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Filter className="h-4 w-4" />
+                      Filter
+                    </div>
+                    {groupedSortOptions.get('company') && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">Company</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-60">
+                          {getOptionsForCategory('company').map((option) => (
+                            <DropdownMenuItem
+                              key={option.value}
+                              onClick={() => handleFilterChange('company', option.value)}
+                            >
+                              {option.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    {groupedSortOptions.get('role') && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">Role</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-60">
+                          {getOptionsForCategory('role').map((option) => (
+                            <DropdownMenuItem
+                              key={option.value}
+                              onClick={() => handleFilterChange('role', option.value)}
+                            >
+                              {option.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    {groupedSortOptions.get('gap') && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">Gap</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-60">
+                          {getOptionsForCategory('gap').map((option) => (
+                            <DropdownMenuItem
+                              key={option.value}
+                              onClick={() => handleFilterChange('gap', option.value)}
+                            >
+                              {option.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    {groupedSortOptions.get('tag') && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">Tags</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-60">
+                          {getOptionsForCategory('tag').map((option) => (
+                            <DropdownMenuItem
+                              key={option.value}
+                              onClick={() => handleFilterChange('tag', option.value)}
+                            >
+                              {option.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    {groupedSortOptions.get('section-type') && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">Sections</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-60">
+                          {getOptionsForCategory('section-type').map((option) => (
+                            <DropdownMenuItem
+                              key={option.value}
+                              onClick={() => handleFilterChange('section-type', option.value)}
+                            >
+                              {option.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    {hasActiveFilters && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {activeFilterChips.map((chip) => (
+                          <Badge
+                            key={`${chip.category}-${chip.value}`}
+                            variant="secondary"
+                            className="flex items-center gap-1"
+                          >
+                            <span className="text-xs text-muted-foreground">
+                              {getCategoryLabel(chip.category)}
+                            </span>
+                            <span>{chip.label}</span>
+                            <button
+                              type="button"
+                              className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:text-foreground"
+                              onClick={() => handleFilterChange(chip.category, null)}
+                              aria-label={`Remove ${chip.label}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleClearFilters}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          Clear
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-72">
-                        {/* Company Fly-out */}
-                        {sortOptions.some(s => s.category === 'company') && (
-                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'company' : null)}>
-                            <DropdownMenuSubTrigger
-                              className={`px-3 py-2 transition-colors ${
-                                openSubmenu === 'company'
-                                  ? 'bg-blue-600 text-white'
-                                  : 'hover:bg-blue-600 hover:text-white'
-                              }`}
-                            >
-                              <span className="flex-1 text-left">Company</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-48">
-                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                All Companies
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'company')
-                                .map((option) => (
-                                  <DropdownMenuItem
-                                    key={option.value}
-                                    onClick={() => handleFilterChange(option.value)}
-                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                  </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        )}
-
-                        {/* Role Fly-out */}
-                        {sortOptions.some(s => s.category === 'role') && (
-                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'role' : null)}>
-                            <DropdownMenuSubTrigger
-                              className={`px-3 py-2 transition-colors ${
-                                openSubmenu === 'role'
-                                  ? 'bg-blue-600 text-white'
-                                  : 'hover:bg-blue-600 hover:text-white'
-                              }`}
-                            >
-                              <span className="flex-1 text-left">Role</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-48">
-                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                All Roles
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'role')
-                                .map((option) => (
-                                  <DropdownMenuItem
-                                    key={option.value}
-                                    onClick={() => handleFilterChange(option.value)}
-                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                  </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        )}
-
-                        {/* Sections Fly-out */}
-                        {sortOptions.some(s => s.category === 'section-type') && (
-                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'sections' : null)}>
-                            <DropdownMenuSubTrigger
-                              className={`px-3 py-2 transition-colors ${
-                                openSubmenu === 'sections'
-                                  ? 'bg-blue-600 text-white'
-                                  : 'hover:bg-blue-600 hover:text-white'
-                              }`}
-                            >
-                              <span className="flex-1 text-left">Sections</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-48">
-                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                All Sections
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'section-type')
-                                .map((option) => (
-                                  <DropdownMenuItem
-                                    key={option.value}
-                                    onClick={() => handleFilterChange(option.value)}
-                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                  </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        )}
-
-                        {/* Gap Fly-out */}
-                        {sortOptions.some(s => s.category === 'gap') && (
-                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'gap' : null)}>
-                            <DropdownMenuSubTrigger
-                              className={`px-3 py-2 transition-colors ${
-                                openSubmenu === 'gap'
-                                  ? 'bg-blue-600 text-white'
-                                  : 'hover:bg-blue-600 hover:text-white'
-                              }`}
-                            >
-                              <span className="flex-1 text-left">Gap</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-48">
-                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                All Stories
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'gap')
-                                .map((option) => (
-                                  <DropdownMenuItem
-                                    key={option.value}
-                                    onClick={() => handleFilterChange(option.value)}
-                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                  </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        )}
-
-                        {/* Tags Fly-out */}
-                        {sortOptions.some(s => s.category === 'tag') && (
-                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'tags' : null)}>
-                            <DropdownMenuSubTrigger
-                              className={`px-3 py-2 transition-colors ${
-                                openSubmenu === 'tags'
-                                  ? 'bg-blue-600 text-white'
-                                  : 'hover:bg-blue-600 hover:text-white'
-                              }`}
-                            >
-                              <span className="flex-1 text-left">Tags</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-48">
-                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                All Tags
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'tag')
-                                .map((option) => (
-                                  <DropdownMenuItem
-                                    key={option.value}
-                                    onClick={() => handleFilterChange(option.value)}
-                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                  </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        )}
-
-
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    {/* Clear Filters Button */}
-                    {activeFilter !== "all" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleFilterChange("all")}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        Clear
-                      </Button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -466,21 +510,18 @@ export function ShowAllTemplate<T>({
                         <Button variant="outline" size="sm">
                           <Filter className="h-4 w-4 mr-2" />
                           Filter
-                          {activeFilter !== "all" && (
+                          {activeSimpleFilter !== "all" && (
                             <Badge variant="secondary" className="ml-2">
-                              {activeFilter}
+                              {activeSimpleFilter}
                             </Badge>
                           )}
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-60">
-                        <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                          All
-                        </DropdownMenuItem>
                         {filters.map(filter => (
                           <DropdownMenuItem
                             key={filter.value}
-                            onClick={() => handleFilterChange(filter.value)}
+                            onClick={() => setActiveSimpleFilter(filter.value)}
                           >
                             <span className="flex-1">{filter.label}</span>
                             {typeof filter.count === 'number' && (
@@ -492,11 +533,11 @@ export function ShowAllTemplate<T>({
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    {activeFilter !== "all" && (
+                    {activeSimpleFilter !== "all" && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleFilterChange("all")}
+                        onClick={() => setActiveSimpleFilter("all")}
                         className="text-muted-foreground hover:text-foreground"
                       >
                         Clear

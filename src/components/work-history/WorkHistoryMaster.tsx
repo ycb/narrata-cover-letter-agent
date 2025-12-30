@@ -57,13 +57,34 @@ export const WorkHistoryMaster = ({
   const getUpdatedGapCount = (role: WorkHistoryRole) => {
     if (!(role as any).hasGaps) return 0;
     
-    const originalGapCount = (role as any).gapCount || 0;
-    
-    // Check if this specific role has any resolved gaps by matching gap IDs
+    const originalCount = (role as any).gapCount || 0;
+
+    // `gapCount` is "content items with gaps" (role description, role metrics, and each story with gaps).
+    // Decrement using the same item-level keys we set in WorkHistoryDetail when dismissing/resolving.
+    let resolvedItems = 0;
+
     const roleGaps = (role as any).gaps || [];
-    const resolvedCount = roleGaps.filter((gap: any) => resolvedGaps.has(gap.id)).length;
-    
-    return Math.max(0, originalGapCount - resolvedCount);
+    const hasRoleDescriptionItem = roleGaps.some((gap: any) =>
+      (gap.gap_category || '').includes('description') ||
+      gap.gap_category === 'missing_role_description' ||
+      gap.gap_category === 'generic_role_description' ||
+      gap.gap_category === 'role_description_needs_specifics'
+    );
+    const hasRoleMetricsItem = roleGaps.some((gap: any) =>
+      gap.gap_category === 'missing_role_metrics' || gap.gap_category === 'insufficient_role_metrics'
+    );
+
+    if (hasRoleDescriptionItem && resolvedGaps.has('role-description-gap')) resolvedItems += 1;
+    if (hasRoleMetricsItem && resolvedGaps.has('role-metrics-gap')) resolvedItems += 1;
+
+    const stories = (role as any).blurbs || [];
+    for (const story of stories) {
+      if (story?.hasGaps && resolvedGaps.has(`story-content-gap-${story.id}`)) {
+        resolvedItems += 1;
+      }
+    }
+
+    return Math.max(0, originalCount - resolvedItems);
   };
 
   return (
@@ -71,9 +92,11 @@ export const WorkHistoryMaster = ({
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Work History</h2>
-          <Button variant="secondary" size="sm" className="h-8 w-8 p-0" onClick={onAddCompany}>
-            <Plus className="h-4 w-4" />
-          </Button>
+          {onAddCompany && (
+            <Button variant="secondary" size="sm" className="h-8 w-8 p-0" onClick={onAddCompany}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </CardHeader>
       

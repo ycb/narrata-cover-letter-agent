@@ -62,8 +62,20 @@ export function buildStoryGenerationPrompt(
   gap: Gap,
   existingContent: string,
   workHistoryContext: WorkHistoryContext,
-  jobContext?: JobContext
+  jobContext?: JobContext,
+  userVoicePrompt?: string
 ): string {
+  const roleTitle = String(workHistoryContext.currentRole?.title || '').trim();
+  const roleCompany = String(workHistoryContext.currentRole?.company || '').trim();
+  const requiredOpener =
+    roleTitle && roleCompany
+      ? `As ${roleTitle} at ${roleCompany},`
+      : `[NEEDS-INPUT: start with your role + company, e.g. "As Senior PM at Aurora Solar,"]`;
+
+  const voiceBlock = String(userVoicePrompt || '').trim()
+    ? `\n**Voice Guide (follow closely; preserve the user’s phrasing and tone):**\n${String(userVoicePrompt).trim().slice(0, 700)}\n`
+    : '';
+
   const prompt = `You are an expert career coach helping a professional improve their work history content for job applications.
 
 **Your Task**: Generate enhanced content that addresses the identified gap while maintaining 100% truth fidelity.
@@ -71,14 +83,20 @@ export function buildStoryGenerationPrompt(
 **CRITICAL CONSTRAINTS**:
 1. Use ONLY facts from the provided work history - NO hallucinations or fabrications
 2. Maintain the user's authentic voice and tone
-3. Follow STAR format: Situation, Task, Action, Result
-4. Include specific, quantifiable metrics when available
+3. Use STAR reasoning internally, but DO NOT output STAR labels, headings, bullets, or markdown
+4. NEVER invent or guess numbers (%, $, counts, dates). Only include a metric if it appears in the provided work history context or the existing content.
 5. Keep content concise (2-4 sentences)
-6. If you cannot address the gap with available facts, say "Insufficient information in work history to address this gap"
+6. If a required fact (especially a metric) is missing, do not fabricate; use a short placeholder like: [NEEDS-INPUT: metric / outcome / scope]
+7. Output format: a single narrative paragraph (no headings, no bullets, no "Situation/Task/Action/Result" labels)
+8. REQUIRED OPENER: The story MUST start with the exact phrase: "${requiredOpener}" (no intro clause before it).
+9. Preserve specificity: carry forward concrete domain/product/customer/tech details from the Existing Content (do not replace them with generic leadership summaries).
+10. Avoid buzzwords the user likely wouldn’t use (e.g. "spearheaded"); prefer plain verbs unless the Voice Guide uses them.
 
 **User Context**:
 ${workHistoryContext.currentRole ? `Current Role: ${workHistoryContext.currentRole.title} at ${workHistoryContext.currentRole.company}
 Duration: ${workHistoryContext.currentRole.startDate}${workHistoryContext.currentRole.endDate ? ` - ${workHistoryContext.currentRole.endDate}` : ' - Present'}` : ''}
+
+${voiceBlock}
 
 ${workHistoryContext.metrics && workHistoryContext.metrics.length > 0 ? `
 **Available Metrics** (use these in the story):
@@ -113,13 +131,13 @@ ${existingContent || 'No existing content provided'}
 **Instructions**:
 Generate improved content that:
 1. Addresses the gap by ${gap.suggestions && gap.suggestions.length > 0 ? gap.suggestions[0].toLowerCase() : 'adding specific details and metrics'}
-2. Uses ONLY the metrics and facts provided above - no fabrication
-3. Maintains the original story's core message (if existing content provided)
-4. Follows STAR format structure (Situation, Task, Action, Result)
+2. Uses ONLY the metrics and facts provided above or in the existing content - no fabrication
+3. Maintains and elevates the original story's core message (if existing content provided), keeping its specific details while improving clarity and structure
+4. Reads like a polished story paragraph (STAR-shaped internally, but not labeled)
 5. Is compelling and achievement-focused
-6. Uses specific numbers and percentages from the available metrics
+6. Uses specific numbers and percentages ONLY when they are explicitly provided; otherwise use [NEEDS-INPUT: ...]
 
-Output ONLY the enhanced content, no explanations.`;
+Output ONLY the enhanced content paragraph, no explanations and no markdown.`;
 
   return prompt;
 }
@@ -130,8 +148,13 @@ Output ONLY the enhanced content, no explanations.`;
 export function buildRoleDescriptionPrompt(
   gap: Gap,
   existingContent: string,
-  workHistoryContext: WorkHistoryContext
+  workHistoryContext: WorkHistoryContext,
+  userVoicePrompt?: string
 ): string {
+  const voiceBlock = String(userVoicePrompt || '').trim()
+    ? `\n**Voice Guide (follow closely; preserve the user’s phrasing and tone):**\n${String(userVoicePrompt).trim().slice(0, 700)}\n`
+    : '';
+
   const prompt = `You are an expert career coach helping a professional improve their role description for job applications.
 
 **Your Task**: Generate an enhanced role description that showcases measurable impact and specific achievements.
@@ -143,10 +166,13 @@ export function buildRoleDescriptionPrompt(
 4. Keep it concise (2-3 sentences)
 5. Maintain professional tone
 6. If you cannot provide specific metrics from the work history, say "Insufficient information to provide specific metrics"
+7. Avoid buzzwords the user likely wouldn’t use (e.g. "spearheaded"); prefer plain verbs unless the Voice Guide uses them.
 
 **Role Context**:
 ${workHistoryContext.currentRole ? `${workHistoryContext.currentRole.title} at ${workHistoryContext.currentRole.company}
 Duration: ${workHistoryContext.currentRole.startDate}${workHistoryContext.currentRole.endDate ? ` - ${workHistoryContext.currentRole.endDate}` : ' - Present'}` : 'Role information not provided'}
+
+${voiceBlock}
 
 ${workHistoryContext.metrics && workHistoryContext.metrics.length > 0 ? `
 **Available Metrics** (use these in the description):
@@ -188,8 +214,12 @@ export function buildSavedSectionPrompt(
   existingContent: string,
   sectionType: 'introduction' | 'closer' | 'signature' | 'custom',
   workHistoryContext: WorkHistoryContext,
-  jobContext?: JobContext
+  jobContext?: JobContext,
+  userVoicePrompt?: string
 ): string {
+  const voiceBlock = String(userVoicePrompt || '').trim()
+    ? `\n**Voice Guide (follow closely; preserve the user’s phrasing and tone):**\n${String(userVoicePrompt).trim().slice(0, 700)}\n`
+    : '';
   const sectionGuidance = {
     introduction: {
       purpose: 'Open the cover letter with a compelling hook that grabs attention',
@@ -238,11 +268,14 @@ export function buildSavedSectionPrompt(
 2. Avoid clichés like "I am writing to express my interest"
 3. Make it specific and compelling, not templated
 4. Length: ${guidance.length}
-5. Use [Placeholders] for company/role names to enable reusability
+5. Use tokens for reusability: [COMPANY-NAME] and [ROLE]
 6. If you cannot create compelling content from the work history, say "Insufficient achievements in work history for this section type"
+7. Avoid buzzwords the user likely wouldn’t use (e.g. "spearheaded"); prefer plain verbs unless the Voice Guide uses them.
 
 **User Context**:
 ${workHistoryContext.currentRole ? `Most Recent Role: ${workHistoryContext.currentRole.title} at ${workHistoryContext.currentRole.company}` : ''}
+
+${voiceBlock}
 
 ${workHistoryContext.metrics && workHistoryContext.metrics.length > 0 ? `
 **Key Achievements to Reference**:

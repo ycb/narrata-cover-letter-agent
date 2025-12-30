@@ -247,6 +247,30 @@ const jdAnalysisStage: PipelineStage = {
       console.warn('[jdAnalysisStage] Failed to emit final progress event', err);
     }
 
+    if (stageStatus === 'complete' && (stageData.roleInsights || stageData.jdRequirementSummary)) {
+      try {
+        const existingAnalysis = (jd.analysis as Record<string, unknown> | null) ?? {};
+        const analysisPayload = {
+          ...existingAnalysis,
+          roleInsights: stageData.roleInsights ?? existingAnalysis.roleInsights,
+          jdRequirementSummary: stageData.jdRequirementSummary ?? existingAnalysis.jdRequirementSummary,
+          analyzedAt: new Date().toISOString(),
+          latencyMs: Date.now() - stageStartMs,
+        };
+
+        const { error: updateError } = await supabase
+          .from('job_descriptions')
+          .update({ analysis: analysisPayload })
+          .eq('id', jobDescriptionId);
+
+        if (updateError) {
+          console.warn('[jdAnalysisStage] Failed to persist analysis cache', updateError);
+        }
+      } catch (cacheError) {
+        console.warn('[jdAnalysisStage] Exception while persisting analysis cache', cacheError);
+      }
+    }
+
     return {
       status: stageStatus,
       isPartial: false,
@@ -359,6 +383,15 @@ const requirementAnalysisStage: PipelineStage = {
     const stageStartMs = Date.now();
     let firstPartialMs: number | null = null;
     let llmUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
+    let callMeta: {
+      attempt: number;
+      retry_count: number;
+      http_status?: number;
+      finish_reason?: string | null;
+      max_output_tokens?: number;
+      error_code?: string | null;
+      request_id?: string | null;
+    } | null = null;
 
     // Fetch data
     const jd = await fetchJobDescription(supabase, jobDescriptionId);
@@ -427,19 +460,76 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
 
 Extract 5-10 core and 3-5 preferred requirements. Be specific with evidence.`;
 
-    const response = await callOpenAI({
-      apiKey: openaiApiKey,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.4,
-      maxTokens: 2500,
-    });
+    const isRetryable = (error: unknown) => {
+      const name = (error as any)?.name;
+      const httpStatus = (error as any)?.http_status;
+      const errorCode = (error as any)?.error_code;
+      if (name === 'OpenAIResponseParseError') return true; // e.g., HTML body
+      if (name === 'OpenAIHTTPError') {
+        if (errorCode === 'rate_limit_exceeded') return true;
+        if (typeof httpStatus === 'number' && httpStatus >= 500) return true;
+      }
+      return false;
+    };
+
+    const maxAttempts = 2;
+    let attempt = 0;
+    let response: any | null = null;
+    let lastError: unknown = null;
+    while (attempt < maxAttempts) {
+      attempt += 1;
+      try {
+        response = await callOpenAI({
+          apiKey: openaiApiKey,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.4,
+          maxTokens: 2500,
+        });
+        break;
+      } catch (error) {
+        lastError = error;
+        if (attempt < maxAttempts && isRetryable(error)) {
+          // Small backoff; keep it short to avoid compounding worst-case latency.
+          const backoffMs = 400 * attempt;
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
+          continue;
+        }
+        throw error;
+      }
+    }
+    if (!response) {
+      throw lastError instanceof Error ? lastError : new Error('OpenAI call failed');
+    }
+
+    const responseMeta = (response as any)?.__meta as
+      | { http_status?: number; request_id?: string | null; max_output_tokens?: number }
+      | undefined;
+    const finish_reason = response?.choices?.[0]?.finish_reason ?? null;
+    callMeta = {
+      attempt,
+      retry_count: Math.max(0, attempt - 1),
+      http_status: responseMeta?.http_status,
+      request_id: responseMeta?.request_id ?? null,
+      max_output_tokens: responseMeta?.max_output_tokens,
+      finish_reason,
+      error_code: null,
+    };
+
     llmUsage = {
       prompt_tokens: response?.usage?.prompt_tokens ?? 0,
       completion_tokens: response?.usage?.completion_tokens ?? 0,
       total_tokens: response?.usage?.total_tokens ?? 0,
     };
 
-    const result = parseJSONResponse(response.choices[0].message.content);
+    let result: any;
+    try {
+      result = parseJSONResponse(response.choices[0].message.content);
+    } catch (error) {
+      const parseError = new Error('Failed to parse requirementAnalysis JSON from model output');
+      (parseError as any).name = 'RequirementAnalysisParseError';
+      (parseError as any).response_snippet = String(response?.choices?.[0]?.message?.content ?? '').slice(0, 280);
+      throw parseError;
+    }
 
     const finalPayload = {
       coreRequirements: result.coreRequirements || [],
@@ -447,6 +537,12 @@ Extract 5-10 core and 3-5 preferred requirements. Be specific with evidence.`;
       requirementsMet: result.requirementsMet || 0,
       totalRequirements: result.totalRequirements || 0,
     };
+    if (
+      (!Array.isArray(finalPayload.coreRequirements) || finalPayload.coreRequirements.length === 0) &&
+      (!Array.isArray(finalPayload.preferredRequirements) || finalPayload.preferredRequirements.length === 0)
+    ) {
+      throw new Error('Requirement analysis returned no requirements');
+    }
 
     // Late progress: counts to drive UI micro-steps
     try {
@@ -486,6 +582,7 @@ Extract 5-10 core and 3-5 preferred requirements. Be specific with evidence.`;
       status: 'complete',
       usage: llmUsage ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
       ttfu_ms: firstPartialMs ? firstPartialMs - stageStartMs : null,
+      meta: callMeta ?? { attempt: 1, retry_count: 0 },
     };
   },
 };
@@ -1052,6 +1149,8 @@ const sectionGapsStage: PipelineStage = {
   execute: async (ctx: PipelineContext) => {
     const { job, supabase, openaiApiKey, send } = ctx;
     const { jobDescriptionId, templateId } = job.input;
+    const stageStartMs = Date.now();
+    let firstPartialMs: number | null = null;
 
     // Fetch data
     const jd = await fetchJobDescription(supabase, jobDescriptionId);
@@ -1072,20 +1171,21 @@ const sectionGapsStage: PipelineStage = {
     const templateSectionIds = template?.sections?.map((s: any) => s.id) || [];
 
     // Early progress: let UI know gap analysis started and how many sections we will analyze
-    try {
-      await send('progress', {
-        jobId: job.id,
-        stage: 'sectionGaps',
-        isPartial: true,
-        data: {
-          status: 'starting',
-          sectionCount: templateSectionIds.length,
-        },
-        timestamp: new Date().toISOString(),
-      });
-    } catch (err) {
-      console.warn('[sectionGapsStage] Failed to emit starting progress', err);
-    }
+	    try {
+	      await send('progress', {
+	        jobId: job.id,
+	        stage: 'sectionGaps',
+	        isPartial: true,
+	        data: {
+	          status: 'starting',
+	          sectionCount: templateSectionIds.length,
+	        },
+	        timestamp: new Date().toISOString(),
+	      });
+        firstPartialMs = firstPartialMs ?? Date.now();
+	    } catch (err) {
+	      console.warn('[sectionGapsStage] Failed to emit starting progress', err);
+	    }
 
     const prompt = `Analyze gaps for cover letter sections for this job.
 
@@ -1120,20 +1220,25 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
 
 Analyze ALL section IDs in the template. Focus on 1-3 gaps per section where applicable.`;
 
-    const llmStart = Date.now();
-    const response = await callOpenAI({
-      apiKey: openaiApiKey,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.5,
-      maxTokens: 3500,
-    });
-    const llmDuration = Date.now() - llmStart;
+	    const llmStart = Date.now();
+	    const response = await callOpenAI({
+	      apiKey: openaiApiKey,
+	      messages: [{ role: 'user', content: prompt }],
+	      temperature: 0.5,
+	      maxTokens: 3500,
+	    });
+	    const llmDuration = Date.now() - llmStart;
+      const preLlmMs = llmStart - stageStartMs;
 
     const result = parseJSONResponse(response.choices[0].message.content);
     
     // Extract usage metrics from response
     const usage = response.usage || {};
     const model = 'gpt-4o-mini'; // Known from callOpenAI default
+    const finish_reason = response?.choices?.[0]?.finish_reason ?? null;
+	    const responseMeta = (response as any)?.__meta as
+	      | { http_status?: number; request_id?: string | null; max_output_tokens?: number; duration_ms?: number }
+	      | undefined;
 
     // Late progress: total gaps + section count for UI ticks
     try {
@@ -1166,14 +1271,44 @@ Analyze ALL section IDs in the template. Focus on 1-3 gaps per section where app
       return true;
     });
 
-    return {
-      sections: validatedSections,
-      totalGaps: validatedSections.reduce((sum: number, s: any) => 
-        sum + (s.requirementGaps?.length || 0), 0
-      ),
-      usage,
-      llmDuration,
-      model,
+    const totalGaps = validatedSections.reduce((sum: number, s: any) => sum + (s.requirementGaps?.length || 0), 0);
+
+    // Final progress: mark stage complete so DB stage status flips from running -> complete.
+    try {
+      await send('progress', {
+        jobId: job.id,
+        stage: 'sectionGaps',
+        isPartial: false,
+        data: {
+          status: 'complete',
+          sections: validatedSections,
+          totalGaps,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('[sectionGapsStage] Failed to emit final progress event', err);
+    }
+
+	    return {
+	      status: 'complete',
+	      sections: validatedSections,
+	      totalGaps,
+	      usage,
+        ttfu_ms: firstPartialMs ? firstPartialMs - stageStartMs : null,
+	      llmDuration,
+        pre_llm_ms: preLlmMs,
+        openai_duration_ms: responseMeta?.duration_ms,
+	      model,
+	      meta: {
+	        attempt: 1,
+	        retry_count: 0,
+	        http_status: responseMeta?.http_status,
+        request_id: responseMeta?.request_id ?? null,
+        max_output_tokens: responseMeta?.max_output_tokens,
+        finish_reason,
+        error_code: null,
+      },
     };
   },
 };
@@ -1216,16 +1351,24 @@ Analyze ALL section IDs in the template. Focus on 1-3 gaps per section where app
 // REMOVED: basicMetrics stage (redundant with requirementAnalysis)
 // ============================================================================
 
+type CoverLetterPipelineOptions = {
+  onlyStage?: string;
+  finalizeJob?: boolean;
+};
+
 export async function executeCoverLetterPipeline(
   job: any,
   supabase: any,
-  send: (event: string, data: any) => void
+  send: (event: string, data: any) => void,
+  options?: CoverLetterPipelineOptions
 ) {
   // Initialize telemetry
   const telemetry = new PipelineTelemetry(job.id, job.type);
   const jobDescriptionId = job.input?.jobDescriptionId as string | undefined;
   const templateId = job.input?.templateId as string | undefined;
   let jdFingerprint: { char_len?: number; hash12?: string } = {};
+  const onlyStage = options?.onlyStage;
+  const finalizeJob = options?.finalizeJob ?? true;
 
   try {
     // Get OpenAI API key from environment
@@ -1261,6 +1404,105 @@ export async function executeCoverLetterPipeline(
       }
     } catch {
       // Non-blocking: fingerprint is optional
+    }
+
+    // =========================================================================
+    // STAGE-ONLY EXECUTION (authenticated retries, e.g. sectionGaps)
+    // =========================================================================
+    if (onlyStage) {
+      if (onlyStage !== 'sectionGaps') {
+        throw new Error(`Unsupported retry stage: ${onlyStage}`);
+      }
+
+      const stageStart = Date.now();
+      voidLogEval(supabase, {
+        job_id: job.id,
+        job_type: 'coverLetter',
+        stage: onlyStage,
+        user_id: job.user_id,
+        started_at: new Date(stageStart),
+        success: true, // Placeholder
+      });
+
+      try {
+        telemetry?.startStage(onlyStage);
+        const result = await sectionGapsStage.execute(context);
+        telemetry?.endStage(true);
+
+        voidLogEval(supabase, {
+          job_id: job.id,
+          job_type: 'coverLetter',
+          stage: onlyStage,
+          user_id: job.user_id,
+          started_at: new Date(stageStart),
+          completed_at: new Date(),
+          duration_ms: Date.now() - stageStart,
+          success: true,
+          prompt_name: 'sectionGaps',
+          model: result?.model || 'gpt-4o-mini',
+          prompt_tokens: result?.usage?.prompt_tokens ?? 0,
+          completion_tokens: result?.usage?.completion_tokens ?? 0,
+          total_tokens: result?.usage?.total_tokens ?? 0,
+          result_subset: {
+            pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+            jobDescriptionId,
+            templateId,
+            jd_char_len: jdFingerprint.char_len,
+            jd_hash12: jdFingerprint.hash12,
+            attempt: result?.meta?.attempt ?? 1,
+            retry_count: result?.meta?.retry_count ?? 0,
+            http_status: result?.meta?.http_status,
+            finish_reason: result?.meta?.finish_reason ?? null,
+            max_output_tokens: result?.meta?.max_output_tokens,
+            error_code: result?.meta?.error_code ?? null,
+          },
+        });
+
+        return result;
+      } catch (error) {
+        telemetry?.endStage(false);
+
+        try {
+          await send('progress', {
+            jobId: job.id,
+            stage: onlyStage,
+            isPartial: false,
+            stageStatus: 'failed',
+            data: {
+              status: 'failed',
+              error: error instanceof Error ? error.message : String(error),
+            },
+            timestamp: new Date().toISOString(),
+          });
+        } catch (_) {
+          // ignore
+        }
+
+        voidLogEval(supabase, {
+          job_id: job.id,
+          job_type: 'coverLetter',
+          stage: onlyStage,
+          user_id: job.user_id,
+          started_at: new Date(stageStart),
+          completed_at: new Date(),
+          duration_ms: Date.now() - stageStart,
+          success: false,
+          error_type: error instanceof Error ? error.constructor.name : 'UnknownError',
+          error_message: error instanceof Error ? error.message : String(error),
+          result_subset: {
+            pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+            jobDescriptionId,
+            templateId,
+            http_status: (error as any)?.http_status,
+            error_code: (error as any)?.error_code ?? null,
+            max_output_tokens: (error as any)?.max_output_tokens,
+            request_id: (error as any)?.request_id ?? null,
+            response_snippet: (error as any)?.response_snippet ?? null,
+          },
+        });
+
+        throw error;
+      }
     }
 
     // =========================================================================
@@ -1331,6 +1573,9 @@ export async function executeCoverLetterPipeline(
       console.error('[Pipeline] jdAnalysis failed:', error);
       results.jdAnalysis = { status: 'failed', error: error instanceof Error ? error.message : String(error) };
     }
+    if (results.jdAnalysis?.status === 'failed') {
+      throw new Error(`jdAnalysis failed: ${results.jdAnalysis?.error || 'unknown error'}`);
+    }
 
     // =========================================================================
     // LAYER 2: Parallel execution (both only need JD data, not each other)
@@ -1396,6 +1641,12 @@ export async function executeCoverLetterPipeline(
               coreRequirementsCount: result?.coreRequirements?.length || 0,
               requirementsMet: result?.requirementsMet || 0,
               totalRequirements: result?.totalRequirements || 0,
+              attempt: result?.meta?.attempt ?? 1,
+              retry_count: result?.meta?.retry_count ?? 0,
+              http_status: result?.meta?.http_status,
+              finish_reason: result?.meta?.finish_reason ?? null,
+              max_output_tokens: result?.meta?.max_output_tokens,
+              error_code: result?.meta?.error_code ?? null,
             },
           });
           
@@ -1415,7 +1666,36 @@ export async function executeCoverLetterPipeline(
             success: false,
             error_type: error instanceof Error ? error.constructor.name : 'UnknownError',
             error_message: error instanceof Error ? error.message : String(error),
+            result_subset: {
+              pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+              jobDescriptionId,
+              templateId,
+              jd_char_len: jdFingerprint.char_len,
+              jd_hash12: jdFingerprint.hash12,
+              http_status: (error as any)?.http_status,
+              error_code: (error as any)?.error_code ?? null,
+              max_output_tokens: (error as any)?.max_output_tokens,
+              request_id: (error as any)?.request_id ?? null,
+              response_snippet: (error as any)?.response_snippet ?? null,
+            },
           });
+
+          // Best-effort: mark stage as failed in the job stages payload
+          try {
+            await send('progress', {
+              jobId: job.id,
+              stage: 'requirementAnalysis',
+              isPartial: false,
+              stageStatus: 'failed',
+              data: {
+                status: 'failed',
+                error: error instanceof Error ? error.message : String(error),
+              },
+              timestamp: new Date().toISOString(),
+            });
+          } catch (_) {
+            // ignore
+          }
           
           throw error;
         }
@@ -1529,7 +1809,36 @@ export async function executeCoverLetterPipeline(
             success: false,
             error_type: error instanceof Error ? error.constructor.name : 'UnknownError',
             error_message: error instanceof Error ? error.message : String(error),
+            result_subset: {
+              pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+              jobDescriptionId,
+              templateId,
+              jd_char_len: jdFingerprint.char_len,
+              jd_hash12: jdFingerprint.hash12,
+              http_status: (error as any)?.http_status,
+              error_code: (error as any)?.error_code ?? null,
+              max_output_tokens: (error as any)?.max_output_tokens,
+              request_id: (error as any)?.request_id ?? null,
+              response_snippet: (error as any)?.response_snippet ?? null,
+            },
           });
+
+          // Best-effort: mark stage as failed in the job stages payload
+          try {
+            await send('progress', {
+              jobId: job.id,
+              stage: 'goalsAndStrengths',
+              isPartial: false,
+              stageStatus: 'failed',
+              data: {
+                status: 'failed',
+                error: error instanceof Error ? error.message : String(error),
+              },
+              timestamp: new Date().toISOString(),
+            });
+          } catch (_) {
+            // ignore
+          }
           
           throw error;
         }
@@ -1544,6 +1853,13 @@ export async function executeCoverLetterPipeline(
     results.goalsAndStrengths = goalsResult.status === 'fulfilled'
       ? goalsResult.value
       : { status: 'failed', error: goalsResult.reason?.message };
+
+    if (results.requirementAnalysis?.status === 'failed') {
+      throw new Error(`requirementAnalysis failed: ${results.requirementAnalysis?.error || 'unknown error'}`);
+    }
+    if (results.goalsAndStrengths?.status === 'failed') {
+      throw new Error(`goalsAndStrengths failed: ${results.goalsAndStrengths?.error || 'unknown error'}`);
+    }
 
     try { 
       const { elog } = await import('../log.ts'); 
@@ -1588,31 +1904,40 @@ export async function executeCoverLetterPipeline(
       telemetry?.endStage(true);
       
       // Log eval metrics
-      voidLogEval(supabase, {
-        job_id: job.id,
-        job_type: 'coverLetter',
-        stage: 'sectionGaps',
-        user_id: job.user_id,
-        started_at: new Date(sectionGapsStart),
-        completed_at: new Date(),
-        duration_ms: Date.now() - sectionGapsStart,
-        success: true,
-        prompt_name: 'sectionGaps',
-        model: results.sectionGaps?.model || 'gpt-4o-mini',
-        prompt_tokens: results.sectionGaps?.usage?.prompt_tokens ?? 0,
-        completion_tokens: results.sectionGaps?.usage?.completion_tokens ?? 0,
-        total_tokens: results.sectionGaps?.usage?.total_tokens ?? 0,
-        ttfu_ms: results.sectionGaps?.llmDuration ?? undefined,
-        result_subset: {
-          pipeline_version: COVER_LETTER_PIPELINE_VERSION,
-          jobDescriptionId,
-          templateId,
-          jd_char_len: jdFingerprint.char_len,
-          jd_hash12: jdFingerprint.hash12,
-          totalGaps: results.sectionGaps?.totalGaps || 0,
-          sectionCount: results.sectionGaps?.sections?.length || 0,
-        },
-      });
+	      voidLogEval(supabase, {
+	        job_id: job.id,
+	        job_type: 'coverLetter',
+	        stage: 'sectionGaps',
+	        user_id: job.user_id,
+	        started_at: new Date(sectionGapsStart),
+	        completed_at: new Date(),
+	        duration_ms: Date.now() - sectionGapsStart,
+	        success: true,
+	        prompt_name: 'sectionGaps',
+	        model: results.sectionGaps?.model || 'gpt-4o-mini',
+	        prompt_tokens: results.sectionGaps?.usage?.prompt_tokens ?? 0,
+	        completion_tokens: results.sectionGaps?.usage?.completion_tokens ?? 0,
+	        total_tokens: results.sectionGaps?.usage?.total_tokens ?? 0,
+	        ttfu_ms: results.sectionGaps?.ttfu_ms ?? undefined,
+	        result_subset: {
+	          pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+	          jobDescriptionId,
+	          templateId,
+	          jd_char_len: jdFingerprint.char_len,
+	          jd_hash12: jdFingerprint.hash12,
+	          totalGaps: results.sectionGaps?.totalGaps || 0,
+	          sectionCount: results.sectionGaps?.sections?.length || 0,
+	          llmDuration: results.sectionGaps?.llmDuration,
+	          pre_llm_ms: results.sectionGaps?.pre_llm_ms,
+	          openai_duration_ms: results.sectionGaps?.openai_duration_ms,
+	          attempt: results.sectionGaps?.meta?.attempt ?? 1,
+	          retry_count: results.sectionGaps?.meta?.retry_count ?? 0,
+	          http_status: results.sectionGaps?.meta?.http_status,
+	          finish_reason: results.sectionGaps?.meta?.finish_reason ?? null,
+	          max_output_tokens: results.sectionGaps?.meta?.max_output_tokens,
+	          error_code: results.sectionGaps?.meta?.error_code ?? null,
+	        },
+	      });
       
       try { const { elog } = await import('../log.ts'); elog.info('[Pipeline] Layer 3 complete: sectionGaps'); } catch (_) {}
     } catch (error) {
@@ -1630,12 +1955,44 @@ export async function executeCoverLetterPipeline(
         success: false,
         error_type: error instanceof Error ? error.constructor.name : 'UnknownError',
         error_message: error instanceof Error ? error.message : String(error),
+        result_subset: {
+          pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+          jobDescriptionId,
+          templateId,
+          jd_char_len: jdFingerprint.char_len,
+          jd_hash12: jdFingerprint.hash12,
+          http_status: (error as any)?.http_status,
+          error_code: (error as any)?.error_code ?? null,
+          max_output_tokens: (error as any)?.max_output_tokens,
+          request_id: (error as any)?.request_id ?? null,
+          response_snippet: (error as any)?.response_snippet ?? null,
+        },
       });
+
+      // Best-effort: mark stage as failed in the job stages payload
+      try {
+        await send('progress', {
+          jobId: job.id,
+          stage: 'sectionGaps',
+          isPartial: false,
+          stageStatus: 'failed',
+          data: {
+            status: 'failed',
+            error: error instanceof Error ? error.message : String(error),
+          },
+          timestamp: new Date().toISOString(),
+        });
+      } catch (_) {
+        // ignore
+      }
       
       console.error('[Pipeline] sectionGaps failed:', error);
       results.sectionGaps = { status: 'failed', error: error instanceof Error ? error.message : String(error) };
     } finally {
       clearInterval(layer3Heartbeat);
+    }
+    if (results.sectionGaps?.status === 'failed') {
+      throw new Error(`sectionGaps failed: ${results.sectionGaps?.error || 'unknown error'}`);
     }
 
     try { 
@@ -1736,20 +2093,24 @@ export async function executeCoverLetterPipeline(
       }); 
     } catch (_) {}
 
-    // Save final result to job
-    await supabase
-      .from('jobs')
-      .update({
-        status: 'complete',
-        result: finalResult,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', job.id);
+    if (finalizeJob) {
+      // Save final result to job
+      await supabase
+        .from('jobs')
+        .update({
+          status: 'complete',
+          result: finalResult,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+    }
 
     // Persist enhanced analysis to the cover_letters row
     // Prefer explicit draftId; fallback to latest draft by user + jobDescriptionId
     const persistEnhancedData = async () => {
       try {
+        if (!finalizeJob) return;
+
         let draftId = job.input?.draftId as string | undefined;
         if (!draftId && job.input?.jobDescriptionId && job.user_id) {
           const { data: draftRow } = await supabase
@@ -1795,7 +2156,9 @@ export async function executeCoverLetterPipeline(
         try { const { elog } = await import('../log.ts'); elog.error('[executeCoverLetterPipeline] Failed to persist enhancedMatchData to draft', { error: persistError }); } catch (_) {}
       }
     };
-    await persistEnhancedData();
+    if (finalizeJob) {
+      await persistEnhancedData();
+    }
 
     // Mark telemetry as complete
     telemetry.complete(true);

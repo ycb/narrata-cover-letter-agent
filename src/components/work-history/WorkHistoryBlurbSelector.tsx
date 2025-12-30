@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { GrammarInput } from "@/components/ui/grammar-input";
 import { Search, ChevronRight, Building, User, FileText, Check } from "lucide-react";
 import { ConfidenceIndicator } from "@/components/confidence/ConfidenceIndicator";
 import type { WorkHistoryCompany, WorkHistoryBlurb } from "@/types/workHistory";
@@ -129,7 +129,7 @@ export const WorkHistoryBlurbSelector = ({
           {/* Search */}
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
+            <GrammarInput
               placeholder="Search companies, roles, or stories..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}

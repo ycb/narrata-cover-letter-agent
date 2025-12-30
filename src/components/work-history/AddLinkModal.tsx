@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TagAutocompleteInput } from "@/components/ui/TagAutocompleteInput";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { X, Link as LinkIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { addUserTag, removeUserTag } from "@/lib/userTags";
 
 interface AddLinkModalProps {
   open: boolean;
@@ -64,14 +66,14 @@ export function AddLinkModal({
   }, [editingLink]);
 
   const handleAddLinkTag = () => {
-    if (linkTagInput.trim() && !linkTags.includes(linkTagInput.trim())) {
-      setLinkTags([...linkTags, linkTagInput.trim()]);
-      setLinkTagInput("");
-    }
+    const nextTags = addUserTag(linkTags, linkTagInput);
+    if (nextTags === linkTags) return;
+    setLinkTags(nextTags);
+    setLinkTagInput("");
   };
 
   const handleRemoveLinkTag = (tagToRemove: string) => {
-    setLinkTags(linkTags.filter(tag => tag !== tagToRemove));
+    setLinkTags(removeUserTag(linkTags, tagToRemove));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -220,12 +222,14 @@ export function AddLinkModal({
           <div className="space-y-2">
             <Label htmlFor="linkTags">Tags</Label>
             <div className="flex gap-2">
-              <Input
+              <TagAutocompleteInput
                 id="linkTags"
                 value={linkTagInput}
                 onChange={(e) => setLinkTagInput(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 placeholder="Add a tag and press Enter"
+                category="link"
+                localTags={linkTags}
               />
               <Button type="button" onClick={handleAddLinkTag} size="sm">
                 Add

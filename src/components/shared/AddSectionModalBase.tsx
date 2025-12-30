@@ -45,6 +45,7 @@ export interface AddSectionModalBaseProps {
   initialContentType?: ContentType;
   initialMethod?: ContentMethod;
   initialContent?: WorkHistoryBlurb | SavedSection | null;
+  initialShowSelectionPanel?: boolean;
 }
 
 const savedSectionGroups = [
@@ -78,10 +79,11 @@ export function AddSectionModalBase({
   initialContentType,
   initialMethod,
   initialContent,
+  initialShowSelectionPanel,
 }: AddSectionModalBaseProps) {
   const [selectedContentType, setSelectedContentType] = useState<ContentType | null>(initialContentType || null);
   const [contentMethod, setContentMethod] = useState<ContentMethod | null>(initialMethod || null);
-  const [showSelectionPanel, setShowSelectionPanel] = useState(false);
+  const [showSelectionPanel, setShowSelectionPanel] = useState(Boolean(initialShowSelectionPanel));
 
   // Story selection state
   const [selectedCompany, setSelectedCompany] = useState<string>('');
@@ -95,12 +97,19 @@ export function AddSectionModalBase({
     if (!isOpen) {
       setSelectedContentType(initialContentType || null);
       setContentMethod(initialMethod || null);
-      setShowSelectionPanel(false);
+      setShowSelectionPanel(Boolean(initialShowSelectionPanel));
       setSelectedCompany('');
       setSelectedRole('');
       setSelectedSectionType('');
     }
-  }, [isOpen, initialContentType, initialMethod]);
+  }, [isOpen, initialContentType, initialMethod, initialShowSelectionPanel]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (mode === 'letter' && selectedContentType && !contentMethod) {
+      setContentMethod('static');
+    }
+  }, [isOpen, mode, selectedContentType, contentMethod]);
 
   const handleContentTypeChange = (type: ContentType) => {
     console.log('[AddSectionModalBase] handleContentTypeChange called', { type, mode });
@@ -442,7 +451,7 @@ export function AddSectionModalBase({
                             >
                               <div className="space-y-3">
                                 <h4 className="font-medium">{section.title}</h4>
-                                <p className="text-sm text-muted-foreground whitespace-pre-line">{section.content}</p>
+                                <p className="text-sm text-muted-foreground whitespace-pre-line">{section.content.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim()}</p>
                               </div>
                             </div>
                           ))
