@@ -69,7 +69,7 @@ CREATE TABLE public.linkedin_profiles (
 
 ```bash
 # Required
-VITE_OPENAI_KEY=your_openai_api_key
+VITE_OPENAI_API_KEY=your_openai_api_key
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
@@ -306,7 +306,7 @@ supabase storage create user-files --public false
 cp .env.example .env
 
 # Add required variables
-VITE_OPENAI_KEY=your_key_here
+VITE_OPENAI_API_KEY=your_key_here
 VITE_SUPABASE_URL=your_url_here
 VITE_SUPABASE_ANON_KEY=your_key_here
 ```

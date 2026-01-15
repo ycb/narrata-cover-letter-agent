@@ -18,7 +18,7 @@ vi.mock('@/lib/supabase', () => ({
 let useCoverLetterDraftHook: typeof import('../useCoverLetterDraft').useCoverLetterDraft;
 
 beforeAll(async () => {
-  process.env.VITE_OPENAI_KEY = 'test-key';
+  process.env.VITE_OPENAI_API_KEY = 'test-key';
   const module = await import('../useCoverLetterDraft');
   useCoverLetterDraftHook = module.useCoverLetterDraft;
 });

@@ -63,7 +63,7 @@ export class GapResolutionStreamingServiceV2 {
   private modelId: string;
 
   constructor() {
-    this.apiKey = import.meta.env.VITE_OPENAI_KEY || '';
+    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
     this.modelId = getHilGenerationModelId();
     this.openai = createOpenAI({ apiKey: this.apiKey });
   }
@@ -328,6 +328,17 @@ ${missingDetailRule}
 ${placeholderRule}
  - Section scope: write ONLY the target section content (not the whole cover letter).
  - Avoid repetition: do not reuse phrases/claims already used in other sections unless essential.
+ - Build on what's good: preserve strong evidence sentences (metrics, scope, roles, named companies) and reuse them verbatim when possible.
+ - Do not remove concrete evidence unless you replace it with clearer or stronger evidence from the provided context.
+ - Minimal-diff: preserve the user's sentence structure and phrasing where possible; prefer surgical edits over rewrites.
+
+Before writing, select a PRIMARY proof point to build around:
+- source: existing_section | work_history
+- type: metric | project | scope
+- idOrQuote: a specific quote or metric from the provided context
+You may keep other strong evidence already present in the section; do NOT delete strong evidence unless it is redundant.
+
+If you cannot identify a concrete proof point in the provided context, use a single [NEEDS-INPUT: ...] placeholder and keep it short.
 
 **Voice Guide (follow this writing style):**
 ${context.userVoicePrompt ? truncate(context.userVoicePrompt, 700) : 'Not provided'}
@@ -360,8 +371,8 @@ ${criteria.length ? `**Content Quality Criteria / Standards (deduped; address AL
 ${isIntro ? `**Intro Strategy (follow strictly):**
 - Goal: professional identity + unique fit + genuine interest. The intro is a thesis, not a story dump.
 - Do NOT summarize multiple stories. Avoid adding details likely covered in body paragraphs.
-- Evidence: prefer 1 credibility marker total.
-  - Preferred order (pick ONE):
+- Evidence: prefer 1 credibility marker; allow 2 only if both are already present and strong.
+  - Preferred order (pick ONE primary; keep secondary only if already in the existing content):
     1) Role-level metrics (from Work History Library “Role metrics”)
     2) Story-level metrics (from Work History Library “Story metrics”)
     3) Non-metric credibility marker (scope, domain, leadership, team size, etc.)
@@ -373,7 +384,7 @@ If any criteria suggest “metrics” or “specific examples”, satisfy them i
 ` : ''}
 
 ${isClosing ? `**Closing Strategy (follow strictly):**
-- Goal: concise close that reinforces fit + genuine interest + confident call-to-action.
+- Goal: concise close that reinforces fit + genuine interest; a confident next step is optional.
 - Do NOT introduce new stories or new achievements here (those belong in the body).
 - Do NOT add a new paragraph for a story; do NOT expand into multiple paragraphs.
 - If this section includes a sign-off, preserve it; otherwise do not invent contact info.
@@ -381,7 +392,7 @@ ${isClosing ? `**Closing Strategy (follow strictly):**
 ` : ''}
 
 ${sectionKind === 'body' ? `**Body Section Strategy (follow strictly):**
-- Goal: ONE focused proof point that supports the job (one theme, one story lens).
+- Goal: ONE focused proof point that supports the job (one theme, one story lens). Keep any strong existing evidence sentence unless it is clearly off-topic.
 - Do NOT include a salutation ("Dear...") or a sign-off ("Warm regards...") in a body section.
 - Do NOT restate the entire cover letter; keep it to 3–6 sentences.
 ` : ''}
@@ -393,10 +404,11 @@ ${gap.sectionAttribution ? `**Preserve what is already met (hard constraints):**
 
 **Output Requirements:**
 - Output exactly 1 paragraph (no bullets, no headings).
-- Intro: 2–3 sentences (max 4), 1 credibility marker max.
+- Intro: 2–3 sentences (max 4), 1 credibility marker (2 only if already present and strong).
 - Closing: 2–4 sentences.
 - Experience: 3–6 sentences.
 ${outputMissingRule}
+- Reuse at least one concrete evidence sentence or clause verbatim from the existing content if one exists.
 - You are revising ONE section in a larger draft. Avoid adding details that would likely be repeated in dedicated story paragraphs.
 - If a requirement is already clearly demonstrated elsewhere (see Draft Coverage Map), avoid repeating the same evidence; instead focus this section on unmet requirements or add a new angle.
  - For body sections, never include salutation or sign-off.

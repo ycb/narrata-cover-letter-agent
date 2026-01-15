@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags, Sparkles, X, BookOpen } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, X, BookOpen, Layers, ChevronDown, ChevronUp } from "lucide-react";
 import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
@@ -27,6 +26,15 @@ interface TemplateBlurb {
   lastUsed?: string;
   createdAt: string;
   updatedAt: string;
+  variations?: Array<{
+    id: string;
+    content: string;
+    createdAt: string;
+    createdBy?: string;
+    gapTags?: string[];
+    developedForJobTitle?: string;
+    developedForCompany?: string;
+  }>;
 }
 
 interface BlurbTypeGroup {
@@ -45,6 +53,8 @@ interface TemplateBlurbHierarchicalProps {
   onEditBlurb: (blurb: TemplateBlurb) => void;
   onEditSectionLabel?: (type: string, currentLabel: string) => void; // Edit parent section label only
   onDeleteBlurb: (blurbId: string) => void;
+  onDuplicateBlurb?: (blurb: TemplateBlurb) => void;
+  onDeleteVariation?: (variationId: string, parentId: string) => void;
   onDeleteSection?: (type: string) => void; // Delete entire section
   onGenerateContent?: (blurb: TemplateBlurb) => void;
   onTagSuggestions?: (blurb: TemplateBlurb) => void;
@@ -69,6 +79,8 @@ export const TemplateBlurbHierarchical = ({
   onEditBlurb,
   onEditSectionLabel,
   onDeleteBlurb,
+  onDuplicateBlurb,
+  onDeleteVariation,
   onDeleteSection,
   onGenerateContent,
   onTagSuggestions,
@@ -80,6 +92,7 @@ export const TemplateBlurbHierarchical = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedType, setExpandedType] = useState<string>();
   const [sortBy, setSortBy] = useState<'usage' | 'date' | 'alphabetical-asc' | 'alphabetical-desc'>('usage');
+  const [expandedVariations, setExpandedVariations] = useState<Record<string, boolean>>({});
 
   // Default content types if none provided
   const defaultContentTypes = [
@@ -396,10 +409,7 @@ export const TemplateBlurbHierarchical = ({
                               // setResolvedGaps(prev => new Set([...prev, `blurb-gap-${blurb.id}`])); // This line was removed
                           } : undefined}
                           onEdit={() => onEditBlurb(blurb)}
-                          onDuplicate={() => {
-                            // TODO: Implement duplicate blurb
-                            console.log('Duplicate blurb:', blurb.id);
-                          }}
+                          onDuplicate={onDuplicateBlurb ? () => onDuplicateBlurb(blurb) : undefined}
                           onDelete={() => onDeleteBlurb(blurb.id)}
                           onTagSuggestions={onTagSuggestions ? (tags) => {
                             // TagSuggestions expects a blurb callback, but ContentCard uses tags callback
@@ -409,7 +419,86 @@ export const TemplateBlurbHierarchical = ({
                             }
                           } : undefined}
                           tagsLabel="Content Tags"
-                        />
+                        >
+                          {blurb.variations && blurb.variations.length > 0 && (
+                            <div className="mt-4 border-t border-muted pt-4">
+                              <div
+                                className="flex items-center gap-2 cursor-pointer hover:bg-muted/30 rounded-lg p-2 transition-colors group"
+                                onClick={() =>
+                                  setExpandedVariations((prev) => ({
+                                    ...prev,
+                                    [blurb.id]: !prev[blurb.id],
+                                  }))
+                                }
+                              >
+                                <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                                  Variations ({blurb.variations.length})
+                                </span>
+                                {expandedVariations[blurb.id] ? (
+                                  <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
+                                )}
+                              </div>
+                              {expandedVariations[blurb.id] && (
+                                <div className="mt-3 space-y-3">
+                                  {blurb.variations.map((variation, variationIndex) => (
+                                    <div key={variation.id} className="p-3 bg-muted/30 rounded-lg">
+                                      <div className="flex items-start justify-between gap-2 mb-1">
+                                        <div className="text-sm font-medium text-foreground">
+                                          {variation.developedForJobTitle
+                                            ? `For ${variation.developedForJobTitle}`
+                                            : `Variant #${variationIndex + 1}`}
+                                          {variation.developedForCompany
+                                            ? ` @ ${variation.developedForCompany}`
+                                            : ''}
+                                        </div>
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-8 w-8 p-0"
+                                              onClick={(event) => event.stopPropagation()}
+                                            >
+                                              <span className="sr-only">Open menu</span>
+                                              <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                                            <DropdownMenuItem
+                                              className="text-destructive"
+                                              onClick={() => onDeleteVariation?.(variation.id, blurb.id)}
+                                            >
+                                              <Trash2 className="mr-2 h-4 w-4" />
+                                              Delete
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </div>
+                                      <div className="text-xs text-muted-foreground mb-2">
+                                        {new Date(variation.createdAt).toLocaleDateString()}
+                                      </div>
+                                      <div className="text-sm text-muted-foreground whitespace-pre-line">
+                                        {variation.content}
+                                      </div>
+                                      {variation.gapTags && variation.gapTags.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                          {variation.gapTags.map((tag) => (
+                                            <Badge key={tag} variant="secondary" className="text-xs">
+                                              {tag}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </ContentCard>
                         
                         {/* Success State Cards */}
                         {resolvedGaps.has(`blurb-gap-${blurb.id}`) && !dismissedSuccessCards.has(`blurb-gap-${blurb.id}`) && (

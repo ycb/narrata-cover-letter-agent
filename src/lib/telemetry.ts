@@ -14,7 +14,7 @@ export function logAStreamEvent(
   }
   // Keep signal concise and consistent in dev
   // Intentionally using console.info to distinguish from regular debug logs
-  // eslint-disable-next-line no-console
+   
   console.info('[telemetry]', eventName, payload);
 }
 
@@ -35,7 +35,7 @@ export function logReadinessEvent(
 ): void {
   if (!isDraftReadinessEnabled()) return;
   if (process.env.NODE_ENV === 'production') return;
-  // eslint-disable-next-line no-console
+   
   console.info('[telemetry]', eventName, payload);
 }
 

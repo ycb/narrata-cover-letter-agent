@@ -43,8 +43,8 @@ export class ContentStandardsEvaluationService {
 
   constructor() {
     this.apiKey =
-      import.meta.env?.VITE_OPENAI_KEY ||
-      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) ||
+      import.meta.env?.VITE_OPENAI_API_KEY ||
+      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
       '';
     this.baseUrl = 'https://api.openai.com/v1';
 

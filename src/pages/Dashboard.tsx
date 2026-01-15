@@ -159,7 +159,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Metrics Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <StatsCard
             title="Stories"
             value={dashboardData.stats.stories}
@@ -196,6 +196,18 @@ const Dashboard = () => {
             }}
             onClick={() => navigate('/cover-letters')}
           />
+          <StatsCard
+            title="Interviews"
+            value={dashboardData.stats.interviews}
+            description="Outcome tracked"
+            icon={ArrowRight}
+            trend={{
+              value: `+${dashboardData.stats.lastMonthInterviews} this month`,
+              isPositive: dashboardData.stats.lastMonthInterviews > 0,
+              change: dashboardData.stats.lastMonthInterviews
+            }}
+            onClick={() => navigate('/cover-letters')}
+          />
           <TotalGapsWidget
             gapSummary={gapSummary.data}
             isLoading={gapSummary.isLoading}
@@ -205,6 +217,43 @@ const Dashboard = () => {
             }}
           />
         </div>
+
+        <Card className="shadow-soft mb-8">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xl font-semibold">Outcome Snapshot</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="rounded-lg border border-muted/40 bg-muted/10 p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Applied</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {dashboardData.outcomes.applied}
+                </p>
+              </div>
+              <div className="rounded-lg border border-muted/40 bg-muted/10 p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Interview</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {dashboardData.outcomes.interview}
+                </p>
+              </div>
+              <div className="rounded-lg border border-muted/40 bg-muted/10 p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">No Response</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {dashboardData.outcomes.noResponse}
+                </p>
+              </div>
+              <div className="rounded-lg border border-muted/40 bg-muted/10 p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Not Selected</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {dashboardData.outcomes.notSelected}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 text-sm text-muted-foreground">
+              Interview rate: {dashboardData.outcomes.interviewRate}%
+            </div>
+          </CardContent>
+        </Card>
 
         {/* MVP Dashboard Modules */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">

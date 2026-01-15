@@ -26,7 +26,7 @@ function record(kind: NavigationDebugEvent['kind']) {
       stack: new Error().stack,
     };
     try {
-      // eslint-disable-next-line no-console
+       
       console.warn('[nav-debug] record', evt);
     } catch {}
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(evt));
@@ -57,7 +57,7 @@ function recordWithDetail(kind: NavigationDebugEvent['kind'], detail: any) {
       detail,
     };
     try {
-      // eslint-disable-next-line no-console
+       
       console.warn('[nav-debug] record', evt);
     } catch {}
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(evt));
@@ -97,7 +97,7 @@ export function installNavigationDebug() {
   try {
     (window as any).__navDebugInstalled = true;
     document.documentElement.dataset.navDebug = '1';
-    // eslint-disable-next-line no-console
+     
     console.error('[nav-debug] installed');
   } catch {}
 

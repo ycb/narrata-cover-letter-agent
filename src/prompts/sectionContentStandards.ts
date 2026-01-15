@@ -67,6 +67,9 @@ Evaluation Guidelines:
 - "not_met": Standard is not satisfied or only partially satisfied
 - "not_applicable": Standard doesn't make sense for this specific section content
 - Be specific in evidence - use direct quotes when possible
+- Evidence should be 1-2 sentences (no bullet lists, no pipe separators)
+- Do not penalize a confident, professional closing for lacking a CTA or overt eagerness
+- If a standard would be redundant in this section, you may mark it not_applicable
 - Context matters: evaluate based on ${sectionTypeLabel} section expectations
 
 Return ONLY the JSON object, no markdown formatting.`;
@@ -78,7 +81,7 @@ Return ONLY the JSON object, no markdown formatting.`;
 function getSectionGuidance(standardId: string, sectionType: 'intro' | 'body' | 'closing'): string {
   const guidance: Record<string, Record<string, string>> = {
     compelling_opening: {
-      intro: '- Must immediately capture attention\n   - Should show genuine interest in role/company\n   - Avoid generic openings like "I am writing to apply..."',
+      intro: '- Establish credibility or impact early; a clever hook is optional\n   - Should show genuine interest in role/company\n   - Avoid generic openings like "I am writing to apply..."',
       body: '',
       closing: '',
     },
@@ -89,13 +92,13 @@ function getSectionGuidance(standardId: string, sectionType: 'intro' | 'body' | 
     },
     quantified_impact: {
       intro: '- May include high-level metrics if relevant (e.g., "10+ years managing...")',
-      body: '- MUST include specific metrics: percentages, dollar amounts, team sizes, etc.\n   - Examples: "Increased conversion by 20%", "Managed $5M budget", "Led team of 8"',
+      body: '- Use metrics when they strengthen claims; scope markers are acceptable\n   - Examples: "Increased conversion by 20%", "Managed $5M budget", "Led team of 8"',
       closing: '- Not typically expected in closing paragraphs',
     },
     action_verbs: {
       intro: '- Uses strong action verbs: Led, Built, Drove, etc.',
       body: '- Every achievement should start with a strong action verb\n   - Shows clear ownership (I did X, not "The team did X")',
-      closing: '- Uses confident language: Looking forward to, Excited to contribute, etc.',
+      closing: '- Confident, professional close; no requirement for overt eagerness',
     },
     star_format: {
       intro: '',
@@ -105,7 +108,7 @@ function getSectionGuidance(standardId: string, sectionType: 'intro' | 'body' | 
     personalized: {
       intro: '- Clearly references this specific role and company\n   - Not generic (could apply to any PM job)',
       body: '- Experience clearly relates to job requirements\n   - Examples chosen specifically for this role',
-      closing: '- Reinforces fit for THIS specific opportunity',
+      closing: '- Reinforces fit when helpful; optional if already established',
     },
     specific_examples: {
       intro: '',

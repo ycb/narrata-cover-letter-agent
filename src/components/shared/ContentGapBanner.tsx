@@ -7,7 +7,14 @@ import { cn } from "@/lib/utils";
 interface ContentGapBannerProps {
   title?: string;
   description?: string; // Single description (backward compat)
-  gaps?: Array<{ id: string; title?: string; description: string }>; // Agent C: title is optional for structured gaps
+  gaps?: Array<{
+    id: string;
+    title?: string;
+    headline?: string;
+    suggestion?: string;
+    explanation?: string;
+    description?: string;
+  }>; // Agent C: title is optional for structured gaps
   gapSummary?: string | null; // Agent C: Rubric/prompt summary shown at top
   onGenerateContent?: () => void; // Agent C: Make optional to support display-only mode
   onDismiss?: (gapId?: string) => void; // Callback for manual dismissal (optionally pass gapId)
@@ -38,8 +45,47 @@ export const ContentGapBanner = ({
   // Support both single description (backward compat) and gaps array
   const displayGaps = gaps || (description ? [{ id: 'single', description }] : []);
 
-  // Use gapSummary as the title if available, otherwise fall back to default title
-  const displayTitle = gapSummary || title || (displayGaps.length > 1 ? "Gaps Detected" : "Gap Detected");
+  const singleGap = displayGaps.length === 1 ? displayGaps[0] : null;
+
+  // Use single-gap issue headline for the banner title; otherwise use summary/default.
+  const displayTitle = singleGap?.headline || gapSummary || title || (displayGaps.length > 1 ? "Gaps Detected" : "Gap Detected");
+
+  const renderGapContent = (gap: typeof displayGaps[number], showIssue: boolean) => {
+    const issue = gap.headline || gap.description;
+    const hasStructured = Boolean(gap.suggestion) || Boolean(gap.explanation);
+    if (!hasStructured) {
+      return (
+        <p className="text-sm text-muted-foreground">
+          {gap.description}
+        </p>
+      );
+    }
+
+    return (
+      <>
+        {showIssue && issue && (
+          <p className="text-sm font-medium text-warning mb-1">
+            {issue}
+          </p>
+        )}
+        {gap.suggestion && (
+          <p className="text-sm font-semibold text-foreground mb-1">
+            {gap.suggestion}
+          </p>
+        )}
+        {gap.explanation && (
+          <p className="text-sm text-muted-foreground">
+            {gap.explanation}
+          </p>
+        )}
+        {!gap.explanation && gap.description && gap.description !== issue && (
+          <p className="text-sm text-muted-foreground">
+            {gap.description}
+          </p>
+        )}
+      </>
+    );
+  };
 
   return (
     <div 
@@ -85,30 +131,16 @@ export const ContentGapBanner = ({
         {/* Agent C: Support structured gaps with title + description */}
         {displayGaps.length === 1 ? (
           <div className="mb-3">
-            {displayGaps[0].title && (
-              <p className="text-sm font-medium text-foreground mb-1">
-                {displayGaps[0].title}
-              </p>
-            )}
-            <p className="text-sm text-muted-foreground">
-              {displayGaps[0].description}
-            </p>
+            {renderGapContent(displayGaps[0], false)}
           </div>
         ) : displayGaps.length > 1 ? (
-          <ul className="text-sm text-muted-foreground mb-3 space-y-2">
+          <div className="mb-3 space-y-3">
             {displayGaps.map((gap) => (
-              <li key={gap.id} className="list-none">
-                {gap.title && (
-                  <p className="font-medium text-foreground mb-0.5">
-                    • {gap.title}
-                  </p>
-                )}
-                <p className={cn("text-sm", gap.title && "ml-3")}>
-                  {gap.description}
-                </p>
-              </li>
+              <div key={gap.id}>
+                {renderGapContent(gap, true)}
+              </div>
             ))}
-          </ul>
+          </div>
         ) : null}
         
         {/* Agent C: Only show generate button if callback provided */}

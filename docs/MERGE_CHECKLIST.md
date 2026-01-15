@@ -17,7 +17,7 @@
   ```
 
 ### 3. Environment Variables
-- [ ] **VERIFY**: `VITE_OPENAI_KEY` is set in production environment
+- [ ] **VERIFY**: `VITE_OPENAI_API_KEY` is set in production environment
   - Required for browser search functionality
   - Used in: `browserSearchService.ts`, `openaiService.ts`
 
@@ -71,7 +71,7 @@
 - Migration is backward-compatible (adds columns, doesn't break existing queries)
 
 ### 2. Environment Variable
-**Issue**: Browser search requires `VITE_OPENAI_KEY`
+**Issue**: Browser search requires `VITE_OPENAI_API_KEY`
 **Mitigation**:
 - Feature gracefully handles missing key (shows error, allows retry)
 - Company tags can still be added manually if search fails
@@ -117,7 +117,7 @@
    - Verify columns added: `companies.research_cache`, `companies.research_cached_at`
 
 4. **Verify Environment Variables**
-   - Ensure `VITE_OPENAI_KEY` is set in production
+   - Ensure `VITE_OPENAI_API_KEY` is set in production
    - Test browser search functionality
 
 5. **Merge to Main**

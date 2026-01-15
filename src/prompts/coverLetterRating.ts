@@ -41,8 +41,9 @@ ${coverLetterDraft}${voiceGuidance}${levelGuidance}
 Evaluation Rubric (11 criteria):
 
 1. COMPELLING OPENING
-   - Does it immediately capture attention?
-   - Does it show genuine interest in the role/company?
+   - Does it immediately capture attention with a hook or clear credibility?
+   - Does it show genuine interest in the role/company (explicit or implied)?
+   - Metrics strengthen the opening but are not required if credibility is clear
    - Avoid generic openings like "I am writing to apply..."
 
 2. UNDERSTANDING OF BUSINESS/USERS
@@ -56,7 +57,7 @@ Evaluation Rubric (11 criteria):
 
 4. ACTION VERBS & OWNERSHIP
    - Uses strong action verbs: Led, Built, Drove, Shipped, Defined, etc.
-   - Shows clear ownership (I did X, not "The team did X")
+   - Shows clear ownership (I did X, not "The team did X") across the draft
 
 5. STAR FORMAT (from gap detection standards)
    - Stories follow Situation-Task-Action-Result structure

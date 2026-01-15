@@ -1,3 +1,5 @@
+import type { CoverLetterOutcomeStatus } from './coverLetters';
+
 export interface Story {
   id: string;
   title: string;
@@ -169,6 +171,9 @@ export interface CoverLetter {
     suggestions: string[];
   };
   status: 'draft' | 'reviewed' | 'finalized';
+  outcomeStatus?: CoverLetterOutcomeStatus | null;
+  appliedAt?: string | null;
+  outcomeUpdatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

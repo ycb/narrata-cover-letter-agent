@@ -5,6 +5,7 @@ import { GripVertical, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
+import { FinalCheckPanel } from './FinalCheckPanel';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { SectionInsertButton } from '@/components/template-blurbs/SectionInsertButton';
 import { DraftProgressBanner } from './DraftProgressBanner';
@@ -87,6 +88,7 @@ interface CoverLetterDraftEditorProps {
   onInsertBetweenSections: (insertIndex: number) => void;
   onInsertFromLibrary: (sectionId: string, sectionType: 'intro' | 'body' | 'closing', sectionIndex: number) => void;
   onReorderSections: (fromIndex: number, toIndex: number) => void;
+  onSaveSavedSectionVariation?: (section: CoverLetterDraftSection, content: string) => void;
   
   // Callbacks for content generation (HIL)
   onEnhanceSection: (gapData: any) => void;
@@ -94,6 +96,8 @@ interface CoverLetterDraftEditorProps {
   onEditGoals: () => void;
   onRefreshInsights?: () => void;
   isRefreshLoading?: boolean;
+  isRefreshDisabled?: boolean;
+  refreshStartedAt?: string | null;
 }
 
 export function CoverLetterDraftEditor({
@@ -123,18 +127,26 @@ export function CoverLetterDraftEditor({
   onInsertBetweenSections,
   onInsertFromLibrary,
   onReorderSections,
+  onSaveSavedSectionVariation,
   onEnhanceSection,
   onAddMetrics,
   onEditGoals,
   onRefreshInsights,
-  isRefreshLoading,
+  isRefreshLoading = false,
+  isRefreshDisabled = false,
+  refreshStartedAt = null,
 }: CoverLetterDraftEditorProps) {
   const [dismissedGapSections, setDismissedGapSections] = useState<Set<string>>(new Set());
   const dragIndexRef = useRef<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isFinalCheckOpen, setIsFinalCheckOpen] = useState(false);
 
   useEffect(() => {
     setDismissedGapSections(new Set());
+  }, [draft?.id]);
+
+  useEffect(() => {
+    setIsFinalCheckOpen(false);
   }, [draft?.id]);
   const { zoomLevel, minZoom, maxZoom, zoomIn, zoomOut } = useUiZoom({
     storageKey: "uiZoom:coverLetterDraft",
@@ -186,6 +198,40 @@ export function CoverLetterDraftEditor({
    * Match by section.id (preferred), fallback to slug/title for legacy drafts
    */
   const getSectionGapInsights = (sectionId: string, sectionSlug: string, sectionIndex: number) => {
+    const isRenderableGap = (gap: any) =>
+      gap?.status === 'unmet' &&
+      Boolean(gap?.hiringRisk?.trim()) &&
+      Boolean(gap?.whyNow?.trim()) &&
+      Boolean(gap?.evidenceQuote?.trim());
+    const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+    const toIssueFallback = (value?: string) => {
+      const raw = String(value || '').trim();
+      if (!raw) return null;
+      const cleaned = raw.replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!cleaned) return null;
+      const lower = cleaned.toLowerCase();
+      if (lower.startsWith('missing ') || lower.startsWith('lacks ') || lower.startsWith('weak ') || lower.startsWith('no ') || lower.startsWith('low ')) {
+        return capitalize(cleaned);
+      }
+      return `Missing ${lower}`;
+    };
+    const buildHeadline = (gap: any) => {
+      const issue = typeof gap?.issue === 'string' ? gap.issue.trim() : '';
+      if (issue) {
+        const normalized = issue.replace(/\s+/g, ' ').trim();
+        const issueLooksValid =
+          normalized.length > 0 &&
+          normalized.length <= 80 &&
+          /^(missing|lacks|weak|no|low)/i.test(normalized);
+        if (issueLooksValid) return capitalize(normalized);
+      }
+      return (
+        toIssueFallback(gap?.rubricCriterionId) ||
+        toIssueFallback(gap?.label) ||
+        toIssueFallback(gap?.requirement) ||
+        'Gap identified'
+      );
+    };
     // Get all gap insights from draft (ONLY source)
     const allInsights = draft?.enhancedMatchData?.sectionGapInsights || [];
     
@@ -205,13 +251,15 @@ export function CoverLetterDraftEditor({
       sectionInsight = allInsights[sectionIndex] || allInsights[0];
     }
     
-    const requirementGaps = sectionInsight?.requirementGaps || [];
+    const requirementGaps = (sectionInsight?.requirementGaps || []).filter(isRenderableGap);
     
     // Transform to UI format
     const gaps = requirementGaps.map((gap: any) => ({
       id: gap.id,
-      title: gap.label || gap.title || gap.requirement,
-      description: `${gap.rationale || gap.currentEvidence || ''} ${gap.recommendation || gap.suggestion || ''}`.trim(),
+      headline: buildHeadline(gap),
+      suggestion: gap.recommendation || gap.suggestion,
+      explanation: gap.rationale || gap.currentEvidence,
+      description: gap.rationale || gap.currentEvidence,
     }));
 
     return {
@@ -282,34 +330,44 @@ export function CoverLetterDraftEditor({
     <div className="flex h-full overflow-hidden">
       {/* Left Sidebar - Toolbar */}
       <div className="bg-card flex-shrink-0">
-        <MatchMetricsToolbar
-          metrics={matchMetrics} // Draft-only metrics
-          isPostHIL={isPostHIL}
-          isLoading={isToolbarLoading}
-          enhancedMatchData={effectiveEnhancedMatchData} // Draft-only enhanced data
-          contentStandards={contentStandards || null}
-          goNoGoAnalysis={undefined}
-          jobDescription={jobDescription ?? undefined}
-          draftId={draft?.id}
-          draftUpdatedAt={draft?.updatedAt}
-          sections={(() => {
-            const sectionList = sectionsToRender.map(s => ({ id: s.id, type: s.type }));
-            console.log('[TOOLBAR] Passing sections to toolbar:', {
-              count: sectionList.length,
-              ids: sectionList.map(s => s.id),
-              hasEnhancedMatchData: !!effectiveEnhancedMatchData,
-              hasSectionGapInsights: !!effectiveEnhancedMatchData?.sectionGapInsights,
-              gapSectionIds: effectiveEnhancedMatchData?.sectionGapInsights?.map(g => g.sectionId) || [],
-            });
-            return sectionList;
-          })()}
-          aPhaseInsights={aPhaseInsights} // Task 7: A-phase streaming insights
-          draftMws={draft?.mws ?? ((draft?.llmFeedback as any)?.mws ?? undefined)} // Persisted MwS from draft (fallback when streaming not available)
-          onEditGoals={onEditGoals}
-          onRefreshInsights={onRefreshInsights}
-          isRefreshLoading={isRefreshLoading}
-          dismissedGapSectionIds={dismissedGapSections}
-          onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
+        {isFinalCheckOpen && draft?.id ? (
+          <FinalCheckPanel
+            draftId={draft.id}
+            onClose={() => setIsFinalCheckOpen(false)}
+          />
+        ) : (
+          <MatchMetricsToolbar
+            metrics={matchMetrics} // Draft-only metrics
+            isPostHIL={isPostHIL}
+            isLoading={isToolbarLoading}
+            enhancedMatchData={effectiveEnhancedMatchData} // Draft-only enhanced data
+            contentStandards={contentStandards || null}
+            goNoGoAnalysis={undefined}
+            jobDescription={jobDescription ?? undefined}
+            draftId={draft?.id}
+            draftUpdatedAt={draft?.updatedAt}
+            sections={(() => {
+              const sectionList = sectionsToRender.map(s => ({ id: s.id, type: s.type }));
+              console.log('[TOOLBAR] Passing sections to toolbar:', {
+                count: sectionList.length,
+                ids: sectionList.map(s => s.id),
+                hasEnhancedMatchData: !!effectiveEnhancedMatchData,
+                hasSectionGapInsights: !!effectiveEnhancedMatchData?.sectionGapInsights,
+                gapSectionIds: effectiveEnhancedMatchData?.sectionGapInsights?.map(g => g.sectionId) || [],
+              });
+              return sectionList;
+            })()}
+            aPhaseInsights={aPhaseInsights} // Task 7: A-phase streaming insights
+            draftMws={draft?.mws ?? ((draft?.llmFeedback as any)?.mws ?? undefined)} // Persisted MwS from draft (fallback when streaming not available)
+            onEditGoals={onEditGoals}
+            onRefreshInsights={onRefreshInsights}
+            isRefreshLoading={isRefreshLoading}
+            isRefreshDisabled={isRefreshDisabled}
+            refreshStartedAt={refreshStartedAt}
+            phaseBStatus={(draft?.llmFeedback as any)?.phaseB ?? null}
+            dismissedGapSectionIds={dismissedGapSections}
+            onOpenFinalCheck={() => setIsFinalCheckOpen(true)}
+            onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
             // Open section enhancement flow with rating criteria if provided
             const section = draft?.sections.find(s => s.id === sectionId);
             if (section) {
@@ -329,11 +387,20 @@ export function CoverLetterDraftEditor({
               const sectionInsight = draft?.enhancedMatchData?.sectionGapInsights?.find(
                 (insight: any) => insight.sectionId === sectionId || insight.sectionSlug === section.slug || insight.sectionSlug === section.type
               );
-              const requirementGaps = sectionInsight?.requirementGaps?.map((gap: any) => ({
-                id: gap.id,
-                title: gap.label,
-                description: `${gap.rationale} ${gap.recommendation}`,
-              })) || [];
+              const isRenderableGap = (gap: any) =>
+                gap?.status === 'unmet' &&
+                Boolean(gap?.hiringRisk?.trim()) &&
+                Boolean(gap?.whyNow?.trim()) &&
+                Boolean(gap?.evidenceQuote?.trim());
+              const requirementGaps = sectionInsight?.requirementGaps
+                ?.filter(isRenderableGap)
+                ?.map((gap: any) => ({
+                  id: gap.id,
+                  headline: buildHeadline(gap),
+                  suggestion: gap.recommendation,
+                  explanation: gap.rationale,
+                  description: gap.rationale,
+                })) || [];
               
               // Convert rating criteria to gap format if provided
               const gapsFromRating = ratingCriteria?.map(rc => ({
@@ -366,10 +433,11 @@ export function CoverLetterDraftEditor({
                 gapSummary: gapSummaryParts.length > 0 ? gapSummaryParts.join(' • ') : null,
               });
             }
-          }}
-          onAddMetrics={onAddMetrics}
-          className="h-full border-0"
-        />
+            }}
+            onAddMetrics={onAddMetrics}
+            className="h-full border-0"
+          />
+        )}
       </div>
 
       {/* Right Content Area */}
@@ -434,6 +502,14 @@ export function CoverLetterDraftEditor({
               const gapInsightsReady = draft?.enhancedMatchData?.sectionGapInsights !== undefined;
               const hasGaps = gapInsightsReady ? gapObjects.length > 0 : false;
               const isGapDismissed = dismissedGapSections.has(section.id);
+              const sourceMeta = section.source as { kind?: string; entityId?: string | null; itemId?: string | null; contentType?: string | null } | null;
+              const sourceKind = sourceMeta?.kind;
+              const sourceEntityId = sourceMeta?.entityId ?? sourceMeta?.itemId ?? null;
+              const isSavedSectionSource =
+                (sourceKind === 'saved_section' ||
+                  sourceKind === 'template_static' ||
+                  (sourceKind === 'library' && sourceMeta?.contentType === 'saved_section')) &&
+                Boolean(sourceEntityId);
 
               // Strip trailing periods from gap summary for cover letters
               const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
@@ -521,6 +597,11 @@ export function CoverLetterDraftEditor({
 	                    loadingMessage={isLoadingSection ? `Drafting ${section.title.toLowerCase()}...` : undefined}
                     onDelete={() => onSectionDelete(section.id)}
                     onInsertFromLibrary={() => onInsertFromLibrary(section.id, sectionTypeForStandards, sectionIndex)}
+                    onSaveVariation={
+                      isSavedSectionSource && onSaveSavedSectionVariation
+                        ? () => onSaveSavedSectionVariation(section, editedContent)
+                        : undefined
+                    }
                     onGenerateContent={() => {
                       const existingContent = sectionDrafts[section.id] ?? section.content ?? '';
                       const paragraphIdMap: Record<string, string> = {

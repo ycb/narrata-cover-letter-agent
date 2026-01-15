@@ -327,7 +327,7 @@ console.log('No valid LinkedIn URL found in resume');
 
 No additional configuration required. Uses existing:
 - `VITE_PDL_API_KEY` - PDL API key
-- `VITE_OPENAI_KEY` - OpenAI for resume parsing
+- `VITE_OPENAI_API_KEY` - OpenAI for resume parsing
 - `VITE_SUPABASE_URL` - Database connection
 
 ## Dependencies

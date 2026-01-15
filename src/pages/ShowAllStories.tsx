@@ -8,7 +8,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { ShowAllTemplate, FilterOption, SortOption } from "@/components/shared/ShowAllTemplate";
-import { Story } from "@/types/workHistory";
+import type { Story, WorkHistoryBlurb } from "@/types/workHistory";
 import { AddStoryModal } from "@/components/work-history/AddStoryModal";
 import { ContentCard } from "@/components/shared/ContentCard";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
@@ -32,7 +32,7 @@ export default function ShowAllStories() {
   const [isAddStoryModalOpen, setIsAddStoryModalOpen] = useState(false);
   const [viewingStory, setViewingStory] = useState<Story | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [editingStory, setEditingStory] = useState<Story | null>(null);
+  const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
   const [storyGapsMap, setStoryGapsMap] = useState<Map<string, boolean>>(new Map());
   const [viewingStoryGaps, setViewingStoryGaps] = useState<Array<{ id: string; description: string }>>([]);
   const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
@@ -106,7 +106,7 @@ export default function ShowAllStories() {
 
       // Fetch gaps for stories first (before transforming, so we can add hasGaps property)
       const blurbIds = filteredBlurbs.map((b: any) => b.id);                                                        
-      let gapsMap = new Map<string, boolean>();
+      const gapsMap = new Map<string, boolean>();
       
       if (blurbIds.length > 0) {
         const { data: gaps, error: gapsError } = await supabase
@@ -202,11 +202,51 @@ export default function ShowAllStories() {
 
 
 
-  const handleEdit = (story: Story) => {
-    if (isDemo) return;
-    setEditingStory(story);
-    setIsViewModalOpen(false);
-    setIsAddStoryModalOpen(true);
+  const handleEdit = async (story: Story) => {
+    if (isDemo || !user) return;
+
+    try {
+      const { data: fullStory, error: storyError } = await supabase
+        .from('stories')
+        .select('id, work_item_id, title, content, tags, metrics, source, status, confidence, times_used, last_used, created_at, updated_at')
+        .eq('id', story.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (storyError || !fullStory) {
+        console.error('Error fetching story for edit:', storyError);
+        return;
+      }
+
+      const metrics = Array.isArray(fullStory.metrics) ? fullStory.metrics : [];
+      const outcomeMetrics = metrics
+        .map((metric: any) => (typeof metric === 'string' ? metric : metric?.value))
+        .filter((metric: string | undefined): metric is string => Boolean(metric));
+
+      const editingStoryData = {
+        id: fullStory.id,
+        roleId: fullStory.work_item_id,
+        title: fullStory.title ?? story.title,
+        content: fullStory.content ?? '',
+        outcomeMetrics,
+        tags: fullStory.tags ?? [],
+        source: fullStory.source ?? 'manual',
+        status: fullStory.status ?? 'approved',
+        confidence: fullStory.confidence ?? 'medium',
+        timesUsed: fullStory.times_used ?? 0,
+        lastUsed: fullStory.last_used ?? undefined,
+        createdAt: fullStory.created_at ?? '',
+        updatedAt: fullStory.updated_at ?? '',
+        company: story.company,
+        role: story.role
+      } as WorkHistoryBlurb & { company?: string; role?: string };
+
+      setEditingStory(editingStoryData);
+      setIsViewModalOpen(false);
+      setIsAddStoryModalOpen(true);
+    } catch (error) {
+      console.error('Error preparing story edit:', error);
+    }
   };
 
   const handleDelete = (story: Story) => {

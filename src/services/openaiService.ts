@@ -26,11 +26,11 @@ export class LLMAnalysisService {
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = (import.meta.env?.VITE_OPENAI_KEY) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) || '';
+    this.apiKey = (import.meta.env?.VITE_OPENAI_API_KEY) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) || '';
     this.baseUrl = 'https://api.openai.com/v1';
     
     if (!this.apiKey) {
-      throw new Error('OpenAI API key not found. Please set VITE_OPENAI_KEY in your environment variables.');
+      throw new Error('OpenAI API key not found. Please set VITE_OPENAI_API_KEY in your environment variables.');
     }
   }
 

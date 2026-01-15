@@ -249,7 +249,7 @@ export function ContentGenerationModal({
       selectedCount: highConfidenceTags.length,
     });
     setSelectedTags(highConfidenceTags);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isOpen, mode, suggestedTags, existingTags, selectedTags.length]);
 
   // Toggle tag selection

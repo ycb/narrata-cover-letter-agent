@@ -16,7 +16,7 @@ async function main() {
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-  const openaiKey = process.env.VITE_OPENAI_KEY || process.env.VITE_OPENAI_API_KEY;
+  const openaiKey = process.env.VITE_OPENAI_API_KEY;
   const loginEmail = process.env.VITE_TEST_EMAIL;
   const loginPassword = process.env.VITE_TEST_PASSWORD;
 

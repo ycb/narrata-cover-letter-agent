@@ -69,6 +69,7 @@ Evaluation Guidelines:
 - "met": Standard is clearly satisfied across the entire letter
 - "not_met": Standard is violated or not met
 - Be specific in evidence - cite examples or metrics
+- Evidence should be 1-2 sentences (no bullet lists, no pipe separators)
 - Consider the letter holistically, not individual sections
 
 Return ONLY the JSON object, no markdown formatting.`;

@@ -290,7 +290,7 @@ npm test -- --coverage                      # Coverage report
 Required variables (see `.env.example`):
 - `VITE_SUPABASE_URL` - Supabase project URL
 - `VITE_SUPABASE_ANON_KEY` - Supabase anonymous key
-- `VITE_OPENAI_KEY` - OpenAI API key
+- `VITE_OPENAI_API_KEY` - OpenAI API key
 - `VITE_LINKEDIN_CUSTOM_CLIENT_ID` - LinkedIn OAuth (data fetching)
 - `VITE_LINKEDIN_SUPABASE_CLIENT_ID` - LinkedIn OAuth (authentication)
 

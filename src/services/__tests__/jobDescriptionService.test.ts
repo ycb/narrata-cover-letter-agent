@@ -142,7 +142,7 @@ const createSupabaseMock = (row: Partial<JobDescriptionRow> = {}) => {
 describe('JobDescriptionService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.VITE_OPENAI_KEY = 'test-key';
+    process.env.VITE_OPENAI_API_KEY = 'test-key';
     streamTextMock.mockResolvedValue(buildStreamingResult(BASE_RESPONSE));
   });
 

@@ -25,7 +25,7 @@ export const supabaseConfigError: string | null = (() => {
 })();
 
 if (import.meta.env?.DEV) {
-  // eslint-disable-next-line no-console
+   
   console.log('[supabase] env', {
     VITE_SUPABASE_URL: supabaseUrl,
     hasAnonKey: Boolean(supabaseAnonKey),
@@ -69,7 +69,7 @@ try {
   });
 } catch (e) {
   const message = e instanceof Error ? e.message : String(e);
-  // eslint-disable-next-line no-console
+   
   console.error('[supabase] client initialization failed:', message);
   // Export a proxy so imports don't hard-crash the whole app. Any attempted use will throw with context.
   supabaseClient = new Proxy(

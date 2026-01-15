@@ -157,6 +157,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isDemoRef.current = isDemo
   }, [isDemo])
 
+  const clearDemoMode = useCallback((reason?: string) => {
+    if (reason) {
+      console.log('🔓 Exiting demo mode:', reason);
+    }
+    setIsDemo(false);
+    setDemoSlug(null);
+    isDemoRef.current = false;
+    try {
+      localStorage.removeItem(DEMO_SLUG_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const loadDemoProfile = useCallback(async (slug: string) => {
     const { data: demoProfile, error: demoProfileError } = await supabase
       .from('public_demo_profiles')
@@ -272,12 +286,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Get initial session
     const getInitialSession = async () => {
       try {
-        const demoSlug = getDemoSlugFromStorageOrPath();
-        if (demoSlug) {
-          await loadDemoProfile(demoSlug)
-          return
-        }
-
         if (supabaseConfigError) {
           if (!mounted) return;
           setError(supabaseConfigError);
@@ -293,8 +301,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('Error getting session:', error)
           setError(error.message)
         } else {
-          setSession(session)
-          setUser(session?.user ?? null)
+          if (session?.user) {
+            clearDemoMode('authenticated session detected');
+            setSession(session)
+            setUser(session.user)
+          } else {
+            const demoSlug = getDemoSlugFromStorageOrPath();
+            if (demoSlug) {
+              await loadDemoProfile(demoSlug)
+              return
+            }
+            setSession(null)
+            setUser(null)
+          }
         }
       } catch (err) {
         console.error('Error in getInitialSession:', err)
@@ -309,14 +328,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     getInitialSession()
-
-    // Demo mode: do not subscribe to auth events (no real session lifecycle)
-    const demoSlug = getDemoSlugFromStorageOrPath()
-    if (demoSlug) {
-      return () => {
-        mounted = false
-      }
-    }
 
     // Listen for auth changes
     if (supabaseConfigError) {
@@ -334,8 +345,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (!mounted) return
 
-      // If we are in demo mode, ignore auth state changes entirely.
-      if (isDemoRef.current) {
+      if (session?.user && isDemoRef.current) {
+        clearDemoMode('auth state change with session');
+      }
+
+      // If we are in demo mode without a session, ignore auth state changes.
+      if (isDemoRef.current && !session?.user) {
         return
       }
       
@@ -379,7 +394,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeout)
       subscription.unsubscribe()
     }
-  }, [isSigningOut])
+  }, [clearDemoMode, isSigningOut, loadDemoProfile])
 
   // Separate effect to load profile when user changes
   useEffect(() => {

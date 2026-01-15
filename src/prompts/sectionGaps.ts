@@ -12,11 +12,11 @@ export const SECTION_GUIDANCE = {
   introduction: {
     title: 'Introduction',
     summary:
-      'Open strong with credibility, highlight the sharpest achievement, and connect it to the company/mission.',
+      'Establish credibility and role relevance quickly; a distinct hook is optional if credibility is clear.',
     expectations: [
-      'Lead with a compelling hook (achievement, insight, or company tie-in).',
-      'Establish domain credibility and 1-2 quantifiable proof points.',
-      'Show mission/product alignment tied to the JD.',
+      'Lead with a credibility signal (scope, seniority, outcomes) or a clear role fit statement.',
+      'Metrics are optional; do not flag missing metrics if impact is otherwise clear or reserved for body stories.',
+      'Show role/company alignment when it strengthens fit; do not force it if already implied.',
     ],
   },
   experience: {
@@ -24,18 +24,18 @@ export const SECTION_GUIDANCE = {
     summary:
       'Translate resume achievements into story-driven paragraphs that prove you can meet core requirements.',
     expectations: [
-      'Highlight relevant projects with metrics tied to JD requirements.',
-      'Demonstrate cross-functional leadership/collaboration as needed.',
-      'Show toolkit/process fluency (data, experimentation, PM craft) emphasized in the JD.',
+      'Use concrete examples tied to JD requirements; metrics help, but scope markers are acceptable.',
+      'Demonstrate leadership or collaboration only where the JD makes it material.',
+      'Show toolkit/process fluency emphasized in the JD without inventing new claims.',
     ],
   },
   closing: {
     title: 'Closing',
-    summary: 'Summarize the value, express enthusiasm, and include a confident call-to-action.',
+    summary: 'Close with confidence and ownership; a formal CTA is optional.',
     expectations: [
-      'Reinforce differentiating value (1-2 proof points).',
-      'State clear enthusiasm tied to company mission or product.',
-      'Close with a confident CTA about next steps.',
+      'Reinforce differentiating value or ownership in 1-2 concise sentences.',
+      'Maintain confident, professional tone; enthusiasm is optional.',
+      'CTA is optional; only flag if the closing is ambiguous, passive, or undermines confidence.',
     ],
   },
   signature: {
@@ -50,51 +50,61 @@ export const SECTION_GUIDANCE = {
 
 export const SECTION_GAPS_SYSTEM_PROMPT = `You are an expert cover letter editor providing DETAILED section-by-section feedback.
 
-Respond ONLY with valid JSON following this EXACT schema:
+Respond ONLY with valid JSON following this schema (placeholder values are not real content):
 
 {
   "enhancedMatchData": {
     "sectionGapInsights": [
       {
-        "sectionId": "section-1-static",
-        "sectionSlug": "introduction",
-        "sectionType": "introduction",
-        "sectionTitle": "Introduction",
-        "promptSummary": "Intro must open with credibility, metrics, and mission alignment.",
+        "sectionId": "<string>",
+        "sectionSlug": "<string>",
+        "sectionType": "introduction|experience|closing|signature|custom",
+        "sectionTitle": "<string>",
+        "promptSummary": "<string>",
         "requirementGaps": [
           {
-            "id": "intro-credibility",
-            "label": "Professional summary to establish credibility",
-            "severity": "high",
-            "requirementType": "narrative",
-            "rationale": "No metrics or seniority indicators mentioned in first paragraph.",
-            "recommendation": "Start with strongest leadership metric (e.g., 40% growth) to anchor expertise."
+            "id": "<string>",
+            "issue": "<short headline issue>",
+            "label": "<string>",
+            "status": "unmet",
+            "severity": "high|medium|low",
+            "rubricCriterionId": "<string>",
+            "jdRequirementId": "<string>",
+            "requirementType": "core|preferred|differentiator|narrative",
+            "evidenceQuote": "<verbatim quote from the section>",
+            "rationale": "<why this quote indicates a gap relative to the JD>",
+            "hiringRisk": "<concrete reviewer risk>",
+            "whyNow": "<why this matters now (tie to JD or rubric)>",
+            "decisionTest": {
+              "addsSignal": true,
+              "removesRedundancy": false,
+              "clarifiesOwnership": false,
+              "fixesSeniorityWeakness": false
+            },
+            "recommendation": "<actionable edit guidance>"
           }
         ],
-        "recommendedMoves": [
-          "Open with quantified career highlight (growth metric or launch stat).",
-          "Reference Company X's mission or latest milestone to show research."
-        ],
-        "nextAction": "add-story"
+        "recommendedMoves": ["<string>"],
+        "nextAction": "add-story|refine-content|add-metrics|research-company"
       }
     ],
     "ctaHooks": [
       {
-        "type": "add-story",
-        "label": "Add story about AI/ML product work",
-        "requirement": "AI/ML product experience",
-        "severity": "high",
-        "actionPayload": {"suggestedTags": ["AI", "ML", "product"]}
+        "type": "add-story|edit-goals|refine-section|add-metric|research-company",
+        "label": "<string>",
+        "requirement": "<string>",
+        "severity": "high|medium|low",
+        "actionPayload": {}
       }
     ]
   },
   "ratingCriteria": [
     {
-      "id": "compelling_opening",
-      "label": "Compelling Opening",
+      "id": "<string>",
+      "label": "<string>",
       "met": true,
-      "evidence": "Opening paragraph starts with a strong hook: 'I am an accomplished product manager...'",
-      "suggestion": ""
+      "evidence": "<string>",
+      "suggestion": "<string>"
     }
   ]
 }
@@ -109,17 +119,52 @@ CRITICAL RULES:
      * "sectionTitle": copy the exact title from the draft
    - These fields are MANDATORY - the system cannot function without them
    - Without sectionId, the gaps will not display correctly
+   - promptSummary must be specific to the section content (not generic rubric text) and cite a short quote (3-12 words).
    - Tie every recommendation to BOTH the rubric expectations and JD requirements
+   - Scope rubric criteria by section type using the allowed lists below. If a criterion is not allowed for a section, it must be treated as not_applicable and MUST NOT produce a gap.
 
-2. For ratingCriteria: MUST evaluate ALL 11 criteria below. For each criterion:
+2. Allowed rubric criteria per section type (anything else = not_applicable):
+   - introduction: compelling_opening, role_understanding, personalized, action_verbs, professional_tone, error_free, quantified_impact (optional)
+   - experience: specific_examples, quantified_impact, action_verbs, role_understanding, business_understanding (optional), personalized, professional_tone, error_free
+   - closing: ownership_signal, personalized (optional), professional_tone, error_free
+
+2b. Avoid prescriptive gaps that do not change hiring outcomes:
+   - Do NOT emit a "lack of hook" gap if the introduction already conveys clear credibility or impact.
+   - Do NOT require metrics in the intro or closing; only flag missing metrics if the JD explicitly demands them and none appear anywhere.
+   - Do NOT require a CTA or overt eagerness in the closing if it is already confident and professional.
+
+3. Evidence requirement (HARD):
+   - Every emitted gap MUST include evidenceQuote as a verbatim quote from the section content.
+   - If you cannot cite a quote from the section to justify the gap, do NOT emit the gap.
+
+4. Decision Test gate (HARD): A gap can only be emitted if YES to at least one:
+   - Adds a missing JD-critical capability signal
+   - Removes redundancy that obscures the main proof
+   - Clarifies ownership scope where ambiguity exists
+   - Eliminates a sentence that weakens senior signal / credibility
+   If NO to all → do NOT emit the gap.
+
+5. Hiring risk requirement (HARD):
+   - Every emitted gap MUST include a concrete "hiringRisk" and a "whyNow".
+   - If you cannot name a plausible negative reviewer interpretation, do NOT emit the gap.
+   - If the risk is low/speculative, do NOT emit the gap.
+
+6. For requirementGaps entries:
+   - MUST include: issue, status, rubricCriterionId, evidenceQuote, hiringRisk, whyNow, decisionTest
+   - issue must be 4-10 words and describe the gap (not the fix)
+   - issue MUST NOT quote the draft, must not include evidenceQuote text, and must avoid first-person wording
+   - status must be "unmet" for emitted gaps
+   - jdRequirementId is required when the gap maps to a JD requirement (preferred)
+
+7. For ratingCriteria: MUST evaluate ALL 11 criteria below. For each criterion:
    - Set "met": true if the draft demonstrates this quality, false otherwise
-   - Provide "evidence": specific text from the draft that supports your evaluation (quote relevant sentences/phrases)
+   - Provide "evidence": 1-2 sentence paragraph grounded in the draft (no bullet lists, no pipe separators)
    - Provide "suggestion": actionable improvement advice if met=false, empty string if met=true
    - The 11 criteria are:
-     1. "compelling_opening" - "Compelling Opening": Strong hook that captures attention in first paragraph
+     1. "compelling_opening" - "Compelling Opening": Clear credibility and relevance early; a clever hook is optional
      2. "business_understanding" - "Understanding of Business/Users": Demonstrates knowledge of company and users
-     3. "quantified_impact" - "Quantified Impact": Specific metrics and achievements (%, $, numbers)
-     4. "action_verbs" - "Action Verbs": Strong, active language showing ownership
+     3. "quantified_impact" - "Quantified Impact": Specific metrics or concrete scope markers that strengthen claims
+     4. "action_verbs" - "Action Verbs": Strong, active language showing ownership across the draft
      5. "concise_length" - "Concise Length": 3-4 paragraphs, under 400 words
      6. "error_free" - "Error-Free Writing": No spelling or grammar errors
      7. "personalized" - "Personalized Content": Tailored to specific role and company
@@ -128,15 +173,16 @@ CRITICAL RULES:
      10. "company_research" - "Company Research": Shows understanding of company culture/mission
      11. "role_understanding" - "Role Understanding": Clear grasp of job responsibilities
 
-3. For ctaHooks: Provide 3-5 actionable suggestions with clear labels
+8. For ctaHooks: Provide 3-5 actionable suggestions with clear labels
    - Types: "add-story", "edit-goals", "refine-section", "add-metric", "research-company"
    - Include severity: "high", "medium", "low"
    - Include actionPayload with relevant data
 
-4. For severity: Use "high"/"medium"/"low"
-5. For requirementType: Use "core"/"preferred"/"differentiator"/"narrative"
-6. For nextAction: Use "add-story"/"refine-content"/"add-metrics"/"research-company"
-7. Return ONLY the JSON object, no markdown, no explanations
+9. For severity: Use "high"/"medium"/"low"
+10. For requirementType: Use "core"/"preferred"/"differentiator"/"narrative"
+11. For nextAction: Use "add-story"/"refine-content"/"add-metrics"/"research-company"
+12. Do NOT copy any text from this prompt into your output. Do NOT use placeholder values.
+13. Return ONLY the JSON object, no markdown, no explanations
 `;
 
 export const buildSectionGapsUserPrompt = (payload: {
@@ -198,24 +244,7 @@ Expectations:
 `;
 }).join('\n')}
 
-=== CONTENT QUALITY EVALUATION ===
-Evaluate the cover letter draft against these 11 quality criteria. For each criterion:
-- Determine if it's met (true/false) based on the draft content
-- Provide specific evidence: quote the exact text from the draft that supports your evaluation
-- If not met, provide a concrete suggestion for improvement
-
-The 11 criteria to evaluate:
-1. Compelling Opening - Does the opening paragraph have a strong hook that captures attention?
-2. Understanding of Business/Users - Does it demonstrate knowledge of the company and its users?
-3. Quantified Impact - Are there specific metrics and achievements (%, $, numbers)?
-4. Action Verbs - Does it use strong, active language showing ownership?
-5. Concise Length - Is it 3-4 paragraphs and under 400 words?
-6. Error-Free Writing - Are there no spelling or grammar errors?
-7. Personalized Content - Is it tailored to the specific role and company?
-8. Specific Examples - Are there concrete examples from work history?
-9. Professional Tone - Is the formality level appropriate?
-10. Company Research - Does it show understanding of company culture/mission?
-11. Role Understanding - Does it demonstrate clear grasp of job responsibilities?
+Requirement gaps must be grounded in the section content. For every gap you emit, include an evidenceQuote that is a verbatim quote from the section text.
 
 Analyze each section in detail and provide gap insights, quality criteria, and actionable CTAs.`;
 };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseLlmSlotTokens, replaceAllLiteral } from '../coverLetterSlots';
+import { parseLlmSlotTokens, replaceAllLiteral, replaceSlotTokenWithPunctuation } from '../coverLetterSlots';
 
 describe('coverLetterSlots', () => {
   it('parses [LLM:...] tokens', () => {
@@ -43,5 +43,10 @@ describe('coverLetterSlots', () => {
     const out = replaceAllLiteral(text, '[LLM:JD_LINE]', 'Filled.');
     expect(out).toBe('Hello Filled. world Filled.');
   });
-});
 
+  it('avoids duplicate punctuation when token is followed by punctuation', () => {
+    const text = 'Sentence [LLM:JD_LINE]. Next.';
+    const out = replaceSlotTokenWithPunctuation(text, '[LLM:JD_LINE]', 'Filled.');
+    expect(out).toBe('Sentence Filled. Next.');
+  });
+});

@@ -508,7 +508,7 @@ export const WorkHistoryDetail = ({
                 times_used: 0,
               };
 
-              const { error: variationError } = await supabase
+        const { error: variationError } = await supabase
                 .from('content_variations')
                 .insert(variationInsert as any);
               if (variationError) {
@@ -1174,6 +1174,40 @@ export const WorkHistoryDetail = ({
   const handleDeleteStoryClick = (story: WorkHistoryBlurb) => {
     setDeleteStoryTarget(story);
     setIsDeleteStoryDialogOpen(true);
+  };
+
+  const handleDeleteVariation = async (storyId: string, variationId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('content_variations')
+        .delete()
+        .eq('id', variationId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      if (selectedRole && onRoleSelect) {
+        onRoleSelect({
+          ...selectedRole,
+          blurbs: (selectedRole.blurbs || []).map((blurb) => {
+            if (blurb.id !== storyId) return blurb;
+            return {
+              ...blurb,
+              variations: (blurb.variations || []).filter((variation) => variation.id !== variationId),
+            };
+          }),
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting variation:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete variation.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleConfirmDeleteStory = async () => {
@@ -2169,12 +2203,13 @@ export const WorkHistoryDetail = ({
 	                          <StoryCard
 	                            story={story}
 	                            linkedLinks={linkedLinks}
-	                            onEdit={onEditStory}
-	                            onDuplicate={() => onDuplicateStory?.(story)}
-	                            onDelete={() => handleDeleteStoryClick(story)}
-	                            onTagSuggestions={(_tags) => {
-	                              handleStoryTagSuggestions(story);
-	                            }}
+                            onEdit={onEditStory}
+                            onDuplicate={() => onDuplicateStory?.(story)}
+                            onDelete={() => handleDeleteStoryClick(story)}
+                            onDeleteVariation={handleDeleteVariation}
+                            onTagSuggestions={(_tags) => {
+                              handleStoryTagSuggestions(story);
+                            }}
 	                            isGapResolved={resolvedGaps.has(`story-content-gap-${story.id}`)}
 	                            hasGaps={(story as any).hasGaps}
 	                            gaps={(story as any).gaps}

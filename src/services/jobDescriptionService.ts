@@ -68,12 +68,12 @@ const computeTextChecksum = (text: string): string => {
 const createOpenAIClient = (apiKey?: string) => {
   const key =
     apiKey ||
-    (import.meta.env?.VITE_OPENAI_KEY as string | undefined) ||
-    (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) ||
+    (import.meta.env?.VITE_OPENAI_API_KEY as string | undefined) ||
+    (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
     (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
   if (!key) {
-    throw new Error('OpenAI API key not configured. Set VITE_OPENAI_KEY or OPENAI_API_KEY.');
+    throw new Error('OpenAI API key not configured. Set VITE_OPENAI_API_KEY or OPENAI_API_KEY.');
   }
 
   return createOpenAI({ apiKey: key });

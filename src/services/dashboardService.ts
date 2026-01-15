@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Database } from "@/types/supabase";
 import { classifyRoleToBucket } from "@/lib/roleBuckets";
+import { CoverLetterTemplateService } from "@/services/coverLetterTemplateService";
 
 // Helper function to get Supabase configuration
 const getSupabaseConfig = () => ({
@@ -17,10 +18,12 @@ export interface DashboardStats {
   stories: number;
   savedSections: number;
   coverLetters: number;
+  interviews: number;
   skillsCoverage: number;
   lastMonthStories: number;
   lastMonthSavedSections: number;
   lastMonthCoverLetters: number;
+  lastMonthInterviews: number;
   skillsImprovement: number;
 }
 
@@ -72,6 +75,7 @@ export interface CompetencyCoverage {
 
 export interface DashboardData {
   stats: DashboardStats;
+  outcomes: OutcomeSnapshot;
   topRoles: TopRole[];
   contentHealth: ContentHealth;
   storyStrength: StoryStrength;
@@ -81,6 +85,14 @@ export interface DashboardData {
     overallCoverage: number;
     priorityGaps: string[];
   };
+}
+
+export interface OutcomeSnapshot {
+  applied: number;
+  interview: number;
+  noResponse: number;
+  notSelected: number;
+  interviewRate: number;
 }
 
 export class DashboardService {
@@ -149,6 +161,9 @@ export class DashboardService {
       const storiesCount = await this.countTable('work_items', userId);
       const savedSectionsCount = await this.countTable('saved_sections', userId);
       const coverLettersCount = await this.countTable('cover_letters', userId);
+      const interviewsCount = await this.countTable('cover_letters', userId, (q) =>
+        q.eq('outcome_status', 'interview')
+      );
       const approvedContentCount = await this.countTable('stories', userId, (q) => q.eq('status', 'approved'));
 
       // Calculate skills coverage
@@ -160,15 +175,20 @@ export class DashboardService {
       const lastMonthStories = await this.countTable('work_items', userId, (q) => q.gte('created_at', thirtyDaysAgo.toISOString()));
       const lastMonthSavedSections = await this.countTable('saved_sections', userId, (q) => q.gte('created_at', thirtyDaysAgo.toISOString()));
       const lastMonthCoverLetters = await this.countTable('cover_letters', userId, (q) => q.gte('created_at', thirtyDaysAgo.toISOString()));
+      const lastMonthInterviews = await this.countTable('cover_letters', userId, (q) =>
+        q.eq('outcome_status', 'interview').gte('outcome_updated_at', thirtyDaysAgo.toISOString())
+      );
 
       return {
         stories: storiesCount,
         savedSections: savedSectionsCount,
         coverLetters: coverLettersCount,
+        interviews: interviewsCount,
         skillsCoverage,
         lastMonthStories: lastMonthStories,
         lastMonthSavedSections,
         lastMonthCoverLetters: lastMonthCoverLetters,
+        lastMonthInterviews: lastMonthInterviews,
         skillsImprovement: Math.round(Math.random() * 20) + 5 // Mock improvement for now
       };
     } catch (error) {
@@ -177,11 +197,50 @@ export class DashboardService {
         stories: 0,
         savedSections: 0,
         coverLetters: 0,
+        interviews: 0,
         skillsCoverage: 0,
         lastMonthStories: 0,
         lastMonthSavedSections: 0,
         lastMonthCoverLetters: 0,
+        lastMonthInterviews: 0,
         skillsImprovement: 0
+      };
+    }
+  }
+
+  async getOutcomeSnapshot(userId: string): Promise<OutcomeSnapshot> {
+    try {
+      await CoverLetterTemplateService.autoApplyNoResponse({ userId, days: 30 });
+
+      const applied = await this.countTable('cover_letters', userId, (q) =>
+        q.eq('status', 'finalized')
+      );
+      const interview = await this.countTable('cover_letters', userId, (q) =>
+        q.eq('outcome_status', 'interview')
+      );
+      const noResponse = await this.countTable('cover_letters', userId, (q) =>
+        q.eq('outcome_status', 'no_response')
+      );
+      const notSelected = await this.countTable('cover_letters', userId, (q) =>
+        q.eq('outcome_status', 'not_selected')
+      );
+      const interviewRate = applied > 0 ? Math.round((interview / applied) * 100) : 0;
+
+      return {
+        applied,
+        interview,
+        noResponse,
+        notSelected,
+        interviewRate,
+      };
+    } catch (error) {
+      console.error('Error fetching outcome snapshot:', error);
+      return {
+        applied: 0,
+        interview: 0,
+        noResponse: 0,
+        notSelected: 0,
+        interviewRate: 0,
       };
     }
   }
@@ -382,8 +441,9 @@ export class DashboardService {
    */
   async getDashboardData(userId: string): Promise<DashboardData> {
     try {
-      const [stats, topRoles, contentHealth, storyStrength, resumeGaps, coverageMap] = await Promise.all([
+      const [stats, outcomes, topRoles, contentHealth, storyStrength, resumeGaps, coverageMap] = await Promise.all([
         this.getStats(userId),
+        this.getOutcomeSnapshot(userId),
         this.getTopRoles(userId),
         this.getContentHealth(userId),
         this.getStoryStrength(userId),
@@ -393,6 +453,7 @@ export class DashboardService {
 
       return {
         stats,
+        outcomes,
         topRoles,
         contentHealth,
         storyStrength,

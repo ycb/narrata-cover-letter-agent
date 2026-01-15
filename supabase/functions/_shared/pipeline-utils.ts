@@ -114,6 +114,7 @@ export async function callOpenAI(params: {
   messages: Array<{ role: string; content: string }>;
   temperature?: number;
   maxTokens?: number;
+  maxCompletionTokens?: number;
   responseFormat?: { type: string }; // Deprecated - kept for compatibility but ignored
 }): Promise<any> {
   const {
@@ -122,6 +123,7 @@ export async function callOpenAI(params: {
     messages,
     temperature = 0.7,
     maxTokens = 4000,
+    maxCompletionTokens,
     // responseFormat is ignored - we parse JSON manually instead
   } = params;
 
@@ -136,7 +138,9 @@ export async function callOpenAI(params: {
       model,
       messages,
       temperature,
-      max_tokens: maxTokens,
+      ...(typeof maxCompletionTokens === 'number'
+        ? { max_completion_tokens: maxCompletionTokens }
+        : { max_tokens: maxTokens }),
       // Removed response_format - parse JSON manually from response
     }),
   });

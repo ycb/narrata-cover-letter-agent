@@ -60,7 +60,8 @@ function transformClustersToWorkHistory(
     workItemGapsMap: Map<string, Array<{ id: string; description: string; gap_category?: string }>>;
     storyGapMap: Map<string, number>;
     storyGapsMap: Map<string, Array<{ id: string; description: string }>>;
-  }
+  },
+  variationsByParent: Map<string, any[]> = new Map()
 ): WorkHistoryCompany[] {
   // Group clusters by company
   const companyMap = new Map<string, MergedRoleCluster[]>();
@@ -116,6 +117,7 @@ function transformClustersToWorkHistory(
       const blurbs: WorkHistoryBlurb[] = cluster.stories.map(story => {
         const storyGapCount = gapData.storyGapMap.get(story.id) || 0;
         const storyGaps = gapData.storyGapsMap.get(story.id) || [];
+        const blurbVariations = variationsByParent.get(story.id) || [];
         return {
           id: story.id,
           roleId: primaryWorkItemId,
@@ -130,6 +132,16 @@ function transformClustersToWorkHistory(
           hasGaps: storyGapCount > 0,
           gapCount: storyGapCount,
           gaps: storyGaps,
+          variations: blurbVariations.map((variation: any) => ({
+            id: variation.id,
+            content: variation.content,
+            developedForJobTitle: variation.target_job_title || undefined,
+            filledGap: undefined,
+            jdTags: variation.gap_tags || [],
+            tags: variation.gap_tags || [],
+            createdAt: variation.created_at,
+            createdBy: variation.created_by || 'AI',
+          })),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -518,12 +530,39 @@ export default function WorkHistory() {
         });
         
         // Transform clusters to WorkHistoryCompany format
-        const mergedWorkHistory = transformClustersToWorkHistory(clusters, {
-          workItemGapMap,
-          workItemGapsMap,
-          storyGapMap,
-          storyGapsMap,
-        });
+      const storyIds = clusters
+        .flatMap((cluster) => cluster.stories.map((story) => story.id))
+        .filter(Boolean);
+
+      const variationsByParent = new Map<string, any[]>();
+      if (storyIds.length > 0) {
+        const { data: variations, error: variationsError } = await supabase
+          .from('content_variations')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('parent_entity_type', 'approved_content')
+          .in('parent_entity_id', storyIds)
+          .order('created_at', { ascending: false });
+
+        if (variationsError) {
+          console.warn('[WorkHistory] Failed to load story variations for merged view:', variationsError);
+        } else {
+          (variations || []).forEach((variation: any) => {
+            const parentId = variation.parent_entity_id;
+            if (!parentId) return;
+            const list = variationsByParent.get(parentId) || [];
+            list.push(variation);
+            variationsByParent.set(parentId, list);
+          });
+        }
+      }
+
+      const mergedWorkHistory = transformClustersToWorkHistory(clusters, {
+        workItemGapMap,
+        workItemGapsMap,
+        storyGapMap,
+        storyGapsMap,
+        }, variationsByParent);
 
         const hydratedWorkHistory = mergedWorkHistory.map((company) => {
           const companyMeta = companyById.get(company.id);

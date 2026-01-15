@@ -161,7 +161,7 @@ export function companiesAreSimilar(name1: string, name2: string): boolean {
 export function normalizeTitle(title: string): string {
   if (!title) return '';
   
-  let normalized = title
+  const normalized = title
     .toLowerCase()
     .trim()
     // Remove consulting/contract markers

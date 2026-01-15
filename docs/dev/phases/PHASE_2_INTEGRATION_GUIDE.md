@@ -454,7 +454,7 @@ openModal(gap, entityType, entityId, content, jobContext);
 1. Check console for errors during context fetch
 2. Verify gap has `user_id` property
 3. Ensure entity exists in database
-4. Check OpenAI API key is set (`VITE_OPENAI_KEY`)
+4. Check OpenAI API key is set (`VITE_OPENAI_API_KEY`)
 
 ### Validation Always Fails
 

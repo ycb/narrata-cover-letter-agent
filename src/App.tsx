@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,6 +21,8 @@ import { isExternalLinksEnabled, isSignupEnabled } from "@/lib/flags";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUiZoom } from "@/hooks/useUiZoom";
 import { FloatingZoomControls } from "@/components/shared/FloatingZoomControls";
+import { initializePendo } from "@/lib/pendo";
+import { initializeMixpanel } from "@/lib/mixpanel";
 
 // Environment-based feedback system initialization
 const shouldShowFeedbackSystem = (): boolean => {
@@ -80,8 +83,9 @@ const queryClient = new QueryClient();
 
 function AppLayout() {
   const signupEnabled = isSignupEnabled();
-  const { isDemo, user } = useAuth();
+  const { isDemo, user, getOAuthData } = useAuth();
   const location = useLocation();
+  const allowAlphaSignup = new URLSearchParams(location.search).has('alpha');
   const shouldHideFeedbackOnLanding = location.pathname === '/';
   const isPublicRoute =
     location.pathname === "/" ||
@@ -93,6 +97,14 @@ function AppLayout() {
     location.pathname.startsWith("/demo") ||
     location.pathname === "/peter" ||
     location.pathname.startsWith("/auth/");
+  const isLandingRoute =
+    location.pathname === "/" ||
+    location.pathname === "/waitlist" ||
+    location.pathname === "/marketing";
+  const isDemoRoute =
+    location.pathname.startsWith("/demo") ||
+    location.pathname === "/peter";
+  const shouldInitPendoPublic = !user && (isLandingRoute || isDemoRoute);
 
   const isZoomExcludedRoute = location.pathname.startsWith("/cover-letters");
   const shouldShowUiZoom = Boolean(user) && !isPublicRoute && !isZoomExcludedRoute;
@@ -103,6 +115,59 @@ function AppLayout() {
     step: 10,
     defaultZoom: 100
   });
+
+  useEffect(() => {
+    if (!user || isDemo) return;
+    const oauth = getOAuthData();
+    initializePendo({
+      visitor: {
+        id: user.id,
+        email: user.email ?? undefined,
+        firstName: oauth.firstName ?? undefined,
+        lastName: oauth.lastName ?? undefined,
+      },
+      account: {
+        id: user.id,
+      },
+    }).catch((error) => {
+      console.warn('Pendo initialization failed:', error);
+    });
+  }, [user?.id, user?.email, isDemo, getOAuthData]);
+
+  useEffect(() => {
+    if (!shouldInitPendoPublic) return;
+    const storageKey = "pendo:public-visitor-id";
+    let visitorId = window.localStorage.getItem(storageKey);
+    if (!visitorId) {
+      const uuid =
+        typeof window.crypto?.randomUUID === "function"
+          ? window.crypto.randomUUID()
+          : `demo_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      visitorId = `demo_${uuid}`;
+      window.localStorage.setItem(storageKey, visitorId);
+    }
+    initializePendo({
+      visitor: {
+        id: visitorId,
+        demoRoute: isDemoRoute ? "demo" : "landing",
+      },
+      account: {
+        id: "public_demo",
+      },
+    }).catch((error) => {
+      console.warn('Pendo public initialization failed:', error);
+    });
+  }, [shouldInitPendoPublic, isDemoRoute]);
+
+  useEffect(() => {
+    if (!isPublicRoute || user) return;
+    try {
+      initializeMixpanel();
+    } catch (error) {
+      console.warn('Mixpanel initialization failed:', error);
+    }
+  }, [isPublicRoute, user]);
+
 
   return (
     <div className={`min-h-screen flex flex-col ${isDemo ? 'pb-14' : ''}`}>
@@ -339,7 +404,7 @@ function AppLayout() {
         <Route
           path="/signup"
           element={
-            signupEnabled ? (
+            signupEnabled || allowAlphaSignup ? (
               <ProtectedRoute requireAuth={false}><SignUp /></ProtectedRoute>
             ) : (
               <Navigate to="/waitlist" replace />

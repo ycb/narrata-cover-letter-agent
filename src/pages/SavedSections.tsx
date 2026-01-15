@@ -19,6 +19,7 @@ import { TagSuggestionService } from "@/services/tagSuggestionService";
 import { TagService } from "@/services/tagService";
 import { UserTagService } from "@/services/userTagService";
 import { GapDetectionService } from "@/services/gapDetectionService";
+import { supabase } from "@/lib/supabase";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +30,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useSearchParams } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { addUserTag, mergeUserTags, removeUserTag } from "@/lib/userTags";
+import { CoverLetterVariationService } from "@/services/coverLetterVariationService";
 
 type SavedSectionItem = {
   id: string;
@@ -49,6 +51,15 @@ type SavedSectionItem = {
   confidence?: 'high' | 'medium' | 'low';
   linkedExternalLinks?: string[];
   externalLinks?: string[];
+  variations?: Array<{
+    id: string;
+    content: string;
+    createdAt: string;
+    createdBy?: string;
+    gapTags?: string[];
+    developedForJobTitle?: string;
+    developedForCompany?: string;
+  }>;
 };
 
 type HierarchicalBlurb = ComponentProps<typeof TemplateBlurbHierarchical>['blurbs'][number] & {
@@ -100,6 +111,8 @@ export default function SavedSections() {
   const [isEditingSectionLabel, setIsEditingSectionLabel] = useState(false);
   const [editingSectionType, setEditingSectionType] = useState<string | null>(null);
   const [editingSectionLabel, setEditingSectionLabel] = useState('');
+  const [isDeletingVariation, setIsDeletingVariation] = useState(false);
+  const [isDuplicatingSection, setIsDuplicatingSection] = useState(false);
 
   const mountedRef = useRef(true);
   const savedSectionContentRef = useRef<HTMLTextAreaElement | null>(null);
@@ -206,6 +219,50 @@ export default function SavedSections() {
           return;
         }
 
+        const sectionIds = sections.map((section) => section.id).filter(Boolean) as string[];
+        const variationsByParent = new Map<
+          string,
+          Array<{
+            id: string;
+            content: string;
+            createdAt: string;
+            createdBy?: string;
+            gapTags?: string[];
+            developedForJobTitle?: string;
+            developedForCompany?: string;
+          }>
+        >();
+
+        if (sectionIds.length > 0) {
+          const { data: variations, error: variationsError } = await supabase
+            .from('content_variations')
+            .select('id, parent_entity_id, content, created_at, created_by, gap_tags, target_job_title, target_company')
+            .eq('user_id', user.id)
+            .eq('parent_entity_type', 'saved_section')
+            .in('parent_entity_id', sectionIds)
+            .order('created_at', { ascending: false });
+
+          if (variationsError) {
+            console.warn('[SavedSections] Failed to load saved section variations:', variationsError);
+          } else {
+            (variations || []).forEach((variation: any) => {
+              const parentId = variation.parent_entity_id;
+              if (!parentId) return;
+              const list = variationsByParent.get(parentId) || [];
+              list.push({
+                id: variation.id,
+                content: variation.content,
+                createdAt: variation.created_at,
+                createdBy: variation.created_by ?? undefined,
+                gapTags: variation.gap_tags ?? [],
+                developedForJobTitle: variation.target_job_title ?? undefined,
+                developedForCompany: variation.target_company ?? undefined,
+              });
+              variationsByParent.set(parentId, list);
+            });
+          }
+        }
+
         const sectionItems: SavedSectionItem[] = sections.map((section) => ({
           id: section.id!,
           type: section.type as SavedSectionItem["type"],
@@ -224,7 +281,8 @@ export default function SavedSections() {
           gapCategories: savedSectionGapIndex.get(section.id!)?.categories ?? [],
           maxGapSeverity: savedSectionGapIndex.get(section.id!)?.maxSeverity,
           linkedExternalLinks: [],
-          externalLinks: []
+          externalLinks: [],
+          variations: variationsByParent.get(section.id!) ?? []
         }));
 
         setSavedSections(sectionItems);
@@ -600,8 +658,97 @@ export default function SavedSections() {
     gapCount: section.gapCount,
     gapCategories: section.gapCategories,
     maxGapSeverity: section.maxGapSeverity,
-    is_dynamic: section.is_dynamic
+    is_dynamic: section.is_dynamic,
+    variations: section.variations ?? []
   }));
+
+  const handleDeleteVariation = async (variationId: string, parentId: string) => {
+    if (!user?.id || isDeletingVariation) return;
+    const confirmed = window.confirm("Delete this variation?");
+    if (!confirmed) return;
+
+    setIsDeletingVariation(true);
+    try {
+      await CoverLetterVariationService.deleteVariation(variationId);
+      setSavedSections(prev =>
+        prev.map(section =>
+          section.id === parentId
+            ? {
+                ...section,
+                variations: (section.variations || []).filter(v => v.id !== variationId),
+              }
+            : section
+        )
+      );
+      toast({
+        title: "Variation deleted",
+        description: "This variation has been removed.",
+      });
+    } catch (error) {
+      console.error("[SavedSections] Failed to delete variation:", error);
+      toast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingVariation(false);
+    }
+  };
+
+  const handleDuplicateSection = async (section: SavedSectionItem) => {
+    if (!user?.id || isDuplicatingSection) return;
+    setIsDuplicatingSection(true);
+    try {
+      const duplicated = await CoverLetterTemplateService.createSavedSection({
+        user_id: user.id,
+        type: section.type,
+        title: `${section.title} (Copy)`,
+        content: section.content,
+        tags: section.tags ?? [],
+        times_used: 0,
+        last_used: undefined,
+      });
+
+      const createdAt = duplicated.created_at ?? new Date().toISOString();
+      const newItem: SavedSectionItem = {
+        id: duplicated.id!,
+        type: duplicated.type as SavedSectionItem["type"],
+        title: duplicated.title,
+        content: duplicated.content,
+        tags: duplicated.tags ?? [],
+        isDefault: duplicated.type === "intro",
+        status: "approved" as const,
+        confidence: "high" as const,
+        timesUsed: duplicated.times_used ?? 0,
+        lastUsed: duplicated.last_used ?? undefined,
+        createdAt,
+        updatedAt: duplicated.updated_at ?? createdAt,
+        hasGaps: false,
+        gapCount: 0,
+        gapCategories: [],
+        maxGapSeverity: undefined,
+        linkedExternalLinks: [],
+        externalLinks: [],
+        variations: [],
+      };
+
+      setSavedSections(prev => [newItem, ...prev]);
+      toast({
+        title: "Section duplicated",
+        description: "A copy has been added to your saved sections.",
+      });
+    } catch (error) {
+      console.error("[SavedSections] Failed to duplicate section:", error);
+      toast({
+        title: "Duplicate failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDuplicatingSection(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -642,6 +789,8 @@ export default function SavedSections() {
             onEditBlurb={handleEditSection}
             onEditSectionLabel={handleEditSectionLabel}
             onDeleteBlurb={handleDeleteSection}
+            onDuplicateBlurb={handleDuplicateSection}
+            onDeleteVariation={handleDeleteVariation}
             onDeleteSection={handleDeleteSectionType}
             onGenerateContent={handleGenerateContent}
             onTagSuggestions={handleSavedSectionTagSuggestions}
@@ -893,7 +1042,11 @@ export default function SavedSections() {
                 <Button variant="secondary" onClick={handleCancelEditSection}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveSection}>Save Changes</Button>
+                <Button
+                  onClick={handleSaveSection}
+                >
+                  Save Changes
+                </Button>
               </div>
             </CardContent>
           </Card>

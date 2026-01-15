@@ -21,6 +21,7 @@ interface CoverLetterEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   coverLetter: any;
+  startInPreview?: boolean;
   onSave?: () => void; // Callback to refetch data after save
   onEditGoals?: () => void; // Agent C: goals CTA handler
   onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
@@ -32,6 +33,7 @@ export const CoverLetterEditModal = ({
   isOpen,
   onClose,
   coverLetter,
+  startInPreview = false,
   onSave,
   onEditGoals,
   onAddStory,
@@ -43,6 +45,7 @@ export const CoverLetterEditModal = ({
       isOpen={isOpen}
       onClose={onClose}
       mode="edit"
+      startInPreview={startInPreview}
       initialDraft={coverLetter}
       onCoverLetterCreated={onSave ? () => {
         // In edit mode, onCoverLetterCreated is used as onSave callback

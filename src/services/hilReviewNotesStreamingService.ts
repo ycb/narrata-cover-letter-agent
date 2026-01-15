@@ -90,7 +90,7 @@ export class HilReviewNotesStreamingService {
   private modelId: string;
 
   constructor() {
-    this.apiKey = import.meta.env.VITE_OPENAI_KEY || '';
+    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
     this.openai = createOpenAI({ apiKey: this.apiKey });
     this.modelId = getDefaultOpenAIModelId();
   }
@@ -288,10 +288,14 @@ Rules:
 - Do NOT invent facts or propose fake metrics.
 - Do NOT output bracket placeholders like [specific role], [company], [metric], etc.
 - Keep the user's tone/style; do not impose a new tone.
-- Produce at most 5 suggestions, prioritized by impact.
+- Always provide a 1-sentence summary of the highest-impact improvement to make (even if you also provide suggestions).
+- Produce at most 3 suggestions, prioritized by impact.
 - Each suggestion MUST include an "anchor" that is an exact substring copied from the user's text (8–200 chars).
 - Each suggestion MUST include a "replacement" that the user could swap in for the anchor (same tone, no new claims).
 - Keep replacements local (phrase/sentence-level), not full-paragraph rewrites.
+- Avoid repetitive feedback: each suggestion must address a distinct issue or requirement.
+- Do NOT suggest wording-only tweaks unless they clarify scope, ownership, or a JD-critical requirement.
+- If you cannot find a high-impact change that improves hiring signal, return an empty suggestions array and explain in the summary that the section is already strong.
 - In addition, compute section-level attribution: which requirements/standards this paragraph addresses.
 
 ${isIntro ? `Intro constraints (apply when deciding priorities):
@@ -315,7 +319,7 @@ ${sectionCategory === 'body' ? `Body constraints (apply when deciding priorities
 Return JSON only (no code fences, no markdown).
 Schema:
 {
-  "summary": string | null,
+  "summary": string,
   "suggestions": Array<{
     "id": string,
     "priority": "P0" | "P1" | "P2",

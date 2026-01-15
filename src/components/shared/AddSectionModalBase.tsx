@@ -377,17 +377,22 @@ export function AddSectionModalBase({
                             ?.roles ?? [])
                             .find((role) => role.id === selectedRole)
                             ?.blurbs ?? []).map((blurb) => (
-                              <div
-                                key={blurb.id}
-                                className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
-                                onClick={() => onContentSelected(blurb)}
-                              >
-                                <div className="space-y-3">
-                                  <h4 className="font-medium">{blurb.title}</h4>
-                                  <p className="text-sm text-muted-foreground whitespace-pre-line">
-                                    {blurb.content || 'No story content captured yet.'}
-                                  </p>
+                              <div key={blurb.id} className="space-y-2">
+                                <div
+                                  className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                  onClick={() => onContentSelected(blurb)}
+                                >
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <h4 className="font-medium">{blurb.title}</h4>
+                                      <Badge variant="secondary">Main Story</Badge>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground whitespace-pre-line">
+                                      {blurb.content || 'No story content captured yet.'}
+                                    </p>
+                                  </div>
                                 </div>
+
                               </div>
                             ))}
                         </div>

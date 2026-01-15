@@ -23,7 +23,7 @@ export class GapResolutionStreamingService {
   private openai: ReturnType<typeof createOpenAI>;
 
   constructor() {
-    this.apiKey = import.meta.env.VITE_OPENAI_KEY || '';
+    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
 
     if (!this.apiKey) {
       console.error('[GapResolutionStreamingService] No API key found');

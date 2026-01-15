@@ -26,6 +26,7 @@ import type { CoverLetterSection } from '@/types/workHistory';
 import { UserPreferencesService } from './userPreferencesService';
 import { JobDescriptionService } from './jobDescriptionService';
 import { HeuristicGapService } from './heuristicGapService';
+import { CoverLetterTemplateService } from './coverLetterTemplateService';
 import { ENHANCED_METRICS_SYSTEM_PROMPT, SECTION_GUIDANCE, buildEnhancedMetricsUserPrompt } from '@/prompts/enhancedMetricsAnalysis';
 import { BASIC_METRICS_SYSTEM_PROMPT, buildBasicMetricsUserPrompt } from '@/prompts/basicMetrics';
 import { REQUIREMENT_ANALYSIS_SYSTEM_PROMPT, buildRequirementAnalysisUserPrompt } from '@/prompts/requirementAnalysis';
@@ -35,7 +36,7 @@ import { aggregateContentStandards, extractSectionsMeta, mapDraftSectionType } f
 import type { ContentStandardsAnalysis, SectionStandardResult, LetterStandardResult } from '@/types/coverLetters';
 import type { DraftReadinessEvaluation } from '@/types/coverLetters';
 import { isDraftReadinessEnabled } from '@/lib/flags';
-import { parseLlmSlotTokens, replaceAllLiteral } from '@/lib/coverLetterSlots';
+import { parseLlmSlotTokens, replaceAllLiteral, replaceSlotTokenWithPunctuation } from '@/lib/coverLetterSlots';
 import type {
   DraftCoverLetterEvalEvent,
   PhaseACompleteness,
@@ -144,12 +145,12 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const createDefaultMetricsStreamer = (): MetricsStreamer => {
   const apiKey =
-    (import.meta.env?.VITE_OPENAI_KEY) ||
-    (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) ||
+    (import.meta.env?.VITE_OPENAI_API_KEY) ||
+    (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
     (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
   if (!apiKey) {
-    throw new Error('OpenAI API key not configured. Set VITE_OPENAI_KEY or OPENAI_API_KEY.');
+    throw new Error('OpenAI API key not configured. Set VITE_OPENAI_API_KEY or OPENAI_API_KEY.');
   }
 
   const client = createOpenAI({ apiKey });
@@ -584,6 +585,21 @@ export class CoverLetterDraftService {
         : 'weak';
 
     const scoreBreakdown = (row?.score_breakdown ?? {}) as Record<string, string>;
+    const getScore = (...keys: string[]): string | undefined => {
+      for (const key of keys) {
+        const value = scoreBreakdown[key];
+        if (typeof value === 'string' && value.trim().length > 0) {
+          return value;
+        }
+      }
+      return undefined;
+    };
+    const normalizedScoreBreakdown = {
+      narrativeCoherence: getScore('narrativeCoherence', 'narrative_coherence', 'clarityStructure', 'clarity_structure'),
+      persuasivenessEvidence: getScore('persuasivenessEvidence', 'persuasiveness_evidence', 'specificExamples', 'specific_examples', 'quantifiedImpact', 'quantified_impact'),
+      roleRelevance: getScore('roleRelevance', 'role_relevance', 'roleAlignment', 'role_alignment', 'companyAlignment', 'company_alignment', 'personalization'),
+      professionalPolish: getScore('professionalPolish', 'professional_polish', 'writingQuality', 'writing_quality', 'lengthEfficiency', 'length_efficiency', 'executiveMaturity', 'executive_maturity', 'opening'),
+    };
     const feedbackSummary =
       typeof row?.feedback_summary === 'string' ? row.feedback_summary : 'Evaluation unavailable';
     const improvements = Array.isArray(row?.improvements)
@@ -593,16 +609,10 @@ export class CoverLetterDraftService {
     return {
       rating,
       scoreBreakdown: {
-        clarityStructure: this.asStrength(scoreBreakdown.clarityStructure),
-        opening: this.asStrength(scoreBreakdown.opening),
-        companyAlignment: this.asStrength(scoreBreakdown.companyAlignment),
-        roleAlignment: this.asStrength(scoreBreakdown.roleAlignment),
-        specificExamples: this.asStrength(scoreBreakdown.specificExamples),
-        quantifiedImpact: this.asStrength(scoreBreakdown.quantifiedImpact),
-        personalization: this.asStrength(scoreBreakdown.personalization),
-        writingQuality: this.asStrength(scoreBreakdown.writingQuality),
-        lengthEfficiency: this.asStrength(scoreBreakdown.lengthEfficiency),
-        executiveMaturity: this.asStrength(scoreBreakdown.executiveMaturity),
+        narrativeCoherence: this.asStrength(normalizedScoreBreakdown.narrativeCoherence),
+        persuasivenessEvidence: this.asStrength(normalizedScoreBreakdown.persuasivenessEvidence),
+        roleRelevance: this.asStrength(normalizedScoreBreakdown.roleRelevance),
+        professionalPolish: this.asStrength(normalizedScoreBreakdown.professionalPolish),
       },
       feedback: {
         summary: feedbackSummary,
@@ -617,6 +627,21 @@ export class CoverLetterDraftService {
 
   private sanitizeReadinessPayload(payload: any): DraftReadinessEvaluation {
     const score = payload?.scoreBreakdown ?? {};
+    const getScore = (...keys: string[]): string | undefined => {
+      for (const key of keys) {
+        const value = score[key];
+        if (typeof value === 'string' && value.trim().length > 0) {
+          return value;
+        }
+      }
+      return undefined;
+    };
+    const normalizedScoreBreakdown = {
+      narrativeCoherence: getScore('narrativeCoherence', 'narrative_coherence', 'clarityStructure', 'clarity_structure'),
+      persuasivenessEvidence: getScore('persuasivenessEvidence', 'persuasiveness_evidence', 'specificExamples', 'specific_examples', 'quantifiedImpact', 'quantified_impact'),
+      roleRelevance: getScore('roleRelevance', 'role_relevance', 'roleAlignment', 'role_alignment', 'companyAlignment', 'company_alignment', 'personalization'),
+      professionalPolish: getScore('professionalPolish', 'professional_polish', 'writingQuality', 'writing_quality', 'lengthEfficiency', 'length_efficiency', 'executiveMaturity', 'executive_maturity', 'opening'),
+    };
     return {
       rating:
         payload?.rating === 'weak' ||
@@ -626,16 +651,10 @@ export class CoverLetterDraftService {
           ? payload.rating
           : 'weak',
       scoreBreakdown: {
-        clarityStructure: this.asStrength(score.clarityStructure),
-        opening: this.asStrength(score.opening),
-        companyAlignment: this.asStrength(score.companyAlignment),
-        roleAlignment: this.asStrength(score.roleAlignment),
-        specificExamples: this.asStrength(score.specificExamples),
-        quantifiedImpact: this.asStrength(score.quantifiedImpact),
-        personalization: this.asStrength(score.personalization),
-        writingQuality: this.asStrength(score.writingQuality),
-        lengthEfficiency: this.asStrength(score.lengthEfficiency),
-        executiveMaturity: this.asStrength(score.executiveMaturity),
+        narrativeCoherence: this.asStrength(normalizedScoreBreakdown.narrativeCoherence),
+        persuasivenessEvidence: this.asStrength(normalizedScoreBreakdown.persuasivenessEvidence),
+        roleRelevance: this.asStrength(normalizedScoreBreakdown.roleRelevance),
+        professionalPolish: this.asStrength(normalizedScoreBreakdown.professionalPolish),
       },
       feedback: {
         summary:
@@ -800,11 +819,19 @@ export class CoverLetterDraftService {
 
       this.emitProgress(onProgress, 'content_match', 'Draft ready! Calculating metrics...');
 
+      this.incrementSavedSectionUsageForDraft(sections).catch(error => {
+        console.warn('[CoverLetterDraftService] Failed to increment saved section usage (non-blocking):', error);
+      });
+
       // Phase B (metrics + gaps) is triggered by the caller (`useCoverLetterDraft`) so we can
       // reliably manage retries and avoid duplicate concurrent runs.
 
       // PHASE 2 (parallel): Fill any [LLM:...] / [SLOT:...] placeholders in the draft.
-      this.fillTemplateSlotsForDraft(draftRow.id, userId, jobDescriptionId, onProgress).catch(error => {
+      // Pass already-fetched stories to avoid redundant DB query
+      this.fillTemplateSlotsForDraft(draftRow.id, userId, jobDescriptionId, onProgress, {
+        stories,
+        jobDescription,
+      }).catch(error => {
         console.error('[generateDraftFast] Background template slot fill failed:', error);
       });
 
@@ -854,11 +881,76 @@ export class CoverLetterDraftService {
     draftId: string,
     userId: string,
     jobDescriptionId: string,
-    onProgress?: DraftGenerationOptions['onProgress']
+    onProgress?: DraftGenerationOptions['onProgress'],
+    options?: {
+      jobId?: string;
+    }
   ): Promise<EnhancedMatchData | undefined> {
     const metricsStartTime = Date.now();
+    const jobId = options?.jobId ?? null;
+    let jobStagesCache: Record<string, any> = {};
+    let jobStageWrite = Promise.resolve();
+    const queueJobUpdate = async (patch: Record<string, unknown>) => {
+      if (!jobId) return;
+      jobStageWrite = jobStageWrite
+        .then(async () => {
+          await this.supabaseClient
+            .from('jobs')
+            .update(patch)
+            .eq('id', jobId);
+        })
+        .catch((error) => {
+          console.warn('[CoverLetterDraftService] Failed to update refresh job (non-blocking):', error);
+        });
+      return jobStageWrite;
+    };
+    const updateJobStage = async (
+      stage: string,
+      status: 'running' | 'complete' | 'failed',
+      data?: Record<string, unknown>,
+    ) => {
+      if (!jobId) return;
+      const nowIso = this.now().toISOString();
+      const existingStage = jobStagesCache[stage] ?? {};
+      const mergedData = {
+        ...(existingStage.data || {}),
+        ...(data || {}),
+      };
+      jobStagesCache = {
+        ...jobStagesCache,
+        [stage]: {
+          ...existingStage,
+          status,
+          data: mergedData,
+          completedAt: status === 'running' ? existingStage.completedAt : nowIso,
+        },
+      };
+      await queueJobUpdate({ stages: jobStagesCache });
+    };
     try {
       this.emitProgress(onProgress, 'metrics', 'Loading data for metrics calculation...');
+
+      if (jobId) {
+        try {
+          const { data: jobRow } = await this.supabaseClient
+            .from('jobs')
+            .select('stages')
+            .eq('id', jobId)
+            .single();
+          jobStagesCache = (jobRow?.stages as Record<string, any>) ?? {};
+        } catch (error) {
+          console.warn('[CoverLetterDraftService] Failed to load refresh job stages (non-blocking):', error);
+        }
+        await queueJobUpdate({
+          status: 'running',
+          started_at: this.now().toISOString(),
+          error_message: null,
+        });
+        await updateJobStage('phaseB.basicMetrics', 'running');
+        await updateJobStage('phaseB.requirementAnalysis', 'running');
+        await updateJobStage('phaseB.sectionGaps', 'running');
+        await updateJobStage('phaseB.contentStandards', 'running');
+      }
 
       const [draftRow, jobDescription, userGoals, workHistory, approvedContent] = await Promise.all([
         this.supabaseClient
@@ -956,7 +1048,63 @@ export class CoverLetterDraftService {
       }
     };
 
-    // Fire all 3 calls in parallel - each has independent retry logic
+    const persistMetricsPartial = async (
+      metricPayload: Awaited<ReturnType<typeof this.calculateBasicMetrics>>,
+      patch: Record<string, unknown>,
+    ) => {
+      try {
+        const { data: latestRow } = await this.supabaseClient
+          .from('cover_letters')
+          .select('llm_feedback, analytics')
+          .eq('id', draftId)
+          .single();
+
+        const existingFeedback =
+          latestRow?.llm_feedback && typeof latestRow.llm_feedback === 'object'
+            ? (latestRow.llm_feedback as Record<string, unknown>)
+            : {};
+        const existingAnalytics =
+          latestRow?.analytics && typeof latestRow.analytics === 'object'
+            ? (latestRow.analytics as Record<string, unknown>)
+            : {};
+
+        const patchRecord = patch ?? {};
+        const patchPhaseB = (patchRecord as any).phaseB as Record<string, unknown> | undefined;
+        const { phaseB: _ignored, ...restPatch } = patchRecord as any;
+
+        const nextFeedback: Record<string, unknown> = {
+          ...existingFeedback,
+          ...restPatch,
+          metrics: metricPayload.raw,
+          ...(patchPhaseB
+            ? {
+                phaseB: {
+                  ...(((existingFeedback as any).phaseB as Record<string, unknown>) ?? {}),
+                  ...patchPhaseB,
+                },
+              }
+            : null),
+        };
+
+        await this.supabaseClient
+          .from('cover_letters')
+          .update({
+            llm_feedback: nextFeedback as unknown as Record<string, unknown>,
+            metrics: metricPayload.metrics as unknown as Record<string, unknown>,
+            analytics: {
+              ...existingAnalytics,
+              atsScore: metricPayload.atsScore,
+              generatedAt: this.now().toISOString(),
+            } as unknown as Record<string, unknown>,
+            updated_at: this.now().toISOString(),
+          })
+          .eq('id', draftId);
+      } catch (persistError) {
+        console.warn('[CoverLetterDraftService] Failed to persist Phase B metrics partial (non-blocking):', persistError);
+      }
+    };
+
+    // Fire all 4 calls in parallel - each has independent retry logic
     const call1Promise = (async () => {
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
@@ -964,15 +1112,48 @@ export class CoverLetterDraftService {
             const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
             await sleep(delay);
           }
-          return await this.calculateBasicMetrics({
+          const startMs = Date.now();
+          const res = await this.calculateBasicMetrics({
             sections,
             jobDescription,
             userGoals,
           });
+          const completedAt = this.now().toISOString();
+          await persistMetricsPartial(res, {
+            phaseB: {
+              basicMetrics: {
+                status: 'success',
+                attempt: attempt + 1,
+                latencyMs: Date.now() - startMs,
+                completedAt,
+              },
+            },
+          });
+          await updateJobStage('phaseB.basicMetrics', 'complete', {
+            latencyMs: Date.now() - startMs,
+          });
+          return res;
         } catch (error) {
           if (attempt === MAX_RETRIES) {
             console.warn('[CoverLetterDraftService] Basic metrics failed, using fallback');
-            return this.createFallbackMetrics();
+            const fallback = this.createFallbackMetrics();
+            const completedAt = this.now().toISOString();
+            await persistMetricsPartial(fallback, {
+              phaseB: {
+                basicMetrics: {
+                  status: 'success',
+                  attempt: attempt + 1,
+                  latencyMs: Date.now() - metricsStartTime,
+                  completedAt,
+                  fallback: true,
+                },
+              },
+            });
+            await updateJobStage('phaseB.basicMetrics', 'complete', {
+              latencyMs: Date.now() - metricsStartTime,
+              fallback: true,
+            });
+            return fallback;
           }
         }
       }
@@ -986,16 +1167,34 @@ export class CoverLetterDraftService {
             const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
             await sleep(delay);
           }
-          return await this.calculateRequirementAnalysis({
+          const startMs = Date.now();
+          const res = await this.calculateRequirementAnalysis({
             sections,
             jobDescription,
             userGoals,
             workHistory,
             approvedContent,
           });
+          await persistEnhancedPartial(res.enhancedMatchData, {
+            phaseB: {
+              requirementAnalysis: {
+                status: 'success',
+                attempt: attempt + 1,
+                latencyMs: Date.now() - startMs,
+                completedAt: this.now().toISOString(),
+              },
+            },
+          });
+          await updateJobStage('phaseB.requirementAnalysis', 'complete', {
+            latencyMs: Date.now() - startMs,
+          });
+          return res;
         } catch (error) {
           if (attempt === MAX_RETRIES) {
             console.warn('[CoverLetterDraftService] Requirement analysis failed');
+            await updateJobStage('phaseB.requirementAnalysis', 'failed', {
+              message: error instanceof Error ? error.message : String(error),
+            });
             return { enhancedMatchData: {} };
           }
         }
@@ -1025,10 +1224,16 @@ export class CoverLetterDraftService {
               },
             },
           });
+          await updateJobStage('phaseB.sectionGaps', 'complete', {
+            latencyMs: Date.now() - metricsStartTime,
+          });
           return res;
         } catch (error) {
           if (attempt === MAX_RETRIES) {
             console.warn('[CoverLetterDraftService] Section gaps failed');
+            await updateJobStage('phaseB.sectionGaps', 'failed', {
+              message: error instanceof Error ? error.message : String(error),
+            });
             return { enhancedMatchData: {}, ratingCriteria: [] };
           }
         }
@@ -1043,13 +1248,38 @@ export class CoverLetterDraftService {
             const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
             await sleep(delay);
           }
-          return await this.calculateContentStandards({
+          const startMs = Date.now();
+          const res = await this.calculateContentStandards({
             sections,
             jobDescription,
           });
+          if (res) {
+            await persistEnhancedPartial({}, {
+              contentStandards: res,
+              phaseB: {
+                contentStandards: {
+                  status: 'success',
+                  attempt: attempt + 1,
+                  latencyMs: Date.now() - startMs,
+                  completedAt: this.now().toISOString(),
+                },
+              },
+            });
+            await updateJobStage('phaseB.contentStandards', 'complete', {
+              latencyMs: Date.now() - startMs,
+            });
+          } else {
+            await updateJobStage('phaseB.contentStandards', 'complete', {
+              skipped: true,
+            });
+          }
+          return res;
         } catch (error) {
           if (attempt === MAX_RETRIES) {
             console.warn('[CoverLetterDraftService] Content standards failed');
+            await updateJobStage('phaseB.contentStandards', 'failed', {
+              message: error instanceof Error ? error.message : String(error),
+            });
             return null;
           }
         }
@@ -1167,7 +1397,15 @@ export class CoverLetterDraftService {
         : [];
     }
 
-      const phaseBAttempt = (((existingFeedback as any)?.phaseB as any)?.attempt ?? 0) + 1;
+      const existingPhaseB = ((existingFeedback as any)?.phaseB as Record<string, unknown>) ?? {};
+      const phaseBAttempt = (((existingPhaseB as any)?.attempt ?? 0) + 1);
+      const nextPhaseB = {
+        ...existingPhaseB,
+        status: 'success',
+        attempt: phaseBAttempt,
+        latencyMs: Date.now() - metricsStartTime,
+        completedAt: this.now().toISOString(),
+      };
       // Update draft with calculated metrics + MwS from streaming job
       await this.supabaseClient
         .from('cover_letters')
@@ -1177,12 +1415,7 @@ export class CoverLetterDraftService {
             generatedAt: this.now().toISOString(),
             metrics: metricResult.raw,
             enhancedMatchData: mergedEnhanced,
-            phaseB: {
-              status: 'success',
-              attempt: phaseBAttempt,
-              latencyMs: Date.now() - metricsStartTime,
-              completedAt: this.now().toISOString(),
-            },
+            phaseB: nextPhaseB,
             ...(ratingData ? { rating: ratingData } : {}),
             ...(contentStandardsResult ? { contentStandards: contentStandardsResult } : {}),
             ...(mwsFromJob ? { mws: mwsFromJob } : {}), // Persist MwS from streaming job
@@ -1196,6 +1429,12 @@ export class CoverLetterDraftService {
           updated_at: this.now().toISOString(),
         })
         .eq('id', draftId);
+
+      await queueJobUpdate({
+        status: 'complete',
+        completed_at: this.now().toISOString(),
+        error_message: null,
+      });
 
     this.emitProgress(onProgress, 'metrics', 'Match metrics calculated successfully!');
 
@@ -1237,7 +1476,16 @@ export class CoverLetterDraftService {
             ? (latestRow.llm_feedback as Record<string, unknown>)
             : {};
         const existingEnhanced = (existingFeedback.enhancedMatchData as Record<string, unknown> | undefined) ?? {};
-        const phaseBAttempt = (((existingFeedback as any)?.phaseB as any)?.attempt ?? 0) + 1;
+        const existingPhaseB = ((existingFeedback as any)?.phaseB as Record<string, unknown>) ?? {};
+        const phaseBAttempt = (((existingPhaseB as any)?.attempt ?? 0) + 1);
+        const nextPhaseB = {
+          ...existingPhaseB,
+          status: 'error',
+          attempt: phaseBAttempt,
+          latencyMs: Date.now() - metricsStartTime,
+          failedAt: this.now().toISOString(),
+          message,
+        };
         const mergedEnhanced = {
           ...existingEnhanced,
           sectionGapInsights:
@@ -1249,13 +1497,7 @@ export class CoverLetterDraftService {
           .update({
             llm_feedback: {
               ...existingFeedback,
-              phaseB: {
-                status: 'error',
-                attempt: phaseBAttempt,
-                latencyMs: Date.now() - metricsStartTime,
-                failedAt: this.now().toISOString(),
-                message,
-              },
+              phaseB: nextPhaseB,
               enhancedMatchData: mergedEnhanced,
             } as unknown as Record<string, unknown>,
             updated_at: this.now().toISOString(),
@@ -1264,6 +1506,12 @@ export class CoverLetterDraftService {
       } catch (persistError) {
         console.warn('[CoverLetterDraftService] Failed to persist Phase B error status (non-blocking):', persistError);
       }
+
+      await queueJobUpdate({
+        status: 'error',
+        completed_at: this.now().toISOString(),
+        error_message: message,
+      });
 
       // Still throw so callers (manual refresh) can surface an error if desired.
       throw error;
@@ -1344,6 +1592,10 @@ export class CoverLetterDraftService {
     userId: string,
     jobDescriptionId: string,
     onProgress?: DraftGenerationOptions['onProgress'],
+    preloadedData?: {
+      stories?: StoryRow[];
+      jobDescription?: ParsedJobDescription;
+    },
   ): Promise<void> {
     const draftRow = await this.supabaseClient
       .from('cover_letters')
@@ -1356,20 +1608,39 @@ export class CoverLetterDraftService {
       });
 
     const sections = this.normaliseDraftSections(draftRow.sections);
-    const slotTokens = sections.flatMap(section => parseLlmSlotTokens(section.content || ''));
+    const slotTokens = sections.flatMap(section => {
+      const content = section.content || '';
+      const tokens = parseLlmSlotTokens(content);
+      return tokens.map(token => {
+        const start = typeof token.index === 'number' ? token.index : content.indexOf(token.rawToken);
+        const safeStart = start < 0 ? 0 : start;
+        const before = content.slice(Math.max(0, safeStart - 80), safeStart);
+        const afterStart = start < 0 ? 0 : safeStart + token.rawToken.length;
+        const after = content.slice(afterStart, afterStart + 80);
+        return {
+          ...token,
+          context: { before, after },
+        };
+      });
+    });
     if (slotTokens.length === 0) return;
 
+    // Use preloaded data if available to avoid redundant DB queries
     const [jobDescriptionRecord, workHistory, approvedContent] = await Promise.all([
-      this.jobDescriptionService.getJobDescription(userId, jobDescriptionId),
+      preloadedData?.jobDescription
+        ? Promise.resolve(preloadedData.jobDescription)
+        : this.jobDescriptionService.getJobDescription(userId, jobDescriptionId),
       this.fetchWorkHistory(userId),
-      this.fetchStoriesForMatching(userId),
+      preloadedData?.stories
+        ? Promise.resolve(preloadedData.stories.map(s => ({ id: s.id, title: s.title, content: s.content })))
+        : this.fetchStoriesForMatching(userId),
     ]);
 
     if (!jobDescriptionRecord) return;
 
     const apiKey =
-      (import.meta.env?.VITE_OPENAI_KEY as string | undefined) ||
-      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) ||
+      (import.meta.env?.VITE_OPENAI_API_KEY as string | undefined) ||
+      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
       (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
     if (!apiKey) {
@@ -1398,6 +1669,7 @@ export class CoverLetterDraftService {
         label: token.label,
         instruction: token.instruction,
         rawToken: token.rawToken,
+        context: (token as any).context || undefined,
       })),
     };
 
@@ -1406,8 +1678,13 @@ export class CoverLetterDraftService {
       'You fill template placeholders in a cover letter draft.',
       'Each placeholder token is either [LLM:...] or [SLOT:...] and contains an instruction.',
       'For each slot, produce a short fill that can be inserted directly into the cover letter.',
-      'Use ONLY the provided job description and work history; do not invent facts.',
-      'If you cannot confidently fill from the provided context, return status NOT_FOUND and an empty fill.',
+      'If context.before/context.after are provided, ensure the fill fits grammatically between them.',
+      'Do not include trailing punctuation if the surrounding text continues the sentence.',
+      'Use job description ONLY to choose relevant capability themes; do not restate JD entities as candidate experience.',
+      'Every fill must be grounded in work history or approved stories; do not invent facts.',
+      'Never claim experience with specific companies, customers, or industries unless explicitly present in work history or stories.',
+      'Prefer transferable capability phrasing over domain-specific claims.',
+      'If you cannot confidently fill from the provided evidence, return status NOT_FOUND and an empty fill.',
       'Return ONLY valid JSON: {"slots":[{"id":"...","status":"FILLED"|"NOT_FOUND","fill":"...","evidence":{"jobDescription":[],"workHistory":[]}}]}.',
     ].join('\n');
 
@@ -1477,7 +1754,7 @@ export class CoverLetterDraftService {
           fill.status === 'FILLED' && typeof fill.fill === 'string' && fill.fill.trim().length > 0
             ? fill.fill.trim()
             : 'NOT_FOUND';
-        updatedContent = replaceAllLiteral(updatedContent, token.rawToken, replacement);
+        updatedContent = replaceSlotTokenWithPunctuation(updatedContent, token.rawToken, replacement);
       }
 
       if (updatedContent === section.content) return section;
@@ -1528,8 +1805,8 @@ export class CoverLetterDraftService {
     raw: Record<string, unknown>;
   }> {
     const apiKey =
-      (import.meta.env?.VITE_OPENAI_KEY) ||
-      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) ||
+      (import.meta.env?.VITE_OPENAI_API_KEY) ||
+      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
       (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
     if (!apiKey) {
@@ -1650,8 +1927,8 @@ export class CoverLetterDraftService {
     enhancedMatchData: Partial<EnhancedMatchData>;
   }> {
     const apiKey =
-      (import.meta.env?.VITE_OPENAI_KEY) ||
-      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) ||
+      (import.meta.env?.VITE_OPENAI_API_KEY) ||
+      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
       (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
     if (!apiKey) {
@@ -1752,8 +2029,8 @@ export class CoverLetterDraftService {
     ratingCriteria?: any[];
   }> {
     const apiKey =
-      (import.meta.env?.VITE_OPENAI_KEY) ||
-      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) ||
+      (import.meta.env?.VITE_OPENAI_API_KEY) ||
+      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
       (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
     if (!apiKey) {
@@ -1986,14 +2263,15 @@ export class CoverLetterDraftService {
     const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
 
     this.emitProgress(onProgress, 'content_match', 'Loading content libraries…');
-    const [templateRow, stories, savedSections, userGoals, workHistory, approvedContent] = await Promise.all([
+    const [templateRow, stories, savedSections, userGoals, workHistory] = await Promise.all([
       this.fetchTemplate(userId, templateId),
       this.fetchStories(userId),
       this.fetchSavedSections(userId),
       UserPreferencesService.loadGoals(userId),
       this.fetchWorkHistory(userId),
-      this.fetchStoriesForMatching(userId),
     ]);
+    // Reuse stories data instead of fetching again
+    const approvedContent = stories.map(s => ({ id: s.id, title: s.title, content: s.content }));
 
     const templateSections = this.normaliseTemplateSections(templateRow.sections);
 
@@ -2175,7 +2453,11 @@ export class CoverLetterDraftService {
     // For now, draft generation logging is deferred per merged evaluation logging work
 
     // Non-blocking: fill any [LLM:...] / [SLOT:...] placeholders post-save.
-    this.fillTemplateSlotsForDraft(draftRow.id, userId, jobDescriptionId, onProgress).catch(error => {
+    // Pass already-fetched data to avoid redundant DB queries
+    this.fillTemplateSlotsForDraft(draftRow.id, userId, jobDescriptionId, onProgress, {
+      stories,
+      jobDescription,
+    }).catch(error => {
       console.error('[generateDraft] Background template slot fill failed:', error);
     });
 
@@ -2576,6 +2858,7 @@ export class CoverLetterDraftService {
         } as unknown as Record<string, unknown>,
         status: 'finalized',
         finalized_at: finalizedAt,
+        applied_at: finalizedAt,
         updated_at: finalizedAt,
       })
       .eq('id', draftId)
@@ -3283,6 +3566,26 @@ export class CoverLetterDraftService {
     };
   }
 
+  private async incrementSavedSectionUsageForDraft(sections: CoverLetterDraftSection[]): Promise<void> {
+    const savedSectionIds = new Set<string>();
+
+    sections.forEach(section => {
+      const source = section.source as { kind?: string; entityId?: string | null } | null;
+      if (!source?.entityId) return;
+      if (source.kind === 'saved_section' || source.kind === 'template_static') {
+        savedSectionIds.add(source.entityId);
+      }
+    });
+
+    if (!savedSectionIds.size) return;
+
+    await Promise.all(
+      Array.from(savedSectionIds).map((sectionId) =>
+        CoverLetterTemplateService.incrementSectionUsage(sectionId),
+      ),
+    );
+  }
+
   private pickBestStory(
     section: CoverLetterSection,
     stories: StoryRow[],
@@ -3818,6 +4121,9 @@ export class CoverLetterDraftService {
       templateId: row.template_id,
       jobDescriptionId: row.job_description_id,
       status: row.status,
+      outcomeStatus: row.outcome_status ?? null,
+      appliedAt: row.applied_at ?? row.finalized_at ?? null,
+      outcomeUpdatedAt: row.outcome_updated_at ?? null,
       sections,
       metrics,
       atsScore,
@@ -3893,6 +4199,97 @@ export class CoverLetterDraftService {
       });
   }
 
+  private buildGapDiagnostics(enhancedMatchData?: EnhancedMatchData): {
+    sectionCount: number;
+    sectionsWithGaps: number;
+    sectionsWithUnmet: number;
+    totalGaps: number;
+    statusCounts: { unmet: number; met: number; not_applicable: number; missing: number };
+    unmetMissingHiringRisk: number;
+    unmetMissingWhyNow: number;
+    unmetMissingDecisionTest: number;
+    decisionTestAllFalse: number;
+    gapsWithJdRequirementId: number;
+    gapsWithRubricCriterionId: number;
+  } {
+    const sectionGapInsights = Array.isArray(enhancedMatchData?.sectionGapInsights)
+      ? enhancedMatchData.sectionGapInsights
+      : [];
+    const allGaps = sectionGapInsights.flatMap(section =>
+      Array.isArray((section as any)?.requirementGaps) ? (section as any).requirementGaps : [],
+    );
+
+    const statusCounts = {
+      unmet: 0,
+      met: 0,
+      not_applicable: 0,
+      missing: 0,
+    };
+    let unmetMissingHiringRisk = 0;
+    let unmetMissingWhyNow = 0;
+    let unmetMissingDecisionTest = 0;
+    let decisionTestAllFalse = 0;
+    let gapsWithJdRequirementId = 0;
+    let gapsWithRubricCriterionId = 0;
+
+    for (const gap of allGaps) {
+      const status = typeof (gap as any)?.status === 'string' ? (gap as any).status : '';
+      if (status === 'unmet') statusCounts.unmet += 1;
+      else if (status === 'met') statusCounts.met += 1;
+      else if (status === 'not_applicable') statusCounts.not_applicable += 1;
+      else statusCounts.missing += 1;
+
+      if (typeof (gap as any)?.jdRequirementId === 'string' && (gap as any).jdRequirementId.trim().length > 0) {
+        gapsWithJdRequirementId += 1;
+      }
+      if (typeof (gap as any)?.rubricCriterionId === 'string' && (gap as any).rubricCriterionId.trim().length > 0) {
+        gapsWithRubricCriterionId += 1;
+      }
+
+      if (status !== 'unmet') continue;
+
+      const hiringRisk = typeof (gap as any)?.hiringRisk === 'string' ? (gap as any).hiringRisk.trim() : '';
+      const whyNow = typeof (gap as any)?.whyNow === 'string' ? (gap as any).whyNow.trim() : '';
+      if (!hiringRisk) unmetMissingHiringRisk += 1;
+      if (!whyNow) unmetMissingWhyNow += 1;
+
+      const decisionTest = (gap as any)?.decisionTest;
+      if (!decisionTest || typeof decisionTest !== 'object') {
+        unmetMissingDecisionTest += 1;
+        continue;
+      }
+      const hasSignal = Boolean(
+        decisionTest.addsSignal ||
+        decisionTest.removesRedundancy ||
+        decisionTest.clarifiesOwnership ||
+        decisionTest.fixesSeniorityWeakness,
+      );
+      if (!hasSignal) decisionTestAllFalse += 1;
+    }
+
+    const sectionsWithGaps = sectionGapInsights.filter(section =>
+      Array.isArray((section as any)?.requirementGaps) && (section as any).requirementGaps.length > 0,
+    ).length;
+    const sectionsWithUnmet = sectionGapInsights.filter(section =>
+      Array.isArray((section as any)?.requirementGaps) &&
+      (section as any).requirementGaps.some((gap: any) => gap?.status === 'unmet'),
+    ).length;
+
+    return {
+      sectionCount: sectionGapInsights.length,
+      sectionsWithGaps,
+      sectionsWithUnmet,
+      totalGaps: allGaps.length,
+      statusCounts,
+      unmetMissingHiringRisk,
+      unmetMissingWhyNow,
+      unmetMissingDecisionTest,
+      decisionTestAllFalse,
+      gapsWithJdRequirementId,
+      gapsWithRubricCriterionId,
+    };
+  }
+
   // ============================================================================
   // EVALUATION LOGGING
   // ============================================================================
@@ -3959,6 +4356,7 @@ export class CoverLetterDraftService {
         ?.flatMap(s => s.requirementGaps || []) ?? [];
       const badgeCount = allGaps.length;
       const hasGapsChildren = (data.enhancedMatchData?.sectionGapInsights?.length ?? 0) > 0;
+      const gapDiagnostics = this.buildGapDiagnostics(data.enhancedMatchData);
 
       const phaseB: PhaseBCompleteness = {
         sectionsGenerated: {
@@ -4009,6 +4407,25 @@ export class CoverLetterDraftService {
       }
 
       const totalLatencyMs = (data.phaseALatencyMs ?? 0) + data.phaseBLatencyMs;
+      const gapDiagnosticsEnabled =
+        Boolean((import.meta as any)?.env?.DEV) ||
+        (import.meta as any)?.env?.VITE_COVER_LETTER_GAP_DIAGNOSTICS === '1' ||
+        (typeof process !== 'undefined' && process.env.COVER_LETTER_GAP_DIAGNOSTICS === '1');
+
+      if (gapDiagnosticsEnabled) {
+        console.log('[CoverLetterDraftService] Gap diagnostics:', gapDiagnostics);
+        const missingCritical =
+          gapDiagnostics.unmetMissingHiringRisk +
+          gapDiagnostics.unmetMissingWhyNow +
+          gapDiagnostics.unmetMissingDecisionTest;
+        if (missingCritical > 0) {
+          console.warn('[CoverLetterDraftService] Gaps missing required fields:', {
+            unmetMissingHiringRisk: gapDiagnostics.unmetMissingHiringRisk,
+            unmetMissingWhyNow: gapDiagnostics.unmetMissingWhyNow,
+            unmetMissingDecisionTest: gapDiagnostics.unmetMissingDecisionTest,
+          });
+        }
+      }
 
       // Build payload matching evaluation_runs schema
       const payload = {
@@ -4042,6 +4459,7 @@ export class CoverLetterDraftService {
           toolbarPopulated,
           missingFields,
           evalStatus,
+          gapDiagnostics,
         } as unknown as Record<string, unknown>,
       };
 

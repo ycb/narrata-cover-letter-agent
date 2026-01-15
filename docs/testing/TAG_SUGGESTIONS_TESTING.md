@@ -6,7 +6,7 @@
 1. ✅ User is logged in
 2. ✅ User has set industries and business models in "My Goals" (User Profile)
 3. ✅ User has work history with at least one company and role
-4. ✅ OpenAI API key is configured (`VITE_OPENAI_KEY`)
+4. ✅ OpenAI API key is configured (`VITE_OPENAI_API_KEY`)
 
 ---
 
@@ -204,7 +204,7 @@
 
 1. **OpenAI API Key Missing:**
    - Error: "OpenAI API key not found"
-   - Fix: Set `VITE_OPENAI_KEY` in `.env`
+   - Fix: Set `VITE_OPENAI_API_KEY` in `.env`
 
 2. **Company Research Fails:**
    - Error: "Failed to research company"

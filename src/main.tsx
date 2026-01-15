@@ -13,12 +13,12 @@ if (import.meta.env.DEV) {
       installNavigationDebug();
       const evt = readLastNavigationDebugEvent();
       if (evt) {
-        // eslint-disable-next-line no-console
+         
         console.warn('[nav-debug] Last navigation event:', evt);
       }
       const all = readNavigationDebugEvents();
       if (all.length) {
-        // eslint-disable-next-line no-console
+         
         console.warn(`[nav-debug] Recent events (${all.length}):`, all);
       }
     })

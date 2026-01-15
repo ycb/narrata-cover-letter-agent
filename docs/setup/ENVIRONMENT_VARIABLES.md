@@ -10,7 +10,7 @@ VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 # OpenAI Configuration
-VITE_OPENAI_KEY=your_openai_api_key
+VITE_OPENAI_API_KEY=your_openai_api_key
 VITE_OPENAI_MODEL=gpt-4
 
 # People Data Labs Configuration (Optional)
@@ -38,7 +38,7 @@ Get these from: Supabase Dashboard > Settings > API
 
 ### OpenAI (Required)
 
-- **VITE_OPENAI_KEY**: Your OpenAI API key
+- **VITE_OPENAI_API_KEY**: Your OpenAI API key
 - **VITE_OPENAI_MODEL**: Model to use (default: `gpt-4`, can use `gpt-3.5-turbo` for cheaper option)
 
 Get your API key from: https://platform.openai.com/api-keys

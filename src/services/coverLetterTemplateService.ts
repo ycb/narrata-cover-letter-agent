@@ -11,6 +11,7 @@ import type {
   CoverLetterSection,
   CoverLetterTemplate as DomainCoverLetterTemplate
 } from '@/types/workHistory';
+import type { CoverLetterOutcomeStatus } from '@/types/coverLetters';
 
 // Types matching the LLM parsing output
 export interface CoverLetterParagraph {
@@ -97,6 +98,9 @@ export interface CoverLetterSummary {
     content: string;
   } | null;
   status: 'draft' | 'reviewed' | 'finalized';
+  outcomeStatus?: CoverLetterOutcomeStatus | null;
+  appliedAt?: string | null;
+  outcomeUpdatedAt?: string | null;
   sections: CoverLetterGeneratedSection[];
   llmFeedback: Record<string, unknown> | null;
   analytics: Record<string, unknown> | null;
@@ -502,6 +506,9 @@ export class CoverLetterTemplateService {
         template_id,
         job_description_id,
         status,
+        applied_at,
+        outcome_status,
+        outcome_updated_at,
         sections,
         llm_feedback,
         analytics,
@@ -534,6 +541,9 @@ export class CoverLetterTemplateService {
         template_id: string;
         job_description_id: string;
         status: 'draft' | 'reviewed' | 'finalized';
+        applied_at: string | null;
+        outcome_status: CoverLetterOutcomeStatus | null;
+        outcome_updated_at: string | null;
         sections: unknown;
         llm_feedback: unknown;
         analytics: unknown;
@@ -596,6 +606,9 @@ export class CoverLetterTemplateService {
             }
           : null,
         status: row.status,
+        appliedAt: row.applied_at,
+        outcomeStatus: row.outcome_status,
+        outcomeUpdatedAt: row.outcome_updated_at,
         sections,
         llmFeedback,
         analytics,
@@ -603,6 +616,77 @@ export class CoverLetterTemplateService {
         updatedAt: row.updated_at
       } satisfies CoverLetterSummary;
     });
+  }
+
+  static async updateCoverLetterOutcome(args: {
+    coverLetterId: string;
+    outcomeStatus: CoverLetterOutcomeStatus | null;
+    appliedAt?: string | null;
+    accessToken?: string;
+  }): Promise<{ outcomeUpdatedAt: string; appliedAt?: string | null }> {
+    const { coverLetterId, outcomeStatus, appliedAt, accessToken } = args;
+    const client = await this.getClient(accessToken);
+    const outcomeUpdatedAt = new Date().toISOString();
+
+    const updatePayload: {
+      outcome_status: CoverLetterOutcomeStatus | null;
+      outcome_updated_at: string;
+      updated_at: string;
+      applied_at?: string | null;
+    } = {
+      outcome_status: outcomeStatus,
+      outcome_updated_at: outcomeUpdatedAt,
+      updated_at: outcomeUpdatedAt,
+    };
+
+    if (appliedAt) {
+      updatePayload.applied_at = appliedAt;
+    }
+
+    const { error } = await client
+      .from('cover_letters')
+      .update(updatePayload)
+      .eq('id', coverLetterId);
+
+    if (error) {
+      console.error('[CoverLetterTemplateService] Error updating outcome status:', error);
+      throw error;
+    }
+
+    return { outcomeUpdatedAt, appliedAt };
+  }
+
+  static async autoApplyNoResponse(args: {
+    userId: string;
+    days?: number;
+    accessToken?: string;
+  }): Promise<{ updatedIds: string[]; outcomeUpdatedAt: string }> {
+    const { userId, days = 30, accessToken } = args;
+    const client = await this.getClient(accessToken);
+    const outcomeUpdatedAt = new Date().toISOString();
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+
+    const { data, error } = await client
+      .from('cover_letters')
+      .update({
+        outcome_status: 'no_response',
+        outcome_updated_at: outcomeUpdatedAt,
+        updated_at: outcomeUpdatedAt,
+      })
+      .eq('user_id', userId)
+      .eq('status', 'finalized')
+      .is('outcome_status', null)
+      .lt('applied_at', cutoff.toISOString())
+      .select('id');
+
+    if (error) {
+      console.error('[CoverLetterTemplateService] Error auto-applying no response:', error);
+      throw error;
+    }
+
+    const updatedIds = (data ?? []).map((row) => row.id as string);
+    return { updatedIds, outcomeUpdatedAt };
   }
 
   /**
@@ -896,7 +980,7 @@ export class CoverLetterTemplateService {
           continue;
         }
 
-        let parsed = typeof source.structured_data === 'string'
+        const parsed = typeof source.structured_data === 'string'
           ? (JSON.parse(source.structured_data) as ParsedCoverLetter)
           : (source.structured_data as ParsedCoverLetter | undefined);
 

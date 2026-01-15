@@ -46,6 +46,14 @@ interface MatchMetricsToolbarProps {
   jobId?: string; // Debug: correlate UI ↔ job record
   draftId?: string;
   draftUpdatedAt?: string;
+  refreshStartedAt?: string | null;
+  phaseBStatus?: {
+    completedAt?: string;
+    basicMetrics?: { completedAt?: string };
+    requirementAnalysis?: { completedAt?: string };
+    sectionGaps?: { completedAt?: string };
+    contentStandards?: { completedAt?: string };
+  } | null;
   // Persisted MwS from draft (fallback when aPhaseInsights not available)
   draftMws?: {
     summaryScore: 0 | 1 | 2 | 3;
@@ -66,6 +74,8 @@ interface MatchMetricsToolbarProps {
   onAddMetrics?: (sectionId?: string) => void;
   onRefreshInsights?: () => void;
   isRefreshLoading?: boolean;
+  isRefreshDisabled?: boolean;
+  onOpenFinalCheck?: () => void;
 }
 
 interface ToolbarItem {
@@ -105,6 +115,7 @@ const deriveMwsSummaryScore = (mws?: {
 export function MatchMetricsToolbar(props: MatchMetricsToolbarProps) {
   const {
     isLoading = false,
+    isRefreshLoading = false,
     draftId,
     draftUpdatedAt,
     mode = 'full',
@@ -191,9 +202,13 @@ function MatchMetricsToolbarContent({
   onAddMetrics,
   onRefreshInsights,
   isRefreshLoading = false,
+  isRefreshDisabled = false,
+  onOpenFinalCheck,
   draftId,
   draftUpdatedAt,
   draftMws,
+  refreshStartedAt,
+  phaseBStatus,
   ENABLE_DRAFT_READINESS,
   readinessFetchEnabled,
   readiness,
@@ -345,7 +360,7 @@ function MatchMetricsToolbarContent({
   const aPhaseRequirementAnalysis = aPhaseInsights?.requirementAnalysis;
   const hasAPhaseRequirementAnalysis = Boolean(aPhaseRequirementAnalysis);
   const effectiveCoreRequirements = useMemo<RequirementDisplayItem[]>(() => {
-    const preferAPhase = mode === 'goNoGo' || isLoading;
+    const preferAPhase = mode === 'goNoGo' || mode === 'fitCheck' || isLoading;
     if (preferAPhase && aPhaseRequirementAnalysis?.coreRequirements) {
       return aPhaseRequirementAnalysis.coreRequirements.map((r) => ({
         id: String(r.id),
@@ -358,7 +373,7 @@ function MatchMetricsToolbarContent({
   }, [aPhaseRequirementAnalysis?.coreRequirements, coreRequirements.list, isLoading, mode]);
 
   const effectivePreferredRequirements = useMemo<RequirementDisplayItem[]>(() => {
-    const preferAPhase = mode === 'goNoGo' || isLoading;
+    const preferAPhase = mode === 'goNoGo' || mode === 'fitCheck' || isLoading;
     if (preferAPhase && aPhaseRequirementAnalysis?.preferredRequirements) {
       return aPhaseRequirementAnalysis.preferredRequirements.map((r) => ({
         id: String(r.id),
@@ -390,8 +405,20 @@ function MatchMetricsToolbarContent({
     }
   }, [readiness?.rating]);
 
+  const refreshStartMs = refreshStartedAt ? Date.parse(refreshStartedAt) : null;
+  const isStagePending = (completedAt?: string) => {
+    if (!isRefreshLoading) return false;
+    if (!refreshStartMs || !Number.isFinite(refreshStartMs)) return true;
+    if (!completedAt) return true;
+    const completedMs = Date.parse(completedAt);
+    if (!Number.isFinite(completedMs)) return true;
+    return completedMs < refreshStartMs;
+  };
+
   const contentStandardsOverallScore = contentStandards?.aggregated?.overallScore ?? null;
-  const overallScoreValue = contentStandardsOverallScore ?? metrics.overallScore ?? null;
+  const overallScoreValue = isStagePending(phaseBStatus?.completedAt ?? undefined)
+    ? null
+    : contentStandardsOverallScore ?? metrics.overallScore ?? null;
 
   const contentStandardsCriteria = useMemo(() => {
     if (!contentStandards?.aggregated?.standards) return null;
@@ -547,6 +574,11 @@ function MatchMetricsToolbarContent({
   // Collect gaps: Build directly from sectionGapInsights without requiring section matching
   // This fixes the bug where section IDs didn't match and gaps showed empty
   const allGaps = useMemo(() => {
+    const isRenderableGap = (gap: any) =>
+      gap?.status === 'unmet' &&
+      Boolean(gap?.hiringRisk?.trim()) &&
+      Boolean(gap?.whyNow?.trim()) &&
+      Boolean(gap?.evidenceQuote?.trim());
     // Debug: Log gaps data source
     if (process.env.NODE_ENV !== 'production') {
       console.log('[MatchMetricsToolbar] Gaps debug:', {
@@ -559,7 +591,7 @@ function MatchMetricsToolbarContent({
         sectionGapInsights: enhancedMatchData?.sectionGapInsights?.map(i => ({
           sectionId: i.sectionId,
           sectionSlug: i.sectionSlug,
-          gapCount: i.requirementGaps?.length,
+          gapCount: i.requirementGaps?.filter(isRenderableGap).length,
         })),
       });
     }
@@ -570,7 +602,8 @@ function MatchMetricsToolbarContent({
     
     // Iterate directly over sectionGapInsights - no matching required
     enhancedMatchData.sectionGapInsights.forEach((insight, idx) => {
-      if (!insight.requirementGaps || insight.requirementGaps.length === 0) return;
+      const filteredGaps = (insight.requirementGaps || []).filter(isRenderableGap);
+      if (filteredGaps.length === 0) return;
       if (insight.sectionId && dismissedGapSectionIdSet.has(insight.sectionId)) return;
       
       // Try to find matching section for better title, but don't require it
@@ -590,12 +623,12 @@ function MatchMetricsToolbarContent({
         })();
         
         // Add all gaps for this section
-      insight.requirementGaps.forEach((gap: any) => {
+      filteredGaps.forEach((gap: any) => {
         gaps.push({
           sectionId: insight.sectionId || `insight-${idx}`,
-            sectionTitle,
-            gap,
-          });
+          sectionTitle,
+          gap,
+        });
         });
     });
     
@@ -604,13 +637,18 @@ function MatchMetricsToolbarContent({
 
   // Count sections with gaps - directly from sectionGapInsights (don't depend on sections array)
   const gapsCount = useMemo(() => {
+    const isRenderableGap = (gap: any) =>
+      gap?.status === 'unmet' &&
+      Boolean(gap?.hiringRisk?.trim()) &&
+      Boolean(gap?.whyNow?.trim()) &&
+      Boolean(gap?.evidenceQuote?.trim());
     if (!enhancedMatchData?.sectionGapInsights) return 0;
     
     // Count sections that have at least one gap
     return enhancedMatchData.sectionGapInsights.filter(
       (insight) =>
         insight.requirementGaps &&
-        insight.requirementGaps.length > 0 &&
+        insight.requirementGaps.filter(isRenderableGap).length > 0 &&
         !(insight.sectionId && dismissedGapSectionIdSet.has(insight.sectionId))
     ).length;
   }, [enhancedMatchData?.sectionGapInsights, dismissedGapSectionIdSet]);
@@ -698,14 +736,15 @@ function MatchMetricsToolbarContent({
 	    } else if (mode === 'full') {
 	      // 1) GAPS (Phase B) - shows count when gap data is available
 	      // gapsCount comes from enhancedMatchData which is B-phase, so check if it exists
-	      const hasGapData = enhancedMatchData?.sectionGapInsights !== undefined;
-	      items.push({
-	        key: 'gaps',
-	        label: 'Gaps',
-	        value: hasGapData ? String(gapsCount) : (isLoading ? null : '—'),
-	        badgeClass: gapsCount > 0 ? 'border-warning bg-warning/10 text-warning' : 'border-muted bg-muted/10 text-muted-foreground',
-	        disabled: false,
-	      });
+      const hasGapData = enhancedMatchData?.sectionGapInsights !== undefined;
+      const gapsPending = isStagePending(phaseBStatus?.sectionGaps?.completedAt ?? undefined);
+      items.push({
+        key: 'gaps',
+        label: 'Gaps',
+        value: gapsPending ? null : hasGapData ? String(gapsCount) : (isLoading ? null : '—'),
+        badgeClass: gapsCount > 0 ? 'border-warning bg-warning/10 text-warning' : 'border-muted bg-muted/10 text-muted-foreground',
+        disabled: false,
+      });
 	    }
     
     // 2) MATCH WITH GOALS (Phase A - shows as soon as goal data available)
@@ -725,17 +764,17 @@ function MatchMetricsToolbarContent({
       disabled: false,
     });
     
-	    // 3) MATCH WITH STRENGTHS (Phase A streaming OR persisted from draft)
-	    // Uses effectiveMws which prefers streaming data, falls back to persisted draft data
-	    const mwsScore = hasMwsData ? derivedMwsScore : undefined;
-	    items.push({
-	      key: 'strengths',
-	      label: 'Match with Strengths',
-	      value: mwsScore !== undefined ? `${mwsScore}/3` : (isLoading ? null : '—'),
-	      badgeClass: mwsScore !== undefined && mwsScore >= 2 
-	        ? 'border-success bg-success/10 text-success'
-	        : mwsScore === 1
-	        ? 'border-warning bg-warning/10 text-warning'
+    // 3) MATCH WITH STRENGTHS (Phase A streaming OR persisted from draft)
+    // Uses effectiveMws which prefers streaming data, falls back to persisted draft data
+    const mwsScore = hasMwsData ? derivedMwsScore : undefined;
+    items.push({
+      key: 'strengths',
+      label: 'Match with Strengths',
+      value: mwsScore !== undefined ? `${mwsScore}/3` : (isLoading ? null : '—'),
+      badgeClass: mwsScore !== undefined && mwsScore >= 2 
+        ? 'border-success bg-success/10 text-success'
+        : mwsScore === 1
+        ? 'border-warning bg-warning/10 text-warning'
         : 'border-muted bg-muted/10 text-muted-foreground',
       disabled: false,
     });
@@ -743,7 +782,10 @@ function MatchMetricsToolbarContent({
     // 4) CORE REQUIREMENTS (A-phase totals → B-phase mapping)
     // Fit check: never show "0/12" while requirementAnalysis is still running.
     // Show skeleton until we have A-phase requirement analysis data.
-    const coreValue = (mode === 'fitCheck' && !hasAPhaseRequirementAnalysis)
+    const requirementPending = isStagePending(phaseBStatus?.requirementAnalysis?.completedAt ?? undefined);
+    const coreValue = requirementPending
+      ? null
+      : (mode === 'fitCheck' && !hasAPhaseRequirementAnalysis)
       ? null
       : hasAPhaseRequirementAnalysis
       ? `${coreMet}/${coreTotal}`
@@ -760,7 +802,9 @@ function MatchMetricsToolbarContent({
     
     // 5) PREFERRED REQUIREMENTS (A-phase totals → B-phase mapping)
     // Fit check: never show "0/5" while requirementAnalysis is still running.
-    const prefValue = (mode === 'fitCheck' && !hasAPhaseRequirementAnalysis)
+    const prefValue = requirementPending
+      ? null
+      : (mode === 'fitCheck' && !hasAPhaseRequirementAnalysis)
       ? null
       : hasAPhaseRequirementAnalysis
       ? `${prefMet}/${prefTotal}`
@@ -781,7 +825,8 @@ function MatchMetricsToolbarContent({
 
     // 6) OVERALL SCORE (Phase B ONLY) - shows ONLY after draft generation complete
     // Must be !isLoading AND have real score - skeleton during all of Phase A
-    const hasRealScore = !isLoading && overallScoreValue !== null;
+    const overallPending = isStagePending(phaseBStatus?.completedAt ?? undefined);
+    const hasRealScore = !isLoading && !overallPending && overallScoreValue !== null;
         items.push({
       key: 'rating',
       label: 'Overall Score',
@@ -804,7 +849,15 @@ function MatchMetricsToolbarContent({
           default: return null;
         }
       };
-      const ratingLabel = getUnifiedLabel(readiness?.rating);
+      const readinessEvaluatedAt = readiness?.evaluatedAt ? Date.parse(readiness.evaluatedAt) : null;
+      const readinessPending =
+        isReadinessLoading ||
+        (isRefreshLoading &&
+          (!refreshStartMs ||
+            !Number.isFinite(refreshStartMs) ||
+            !readinessEvaluatedAt ||
+            readinessEvaluatedAt < refreshStartMs));
+      const ratingLabel = readinessPending ? null : getUnifiedLabel(readiness?.rating);
       const badgeClass =
         ratingLabel === 'Exceptional'
           ? 'border-success bg-success/10 text-success'
@@ -835,6 +888,9 @@ function MatchMetricsToolbarContent({
     hasAPhaseRequirementAnalysis,
     mode,
     goNoGoModel,
+    isRefreshLoading,
+    refreshStartedAt,
+    phaseBStatus,
   ]);
 
   const drawerGoalMatches = goalMatches;
@@ -1015,6 +1071,7 @@ function MatchMetricsToolbarContent({
                     onAddMetrics={onAddMetrics}
                     sections={sections}
                     goNoGoModel={goNoGoModel ?? undefined}
+                    onOpenFinalCheck={onOpenFinalCheck}
                   />
                 </div>
               </div>
@@ -1047,6 +1104,7 @@ function MatchMetricsToolbarContent({
                 onAddMetrics={onAddMetrics}
                 sections={sections}
                 goNoGoModel={goNoGoModel ?? undefined}
+                onOpenFinalCheck={onOpenFinalCheck}
               />
             </div>
           </div>
@@ -1143,6 +1201,7 @@ function MatchMetricsToolbarContent({
                           onAddMetrics={onAddMetrics}
                           sections={sections}
                           goNoGoModel={goNoGoModel ?? undefined}
+                          onOpenFinalCheck={onOpenFinalCheck}
                         />
                       </div>
                     )}
@@ -1158,7 +1217,7 @@ function MatchMetricsToolbarContent({
             size="sm"
             className="w-full"
             onClick={onRefreshInsights}
-            disabled={isRefreshLoading}
+            disabled={isRefreshLoading || isRefreshDisabled}
           >
             {isRefreshLoading ? 'Refreshing…' : 'Refresh insights'}
           </Button>
@@ -1202,6 +1261,7 @@ interface MetricDrawerContentProps {
   }>) => void;
   onAddMetrics?: (sectionId?: string) => void;
   sections?: Array<{ id: string; type: string; title?: string }>;
+  onOpenFinalCheck?: () => void;
 }
 
 function MetricDrawerContent({
@@ -1223,6 +1283,7 @@ function MetricDrawerContent({
   onEditGoals,
   onEnhanceSection,
   onAddMetrics,
+  onOpenFinalCheck,
   sections = [],
 }: MetricDrawerContentProps) {
   // Compute effectiveMws: streaming data first, then draft fallback
@@ -1277,14 +1338,14 @@ function MetricDrawerContent({
       );
     case 'rating':
       // Phase B only - Overall Score only meaningful with draft context
-      if (isLoading) {
+      if (isLoading || overallScoreValue === null) {
         return (
           <div className="p-4 text-sm text-muted-foreground">
-            Score criteria will be evaluated once the draft is complete.
+            Overall score will be calculated once refresh completes.
           </div>
         );
       }
-      const displayScore = overallScoreValue ?? metrics.overallScore ?? (isPostHIL ? 91 : 27);
+      const displayScore = overallScoreValue;
       const displayCriteria = contentStandardsCriteria ?? metrics.ratingCriteria;
       return (
         <CoverLetterRatingInsights 
@@ -1295,7 +1356,12 @@ function MetricDrawerContent({
         />
       );
     case 'readiness':
-      return readiness ? <ReadinessDrawerContent readiness={readiness} /> : (
+      return readiness ? (
+        <ReadinessDrawerContent
+          readiness={readiness}
+          onOpenFinalCheck={onOpenFinalCheck}
+        />
+      ) : (
         <div className="p-2 text-xs text-muted-foreground">Readiness verdict unavailable.</div>
       );
     case 'ats':
@@ -1597,6 +1663,30 @@ function GapsDrawerContent({ allGaps, onEnhanceSection }: GapsDrawerContentProps
     return grouped;
   }, [allGaps]);
 
+  const formatGapLabel = (gap: any) => {
+    const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+    const toIssueFallback = (value?: string) => {
+      const raw = String(value || '').trim();
+      if (!raw) return null;
+      const cleaned = raw.replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!cleaned) return null;
+      const lower = cleaned.toLowerCase();
+      if (lower.startsWith('missing ') || lower.startsWith('lacks ') || lower.startsWith('weak ') || lower.startsWith('no ') || lower.startsWith('low ')) {
+        return capitalize(cleaned);
+      }
+      return `Missing ${lower}`;
+    };
+    const issue = typeof gap?.issue === 'string' ? gap.issue.trim() : '';
+    const issueLooksValid = issue.length > 0 && issue.length <= 80 && /^(missing|lacks|weak|no|low)/i.test(issue);
+    if (issueLooksValid) return capitalize(issue.replace(/\s+/g, ' ').trim());
+    return (
+      toIssueFallback(gap?.rubricCriterionId) ||
+      toIssueFallback(gap?.label) ||
+      toIssueFallback(gap?.requirement) ||
+      'Missing requirement'
+    );
+  };
+
   return (
     <div>
       {Object.entries(gapsBySection).map(([sectionId, sectionGaps], sectionIndex) => {
@@ -1614,7 +1704,7 @@ function GapsDrawerContent({ allGaps, onEnhanceSection }: GapsDrawerContentProps
                 >
                   <div>
                     <span className="font-medium text-foreground/90">
-                      {item.gap.label || item.gap.title || 'Missing requirement'}:
+                      {formatGapLabel(item.gap)}:
                     </span>{' '}
                     <span className="text-foreground/80">
                       {item.gap.rationale || item.gap.description || 'Not explicitly mentioned in current draft'}
@@ -1633,9 +1723,10 @@ function GapsDrawerContent({ allGaps, onEnhanceSection }: GapsDrawerContentProps
 
 interface ReadinessDrawerContentProps {
   readiness: DraftReadinessEvaluation;
+  onOpenFinalCheck?: () => void;
 }
 
-function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
+function ReadinessDrawerContent({ readiness, onOpenFinalCheck }: ReadinessDrawerContentProps) {
   // Convert legacy rating to unified display label
   const getDisplayLabel = (rating: DraftReadinessEvaluation['rating']): string => {
     switch (rating) {
@@ -1686,20 +1777,35 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
   
   // Detect short draft
   const isShortDraft = readiness.feedback?.summary?.toLowerCase().includes('too short');
+  const ratingValue = String(readiness.rating ?? '').toLowerCase();
+  const showFinalCheckCta = ratingValue === 'strong';
+  const canOpenFinalCheck = typeof onOpenFinalCheck === 'function';
 
   return (
     <div className="p-2 space-y-3">
-      {isShortDraft ? (
+      {showFinalCheckCta && (
+        <div className="border-b border-border/30 pb-2">
+          <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span className="text-foreground/90">
+              <span className="font-semibold text-foreground">Final check</span>: for risk and clarity (2–3 edits max)
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={onOpenFinalCheck}
+              disabled={!canOpenFinalCheck}
+            >
+              Run Final Check
+            </Button>
+          </div>
+        </div>
+      )}
+      {isShortDraft && (
         <h4 className="text-sm font-medium text-foreground">
           Draft too short for full evaluation (150 words required)
         </h4>
-      ) : (
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-foreground">Verdict:</span>
-          <Badge variant="outline" className={getBadgeClass(ratingLabel)}>
-            {ratingLabel}
-          </Badge>
-        </div>
       )}
       {!isShortDraft && readiness.feedback?.summary && (
         <div className="text-xs text-foreground/80">{readiness.feedback.summary}</div>

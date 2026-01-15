@@ -251,6 +251,40 @@ export function CoverLetterDraftView({
    * - gaps: structured gap objects with title + description
    */
   const getSectionGapInsights = (sectionId: string, sectionType: string) => {
+    const isRenderableGap = (gap: any) =>
+      gap?.status === 'unmet' &&
+      Boolean(gap?.hiringRisk?.trim()) &&
+      Boolean(gap?.whyNow?.trim()) &&
+      Boolean(gap?.evidenceQuote?.trim());
+    const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+    const toIssueFallback = (value?: string) => {
+      const raw = String(value || '').trim();
+      if (!raw) return null;
+      const cleaned = raw.replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!cleaned) return null;
+      const lower = cleaned.toLowerCase();
+      if (lower.startsWith('missing ') || lower.startsWith('lacks ') || lower.startsWith('weak ') || lower.startsWith('no ') || lower.startsWith('low ')) {
+        return capitalize(cleaned);
+      }
+      return `Missing ${lower}`;
+    };
+    const buildHeadline = (gap: any) => {
+      const issue = typeof gap?.issue === 'string' ? gap.issue.trim() : '';
+      if (issue) {
+        const normalized = issue.replace(/\s+/g, ' ').trim();
+        const issueLooksValid =
+          normalized.length > 0 &&
+          normalized.length <= 80 &&
+          /^(missing|lacks|weak|no|low)/i.test(normalized);
+        if (issueLooksValid) return capitalize(normalized);
+      }
+      return (
+        toIssueFallback(gap?.rubricCriterionId) ||
+        toIssueFallback(gap?.label) ||
+        toIssueFallback(gap?.requirement) ||
+        'Gap identified'
+      );
+    };
     // AGENT D: Check for pending heuristic insight first
     const pendingInsight = pendingSectionInsights[sectionId];
 
@@ -272,11 +306,15 @@ export function CoverLetterDraftView({
       if (pendingInsight) {
         console.log(`[AGENT D] Showing heuristic gaps for section ${sectionId}:`, pendingInsight);
         // Show pending heuristic insight while waiting for LLM
-        const gaps = pendingInsight.requirementGaps.map(gap => ({
-          id: gap.id,
-          title: gap.label,
-          description: `${gap.rationale} ${gap.recommendation}`,
-        }));
+        const gaps = pendingInsight.requirementGaps
+          .filter(isRenderableGap)
+          .map(gap => ({
+            id: gap.id,
+            headline: buildHeadline(gap),
+            suggestion: gap.recommendation,
+            explanation: gap.rationale,
+            description: gap.rationale,
+          }));
 
         return {
           promptSummary: pendingInsight.promptSummary || 'Quick analysis (calculating full metrics...)',
@@ -310,11 +348,15 @@ export function CoverLetterDraftView({
 
       if (sectionInsight) {
         // LLM insight found - use it (most accurate)
-        const gaps = sectionInsight.requirementGaps.map(gap => ({
-          id: gap.id,
-          title: gap.label,
-          description: `${gap.rationale} ${gap.recommendation}`,
-        }));
+        const gaps = sectionInsight.requirementGaps
+          .filter(isRenderableGap)
+          .map(gap => ({
+            id: gap.id,
+            headline: buildHeadline(gap),
+            suggestion: gap.recommendation,
+            explanation: gap.rationale,
+            description: gap.rationale,
+          }));
 
         return {
           promptSummary: sectionInsight.promptSummary,
@@ -326,11 +368,15 @@ export function CoverLetterDraftView({
     
     // Priority 2: Pending heuristic insight (if available and no LLM insight)
     if (pendingInsight) {
-      const gaps = pendingInsight.requirementGaps.map(gap => ({
-        id: gap.id,
-        title: gap.label,
-        description: `${gap.rationale} ${gap.recommendation}`,
-      }));
+      const gaps = pendingInsight.requirementGaps
+        .filter(isRenderableGap)
+        .map(gap => ({
+          id: gap.id,
+          headline: buildHeadline(gap),
+          suggestion: gap.recommendation,
+          explanation: gap.rationale,
+          description: gap.rationale,
+        }));
 
       return {
         promptSummary: pendingInsight.promptSummary || 'Quick analysis (press refresh for AI insights)',

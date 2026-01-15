@@ -371,6 +371,9 @@ const buildCoverLetterRow = (payload: Record<string, unknown>) => ({
   created_at: '2025-11-12T00:00:00.000Z',
   updated_at: '2025-11-12T00:00:00.000Z',
   finalized_at: null,
+  applied_at: null,
+  outcome_status: null,
+  outcome_updated_at: null,
 });
 
 const buildWorkpadRow = (payload: Record<string, unknown>) => ({
@@ -537,6 +540,7 @@ describe('CoverLetterDraftService', () => {
     const updatePayload = supabaseMock.getUpdatePayload();
     expect(updatePayload?.status).toBe('finalized');
     expect(updatePayload?.finalized_at).toBe(now().toISOString());
+    expect(updatePayload?.applied_at).toBe(now().toISOString());
     expect(
       (updatePayload?.analytics as Record<string, unknown> | undefined)?.differentiatorCoverage,
     ).toMatchObject({ addressed: 1, missing: 0 });
@@ -548,4 +552,3 @@ describe('CoverLetterDraftService', () => {
     });
   });
 });
-

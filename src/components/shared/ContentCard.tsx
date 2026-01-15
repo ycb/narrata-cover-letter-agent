@@ -15,7 +15,8 @@ import {
   Trash2,
   Plus,
   Sparkles,
-  Library
+  Library,
+  Save
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -47,11 +48,19 @@ interface ContentCardProps {
   timesUsed?: number;
   lastUsed?: string;
   hasGaps?: boolean;
-  gaps?: Array<{ id: string; title?: string; description: string }>; // Agent C: title is optional for structured gaps
+  gaps?: Array<{
+    id: string;
+    title?: string;
+    headline?: string;
+    suggestion?: string;
+    explanation?: string;
+    description?: string;
+  }>; // Agent C: title is optional for structured gaps
   gapSummary?: string | null; // Agent C: Rubric/prompt summary to show at top of gaps
   isGapResolved?: boolean;
   onGenerateContent?: () => void;
   onInsertFromLibrary?: () => void; // NEW: Cover letter editor - insert content from library
+  onSaveVariation?: () => void;
   onDismissGap?: () => void; // Callback for gap dismissal
   onEdit?: () => void;
   onDuplicate?: () => void;
@@ -96,6 +105,7 @@ export const ContentCard = ({
   isGapResolved = false,
   onGenerateContent,
   onInsertFromLibrary,
+  onSaveVariation,
   onEdit,
   onDuplicate,
   onDelete,
@@ -173,39 +183,62 @@ export const ContentCard = ({
           {/* Overflow Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+              >
                 <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {onEdit && (
-                <DropdownMenuItem onClick={onEdit}>
+                <DropdownMenuItem
+                  onClick={onEdit}
+                >
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
                 </DropdownMenuItem>
               )}
               {onDuplicate && (
-                <DropdownMenuItem onClick={onDuplicate}>
+                <DropdownMenuItem
+                  onClick={onDuplicate}
+                >
                   <Copy className="mr-2 h-4 w-4" />
                   Duplicate
                 </DropdownMenuItem>
               )}
               {onGenerateContent && (
-                <DropdownMenuItem onClick={onGenerateContent}>
+                <DropdownMenuItem
+                  onClick={onGenerateContent}
+                >
                   <Sparkles className="mr-2 h-4 w-4" />
                   Generate Content
                 </DropdownMenuItem>
               )}
               {onInsertFromLibrary && (
-                <DropdownMenuItem onClick={onInsertFromLibrary}>
+                <DropdownMenuItem
+                  onClick={onInsertFromLibrary}
+                >
                   <Library className="mr-2 h-4 w-4" />
                   Insert from Library...
                 </DropdownMenuItem>
               )}
-              {(onEdit || onDuplicate || onGenerateContent || onInsertFromLibrary) && onDelete && <DropdownMenuSeparator />}
+              {onSaveVariation && (
+                <DropdownMenuItem onClick={onSaveVariation}>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save as variation
+                </DropdownMenuItem>
+              )}
+              {(onEdit || onDuplicate || onGenerateContent || onInsertFromLibrary || onSaveVariation) && onDelete && (
+                <DropdownMenuSeparator />
+              )}
               {onDelete && (
-                <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="text-destructive"
+                >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>

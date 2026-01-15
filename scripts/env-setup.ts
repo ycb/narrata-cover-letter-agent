@@ -27,7 +27,7 @@ if (typeof process !== 'undefined' && process.env) {
       get: () => ({
         VITE_SUPABASE_URL: envVars['VITE_SUPABASE_URL'] || process.env.VITE_SUPABASE_URL,
         VITE_SUPABASE_ANON_KEY: envVars['VITE_SUPABASE_ANON_KEY'] || process.env.VITE_SUPABASE_ANON_KEY,
-        VITE_OPENAI_KEY: envVars['VITE_OPENAI_KEY'] || process.env.VITE_OPENAI_KEY,
+        VITE_OPENAI_API_KEY: envVars['VITE_OPENAI_API_KEY'] || process.env.VITE_OPENAI_API_KEY,
         VITE_OPENAI_MODEL: envVars['VITE_OPENAI_MODEL'] || process.env.VITE_OPENAI_MODEL || 'gpt-4o-mini'
       }),
       configurable: true

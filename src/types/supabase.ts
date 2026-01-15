@@ -362,6 +362,9 @@ export type Database = {
           created_at: string
           updated_at: string
           finalized_at: string | null
+          applied_at: string | null
+          outcome_status: 'interview' | 'no_response' | 'not_selected' | null
+          outcome_updated_at: string | null
         }
         Insert: {
           id?: string
@@ -377,6 +380,9 @@ export type Database = {
           created_at?: string
           updated_at?: string
           finalized_at?: string | null
+          applied_at?: string | null
+          outcome_status?: 'interview' | 'no_response' | 'not_selected' | null
+          outcome_updated_at?: string | null
         }
         Update: {
           id?: string
@@ -392,6 +398,9 @@ export type Database = {
           created_at?: string
           updated_at?: string
           finalized_at?: string | null
+          applied_at?: string | null
+          outcome_status?: 'interview' | 'no_response' | 'not_selected' | null
+          outcome_updated_at?: string | null
         }
       }
       cover_letter_workpads: {
@@ -514,6 +523,7 @@ export type Database = {
       content_status: 'draft' | 'approved' | 'needs-review'
       confidence_level: 'low' | 'medium' | 'high'
       letter_status: 'draft' | 'reviewed' | 'finalized'
+      cover_letter_outcome: 'interview' | 'no_response' | 'not_selected'
       go_no_go: 'go' | 'no-go' | 'needs-work'
     }
   }

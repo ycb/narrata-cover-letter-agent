@@ -139,7 +139,7 @@ async function generateStoriesFromDescription(
   openaiApiKey?: string
 ): Promise<Array<{ title: string; content: string; tags: string[]; metrics: any[] }>> {
   // If no API key provided, try to get from env
-  const apiKey = openaiApiKey || import.meta.env.VITE_OPENAI_API_KEY || import.meta.env.VITE_OPENAI_KEY;
+  const apiKey = openaiApiKey || import.meta.env.VITE_OPENAI_API_KEY;
   
   if (!apiKey) {
     console.warn('[StoriesGen] No OpenAI API key available, skipping story generation');
@@ -219,6 +219,12 @@ Return JSON:
     return [];
   }
 }
+
+
+
+
+
+
 
 
 

@@ -9,11 +9,11 @@ export const SECTION_GUIDANCE = {
   introduction: {
     title: 'Introduction',
     summary:
-      'Open strong with credibility, highlight the sharpest achievement, and connect it to the company/mission.',
+      'Open strong with a hook and credibility, then align to the role and company where it helps.',
     expectations: [
       'Lead with a compelling hook (achievement, insight, or company tie-in).',
-      'Establish domain credibility and 1-2 quantifiable proof points.',
-      'Show mission/product alignment tied to the JD.',
+      'Establish domain credibility via scope, seniority, or outcomes; metrics help but are optional.',
+      'Show mission/product alignment tied to the JD when it strengthens fit.',
     ],
   },
   experience: {
@@ -28,11 +28,11 @@ export const SECTION_GUIDANCE = {
   },
   closing: {
     title: 'Closing',
-    summary: 'Summarize the value, express enthusiasm, and include a confident call-to-action.',
+    summary: 'Summarize the value, express enthusiasm or ownership, and include a confident next step.',
     expectations: [
-      'Reinforce differentiating value (1-2 proof points).',
-      'State clear enthusiasm tied to company mission or product.',
-      'Close with a confident CTA about next steps.',
+      'Reinforce differentiating value (1-2 proof points) or ownership.',
+      'State clear enthusiasm; tie to mission/product when possible.',
+      'Close with a confident CTA or next-step intent.',
     ],
   },
   signature: {
@@ -195,28 +195,28 @@ Respond ONLY with valid JSON following this EXACT schema:
         "sectionSlug": "introduction",
         "sectionType": "introduction",
         "sectionTitle": "Introduction",
-        "promptSummary": "Intro must open with credibility, metrics, and mission alignment.",
+        "promptSummary": "Intro should open with a strong hook and credibility; metrics help but are optional; align to the role when relevant.",
         "requirementGaps": [
           {
             "id": "intro-credibility",
             "label": "Professional summary to establish credibility",
             "severity": "high",
             "requirementType": "narrative",
-            "rationale": "No metrics or seniority indicators mentioned in first paragraph.",
-            "recommendation": "Start with strongest leadership metric (e.g., 40% growth) to anchor expertise."
+            "rationale": "The first paragraph lacks a clear hook or credibility signal.",
+            "recommendation": "Start with a sharp achievement or scope indicator; add a metric if available."
           },
           {
             "id": "intro-mission",
             "label": "Mission alignment",
             "severity": "medium",
             "requirementType": "differentiator",
-            "rationale": "Company mission or product impact never referenced.",
-            "recommendation": "Reference Company X's marketplace expansion and why it resonates with previous work."
+            "rationale": "Company mission or product impact is not referenced where it could strengthen fit.",
+            "recommendation": "Reference Company X's mission or product focus where it aligns with your experience."
           }
         ],
         "recommendedMoves": [
-          "Open with quantified career highlight (growth metric or launch stat).",
-          "Reference Company X's mission or latest milestone to show research."
+          "Open with a sharp career highlight (scope, outcome, or metric).",
+          "Reference the company mission or recent milestone where it strengthens fit."
         ],
         "nextAction": "add-story"
       }
@@ -280,10 +280,10 @@ CRITICAL RULES:
     - Provide "evidence": specific text from the draft that supports your evaluation (quote relevant sentences/phrases)
     - Provide "suggestion": actionable improvement advice if met=false, empty string if met=true
     - The 11 criteria are:
-      1. "compelling_opening" - "Compelling Opening": Strong hook that captures attention in first paragraph
+     1. "compelling_opening" - "Compelling Opening": Strong hook and credibility in first paragraph (metrics help but are optional)
       2. "business_understanding" - "Understanding of Business/Users": Demonstrates knowledge of company and users
       3. "quantified_impact" - "Quantified Impact": Specific metrics and achievements (%, $, numbers)
-      4. "action_verbs" - "Action Verbs": Strong, active language showing ownership
+     4. "action_verbs" - "Action Verbs": Strong, active language showing ownership across the draft
       5. "concise_length" - "Concise Length": 3-4 paragraphs, under 400 words
       6. "error_free" - "Error-Free Writing": No spelling or grammar errors
       7. "personalized" - "Personalized Content": Tailored to specific role and company
@@ -383,25 +383,5 @@ Expectations:
 `;
 }).join('\n')}
 
-=== CONTENT QUALITY EVALUATION ===
-Evaluate the cover letter draft against these 11 quality criteria. For each criterion:
-- Determine if it's met (true/false) based on the draft content
-- Provide specific evidence: quote the exact text from the draft that supports your evaluation
-- If not met, provide a concrete suggestion for improvement
-
-The 11 criteria to evaluate:
-1. Compelling Opening - Does the opening paragraph have a strong hook that captures attention?
-2. Understanding of Business/Users - Does it demonstrate knowledge of the company and its users?
-3. Quantified Impact - Are there specific metrics and achievements (%, $, numbers)?
-4. Action Verbs - Does it use strong, active language showing ownership?
-5. Concise Length - Is it 3-4 paragraphs and under 400 words?
-6. Error-Free Writing - Are there no spelling or grammar errors?
-7. Personalized Content - Is it tailored to the specific role and company?
-8. Specific Examples - Are there concrete examples from work history?
-9. Professional Tone - Is the formality level appropriate?
-10. Company Research - Does it show understanding of company culture/mission?
-11. Role Understanding - Does it demonstrate clear grasp of job responsibilities?
-
 Analyze this cover letter draft comprehensively and return the structured JSON response.`;
 };
-

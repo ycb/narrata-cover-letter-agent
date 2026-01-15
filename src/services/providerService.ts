@@ -271,8 +271,8 @@ export class ProviderService {
     if (!settings || settings.providerType === 'narrata_default') {
       // Use Narrata's default OpenAI key
       const apiKey =
-        (import.meta.env?.VITE_OPENAI_KEY) ||
-        (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) ||
+        (import.meta.env?.VITE_OPENAI_API_KEY) ||
+        (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
         (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
       if (!apiKey) {

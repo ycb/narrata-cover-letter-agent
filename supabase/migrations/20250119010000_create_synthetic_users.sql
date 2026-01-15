@@ -1,5 +1,5 @@
 -- Create synthetic users system for admin testing
-CREATE TABLE public.synthetic_users (
+CREATE TABLE IF NOT EXISTS public.synthetic_users (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   parent_user_id uuid NOT NULL REFERENCES public.profiles(id),
   profile_id text NOT NULL, -- "P01", "P02", etc.
@@ -9,9 +9,6 @@ CREATE TABLE public.synthetic_users (
   profile_data jsonb, -- Store full persona data
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
-  
-  -- Ensure only one active profile per parent user
-  UNIQUE(parent_user_id, is_active) WHERE is_active = true,
   UNIQUE(parent_user_id, profile_id)
 );
 
@@ -19,28 +16,48 @@ CREATE TABLE public.synthetic_users (
 ALTER TABLE public.synthetic_users ENABLE ROW LEVEL SECURITY;
 
 -- Create policies - only admin users can access
-CREATE POLICY "Admin users can view synthetic users" ON public.synthetic_users
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE id = parent_user_id 
-      AND (role = 'admin' OR email = 'narrata.ai@gmail.com')
-    )
-  );
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'synthetic_users'
+      AND policyname = 'Admin users can view synthetic users'
+  ) THEN
+    CREATE POLICY "Admin users can view synthetic users" ON public.synthetic_users
+      FOR SELECT USING (
+        EXISTS (
+          SELECT 1 FROM public.profiles 
+          WHERE id = parent_user_id 
+          AND (role = 'admin' OR email = 'narrata.ai@gmail.com')
+        )
+      );
+  END IF;
 
-CREATE POLICY "Admin users can manage synthetic users" ON public.synthetic_users
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles 
-      WHERE id = parent_user_id 
-      AND (role = 'admin' OR email = 'narrata.ai@gmail.com')
-    )
-  );
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'synthetic_users'
+      AND policyname = 'Admin users can manage synthetic users'
+  ) THEN
+    CREATE POLICY "Admin users can manage synthetic users" ON public.synthetic_users
+      FOR ALL USING (
+        EXISTS (
+          SELECT 1 FROM public.profiles 
+          WHERE id = parent_user_id 
+          AND (role = 'admin' OR email = 'narrata.ai@gmail.com')
+        )
+      );
+  END IF;
+END $$;
 
 -- Create indexes
-CREATE INDEX idx_synthetic_users_parent_user_id ON public.synthetic_users(parent_user_id);
-CREATE INDEX idx_synthetic_users_profile_id ON public.synthetic_users(profile_id);
-CREATE INDEX idx_synthetic_users_is_active ON public.synthetic_users(is_active);
+CREATE INDEX IF NOT EXISTS idx_synthetic_users_parent_user_id ON public.synthetic_users(parent_user_id);
+CREATE INDEX IF NOT EXISTS idx_synthetic_users_profile_id ON public.synthetic_users(profile_id);
+CREATE INDEX IF NOT EXISTS idx_synthetic_users_is_active ON public.synthetic_users(is_active);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_synthetic_users_active_unique
+  ON public.synthetic_users(parent_user_id)
+  WHERE is_active = true;
 
 -- Function to create synthetic users from persona data
 CREATE OR REPLACE FUNCTION create_synthetic_users_from_personas()

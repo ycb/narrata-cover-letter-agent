@@ -110,6 +110,15 @@ interface UseJobStreamOptions {
   onProgress?: (stage: string, data: any) => void;
 }
 
+interface CreateJobOptions {
+  /**
+   * Auto-run stream-job-process after create-job.
+   * Set to false when the client will manage stages manually.
+   * @default true
+   */
+  autoProcess?: boolean;
+}
+
 interface UseJobStreamReturn {
   /**
    * Current job state
@@ -119,7 +128,7 @@ interface UseJobStreamReturn {
   /**
    * Create a new job and start streaming
    */
-  createJob: (type: JobType, input: JobInput) => Promise<string>;
+  createJob: (type: JobType, input: JobInput, options?: CreateJobOptions) => Promise<string>;
 
   /**
    * Connect to existing job stream
@@ -211,9 +220,10 @@ export function useJobStream(
   // ============================================================================
 
 	  const createJob = useCallback(
-	    async (type: JobType, input: JobInput): Promise<string> => {
+	    async (type: JobType, input: JobInput, options?: CreateJobOptions): Promise<string> => {
 	      try {
 	        setError(null);
+        const autoProcess = options?.autoProcess ?? true;
 
         // Get auth session
         const {
@@ -267,12 +277,14 @@ export function useJobStream(
         jobIdRef.current = jobId;
 
         // Kick off processing immediately (bypass SSE dependency)
-        try {
-          await supabase.functions.invoke('stream-job-process', {
-            body: { jobId },
-          });
-        } catch (procErr) {
-          console.warn('[useJobStream] stream-job-process invoke failed (non-blocking):', procErr);
+        if (autoProcess) {
+          try {
+            await supabase.functions.invoke('stream-job-process', {
+              body: { jobId },
+            });
+          } catch (procErr) {
+            console.warn('[useJobStream] stream-job-process invoke failed (non-blocking):', procErr);
+          }
         }
 
 	        // Auto-connect if enabled
@@ -514,7 +526,7 @@ export function useJobStream(
 	                      const firstUpdate = trace.stageFirstUpdateAtMs[stage];
 	                      const firstPartial = trace.stageFirstPartialAtMs[stage];
 	                      const completedAt = trace.stageCompletedAtMs[stage] ?? Date.now();
-	                      // eslint-disable-next-line no-console
+	                       
 	                      console.info('[perf][useJobStream] stage', {
 	                        jobId,
 	                        stage,

@@ -63,7 +63,7 @@
 **Cannot run tests** - Missing `.env` file with:
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `VITE_OPENAI_KEY` (optional for some tests)
+- `VITE_OPENAI_API_KEY` (optional for some tests)
 
 ## Next Steps
 

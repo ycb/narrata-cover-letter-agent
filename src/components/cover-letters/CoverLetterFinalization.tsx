@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Copy, Download, Share2, Mail } from 'lucide-react';
+import { Copy, Download, Share2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { jsPDF } from 'jspdf';
 import type { CoverLetterDraftSection } from '@/types/coverLetters';
 import { normalizeFinalContent } from '@/services/coverLetterParser';
 
@@ -43,6 +44,8 @@ const buildLetter = (sections: CoverLetterDraftSection[]): string =>
 const computeWordCount = (text: string): number =>
   text.trim().split(/\s+/).filter(Boolean).length;
 
+const urlPattern = /(https?:\/\/[^\s)]+|www\.[^\s)]+)/gi;
+
 export function CoverLetterFinalization({
   isOpen,
   onClose,
@@ -54,7 +57,7 @@ export function CoverLetterFinalization({
   errorMessage,
 }: CoverLetterFinalizationProps) {
   const [copied, setCopied] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
+  const isPreviewOnly = !onFinalizeConfirm;
 
   // Guard: Ensure sections is always an array
   const safeSections = Array.isArray(sections) ? sections : [];
@@ -66,6 +69,7 @@ export function CoverLetterFinalization({
 
   const finalLetter = useMemo(() => buildLetter(sortedSections), [sortedSections]);
   const wordCount = computeWordCount(finalLetter);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const handleCopy = async () => {
     try {
@@ -90,6 +94,137 @@ export function CoverLetterFinalization({
     document.body.removeChild(element);
   };
 
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      const pdf = new jsPDF({
+        unit: 'pt',
+        format: 'letter',
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 72;
+      const contentWidth = pageWidth - margin * 2;
+      const fontSize = 12;
+      const lineHeight = fontSize * 1.5;
+
+      pdf.setFont('times', 'normal');
+      pdf.setFontSize(fontSize);
+
+      const wrapLine = (line: string) => {
+        const words = line.trim().split(/\s+/).filter(Boolean);
+        const wrappedLines: string[] = [];
+        let currentLine = '';
+
+        words.forEach(word => {
+          const candidate = currentLine ? `${currentLine} ${word}` : word;
+          if (!currentLine || pdf.getTextWidth(candidate) <= contentWidth) {
+            currentLine = candidate;
+            return;
+          }
+          wrappedLines.push(currentLine);
+          currentLine = word;
+        });
+
+        if (currentLine) {
+          wrappedLines.push(currentLine);
+        }
+
+        return wrappedLines;
+      };
+
+      const renderLineWithLinks = (line: string, x: number, y: number) => {
+        let cursorX = x;
+        let lastIndex = 0;
+
+        for (const match of line.matchAll(urlPattern)) {
+          const url = match[0] || '';
+          const index = match.index ?? 0;
+          if (index > lastIndex) {
+            const text = line.slice(lastIndex, index);
+            pdf.text(text, cursorX, y);
+            cursorX += pdf.getTextWidth(text);
+          }
+          const href = url.startsWith('http') ? url : `https://${url}`;
+          pdf.textWithLink(url, cursorX, y, { url: href });
+          cursorX += pdf.getTextWidth(url);
+          lastIndex = index + url.length;
+        }
+
+        if (lastIndex < line.length) {
+          const text = line.slice(lastIndex);
+          pdf.text(text, cursorX, y);
+        }
+      };
+
+      const paragraphs = finalLetter.split(/\n{2,}/);
+      let cursorY = margin;
+
+      const ensureSpace = (height: number) => {
+        if (cursorY + height > pageHeight - margin) {
+          pdf.addPage();
+          cursorY = margin;
+        }
+      };
+
+      paragraphs.forEach((paragraph, paragraphIndex) => {
+        const lines = paragraph.split('\n');
+        lines.forEach(line => {
+          if (!line.trim()) {
+            ensureSpace(lineHeight);
+            cursorY += lineHeight;
+            return;
+          }
+
+          const wrappedLines = wrapLine(line);
+          wrappedLines.forEach(wrappedLine => {
+            ensureSpace(lineHeight);
+            renderLineWithLinks(wrappedLine, margin, cursorY);
+            cursorY += lineHeight;
+          });
+
+        });
+
+        if (paragraphIndex < paragraphs.length - 1) {
+          ensureSpace(lineHeight);
+          cursorY += lineHeight;
+        }
+      });
+
+      const filename = job?.company
+        ? `cover-letter-${job.company.toLowerCase().replace(/\s+/g, '-')}.pdf`
+        : 'cover-letter.pdf';
+      pdf.save(filename);
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!finalLetter.trim()) return;
+    const title = job?.company
+      ? `Cover Letter - ${job.company}${job.role ? ` - ${job.role}` : ''}`
+      : 'Cover Letter';
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          text: finalLetter,
+        });
+        return;
+      } catch (error) {
+        console.error('Error sharing cover letter:', error);
+      }
+    }
+
+    await handleCopy();
+  };
+
   // Build subtitle: "Company • Role"
   const subtitle = [job?.company, job?.role].filter(Boolean).join(' • ');
 
@@ -102,7 +237,7 @@ export function CoverLetterFinalization({
           <div className="flex items-start justify-between gap-4">
             <div>
               <DialogTitle className="text-xl font-semibold">
-                Review & Finalize your cover letter
+                {isPreviewOnly ? 'Cover letter preview' : 'Review & Finalize your cover letter'}
               </DialogTitle>
               {subtitle && (
                 <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
@@ -115,7 +250,7 @@ export function CoverLetterFinalization({
                 onClick={onBackToDraft}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                Back to Edit
+                {isPreviewOnly ? 'Edit' : 'Back to Edit'}
               </button>
               {onFinalizeConfirm && (
                 <Button
@@ -153,7 +288,7 @@ export function CoverLetterFinalization({
               {finalLetter}
             </div>
           </div>
-          
+
           {/* Word count */}
           <div className="mt-3 text-right">
             <span className="text-xs text-muted-foreground">
@@ -163,7 +298,16 @@ export function CoverLetterFinalization({
         </div>
 
         {/* 3. Utility buttons (centered) - Fixed at bottom */}
-        <div className="flex items-center justify-center gap-3 pt-4 border-t border-border/50">
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-border/50">
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="gap-2"
+            onClick={handleShare}
+          >
+            <Share2 className="h-4 w-4" />
+            Share
+          </Button>
           <Button 
             onClick={handleCopy} 
             variant="outline" 
@@ -175,73 +319,22 @@ export function CoverLetterFinalization({
           </Button>
           <Button 
             onClick={handleDownload} 
-            variant="outline" 
+            variant="outline"
             size="sm"
             className="gap-2"
           >
             <Download className="h-4 w-4" />
-            Download
+            Download as Text
           </Button>
           <Button 
-            variant="outline" 
+            onClick={handleDownloadPdf} 
+            variant="outline"
             size="sm"
             className="gap-2"
-            onClick={() => setShowShareModal(true)}
+            disabled={isDownloadingPdf}
           >
-            <Share2 className="h-4 w-4" />
-            Share
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    {/* Share Modal */}
-    <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Share Cover Letter</DialogTitle>
-          <DialogDescription>
-            Choose how you would like to share your cover letter.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <Button 
-            variant="outline" 
-            className="w-full justify-start"
-            onClick={() => {
-              handleCopy();
-              setShowShareModal(false);
-            }}
-          >
-            <Copy className="h-4 w-4 mr-2" />
-            Copy to clipboard
-          </Button>
-          <Button 
-            variant="outline" 
-            className="w-full justify-start"
-            onClick={() => {
-              handleDownload();
-              setShowShareModal(false);
-            }}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Download as text file
-          </Button>
-          <Button 
-            variant="outline" 
-            className="w-full justify-start"
-            onClick={() => {
-              // Open mailto with cover letter content
-              const subject = job?.company 
-                ? `Cover Letter - ${job.company}${job.role ? ` - ${job.role}` : ''}`
-                : 'Cover Letter';
-              const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalLetter)}`;
-              window.open(mailtoUrl, '_blank');
-              setShowShareModal(false);
-            }}
-          >
-            <Mail className="h-4 w-4 mr-2" />
-            Email to yourself
+            <Download className="h-4 w-4" />
+            {isDownloadingPdf ? 'Preparing PDF…' : 'Download as PDF'}
           </Button>
         </div>
       </DialogContent>

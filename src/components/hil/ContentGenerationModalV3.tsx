@@ -742,12 +742,12 @@ export function ContentGenerationModalV3({
 	              <p className="text-xs text-muted-foreground">
 	                Edit freely then Click “Get Feedback” for targeted suggestions.
 	              </p>
-	              <Textarea
-	                value={generatedContent}
-	                onChange={(e) => setGeneratedContent(e.target.value)}
-	                className="flex-1 min-h-[280px]"
-	                placeholder="Generated content will appear here…"
-	              />
+              <Textarea
+                value={generatedContent}
+                onChange={(e) => setGeneratedContent(e.target.value)}
+                className="flex-1 min-h-[280px]"
+                placeholder="Generated content will appear here…"
+              />
 
               <div className="flex justify-end gap-3">
                 <Button
@@ -962,7 +962,13 @@ export function ContentGenerationModalV3({
                 </TabsContent>
 
                 <TabsContent value="notes">
-                  {reviewNotes?.summary ? <p className="text-sm text-muted-foreground">{reviewNotes.summary}</p> : null}
+                  {reviewNotes?.summary ? (
+                    <p className="text-sm text-muted-foreground">{reviewNotes.summary}</p>
+                  ) : reviewNotes ? (
+                    <p className="text-sm text-muted-foreground">
+                      No review notes were returned. Check Priority Fixes and Open Questions.
+                    </p>
+                  ) : null}
                   {reviewRaw.trim() && !reviewNotes ? (
                     <pre className="text-sm whitespace-pre-wrap font-sans">{reviewRaw.trim()}</pre>
                   ) : null}

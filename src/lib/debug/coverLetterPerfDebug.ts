@@ -5,7 +5,10 @@ type CoverLetterPerfEvent = {
     | 'draft_ready'
     | 'phase_a_complete'
     | 'phase_b_gaps_ready'
-    | 'retry_gaps';
+    | 'retry_gaps'
+    | 'refresh_insights_start'
+    | 'refresh_insights_complete'
+    | 'refresh_insights_failed';
   href: string;
   detail?: any;
   stack?: string;
@@ -56,7 +59,7 @@ export function recordCoverLetterPerfEvent(kind: CoverLetterPerfEvent['kind'], d
     };
 
     try {
-      // eslint-disable-next-line no-console
+       
       console.warn('[cover-letter-perf]', evt);
     } catch {
       // ignore
@@ -103,4 +106,3 @@ export function readCoverLetterPerfEvents(): CoverLetterPerfEvent[] {
     return [];
   }
 }
-

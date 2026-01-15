@@ -12,14 +12,24 @@ const LandingPage = () => {
   const headerLabel = waitlistMode ? 'View Public Demo' : 'Sign In';
 
   // Analytics tracking helper
-  const trackCTA = (location: string) => {
+  const trackCTA = (location: string, action: "demo" | "signup" | "waitlist") => {
     // LogRocket custom event
     if (window.LogRocket) {
-      window.LogRocket.track('cta_clicked', { location });
+      window.LogRocket.track('cta_clicked', { location, action });
     }
     // Pendo track event
     if (window.pendo) {
-      window.pendo.track('cta_clicked', { location });
+      window.pendo.track('cta_clicked', { location, action });
+    }
+    // Mixpanel track event (landing only)
+    if (window.mixpanel) {
+      const eventName =
+        action === "demo"
+          ? "landing_demo_click"
+          : action === "waitlist"
+            ? "landing_waitlist_click"
+            : "landing_signup_click";
+      window.mixpanel.track(eventName, { location });
     }
   };
 
@@ -46,11 +56,25 @@ const LandingPage = () => {
             </div>
             
             {/* Right: Sign In / Waitlist */}
-            <Link to={headerHref}>
-              <Button variant="outline" size="sm" className="bg-white text-[#121212] hover:bg-white/90">
-                {headerLabel}
-              </Button>
-            </Link>
+            <div className="flex flex-col items-center gap-1 text-center">
+              <Link
+                to={headerHref}
+                onClick={() => {
+                  if (waitlistMode) {
+                    trackCTA('header', 'demo');
+                  }
+                }}
+              >
+                <Button variant="outline" size="sm" className="bg-white text-[#121212] hover:bg-white/90">
+                  {headerLabel}
+                </Button>
+              </Link>
+              {waitlistMode && (
+                <span className="hidden md:block text-xs text-white/70 mt-2">
+                  (Desktop-only)
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -65,7 +89,10 @@ const LandingPage = () => {
             Narrata builds cover letters from your verified experience and AI helps you refine. Never made up, always in your voice.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link to={ctaHref} onClick={() => trackCTA('hero')}>
+            <Link
+              to={ctaHref}
+              onClick={() => trackCTA('hero', waitlistMode ? 'waitlist' : 'signup')}
+            >
               <Button size="lg" className="w-full sm:w-auto text-lg px-8 py-6 bg-cta-primary hover:bg-cta-primary-hover text-cta-primary-foreground">
                 {ctaLabel}
               </Button>

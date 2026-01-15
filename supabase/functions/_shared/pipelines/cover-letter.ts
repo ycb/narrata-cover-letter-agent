@@ -1366,7 +1366,7 @@ export async function executeCoverLetterPipeline(
   const telemetry = new PipelineTelemetry(job.id, job.type);
   const jobDescriptionId = job.input?.jobDescriptionId as string | undefined;
   const templateId = job.input?.templateId as string | undefined;
-  let jdFingerprint: { char_len?: number; hash12?: string } = {};
+  const jdFingerprint: { char_len?: number; hash12?: string } = {};
   const onlyStage = options?.onlyStage;
   const finalizeJob = options?.finalizeJob ?? true;
 

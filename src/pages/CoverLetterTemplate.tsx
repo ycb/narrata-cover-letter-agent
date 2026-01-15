@@ -716,6 +716,37 @@ export default function CoverLetterTemplate() {
       if (storiesError) throw storiesError;
       if (companiesError) throw companiesError;
 
+      const storyIds = (stories || []).map((story) => story.id).filter(Boolean);
+      let variationsByParent = new Map<string, any[]>();
+      if (storyIds.length > 0) {
+        let variationsQuery = client
+          .from('content_variations')
+          .select('id, content, parent_entity_id, target_job_title, gap_tags, created_at, created_by')
+          .eq('user_id', currentUserId)
+          .eq('parent_entity_type', 'approved_content');
+
+        if (allowedSourceIds && allowedSourceIds.length > 0) {
+          variationsQuery = variationsQuery.in('parent_entity_id', storyIds);
+        } else {
+          variationsQuery = variationsQuery.in('parent_entity_id', storyIds);
+        }
+
+        const { data: variations, error: variationsError } = await variationsQuery
+          .order('created_at', { ascending: false });
+
+        if (variationsError) {
+          console.warn('[CoverLetterTemplate] Failed to load story variations for library:', variationsError);
+        } else {
+          (variations || []).forEach((variation: any) => {
+            const parentId = variation.parent_entity_id;
+            if (!parentId) return;
+            const list = variationsByParent.get(parentId) || [];
+            list.push(variation);
+            variationsByParent.set(parentId, list);
+          });
+        }
+      }
+
       const companyMap = new Map<string, WorkHistoryCompany>();
       const roleMap = new Map<string, WorkHistoryRole>();
 
@@ -789,6 +820,16 @@ export default function CoverLetterTemplate() {
           linkedExternalLinks: [],
           hasGaps: false,
           gapCount: 0,
+          variations: (variationsByParent.get(story.id) || []).map((variation: any) => ({
+            id: variation.id,
+            content: variation.content,
+            developedForJobTitle: variation.target_job_title || undefined,
+            filledGap: undefined,
+            jdTags: variation.gap_tags || [],
+            tags: variation.gap_tags || [],
+            createdAt: variation.created_at,
+            createdBy: variation.created_by || 'AI',
+          })),
           createdAt: story.created_at || new Date().toISOString(),
           updatedAt: story.updated_at || story.created_at || new Date().toISOString()
         };
@@ -1986,4 +2027,4 @@ const handleDone = async () => {
       </div>
     </div>
   );
-};
+}

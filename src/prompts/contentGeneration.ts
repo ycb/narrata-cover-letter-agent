@@ -91,6 +91,8 @@ export function buildStoryGenerationPrompt(
 8. REQUIRED OPENER: The story MUST start with the exact phrase: "${requiredOpener}" (no intro clause before it).
 9. Preserve specificity: carry forward concrete domain/product/customer/tech details from the Existing Content (do not replace them with generic leadership summaries).
 10. Avoid buzzwords the user likely wouldn’t use (e.g. "spearheaded"); prefer plain verbs unless the Voice Guide uses them.
+11. Minimal-diff: preserve sentence structure and phrasing where possible; prefer surgical edits over rewrites.
+12. Proof point: select exactly ONE concrete proof point (metric, project, or scope) from the provided context and build the paragraph around it.
 
 **User Context**:
 ${workHistoryContext.currentRole ? `Current Role: ${workHistoryContext.currentRole.title} at ${workHistoryContext.currentRole.company}

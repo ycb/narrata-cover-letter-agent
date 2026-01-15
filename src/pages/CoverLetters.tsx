@@ -19,7 +19,6 @@ import {
   Trash2
 } from "lucide-react";
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
-import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
 import { CoverLetterEditModal } from "@/components/cover-letters/CoverLetterEditModal";
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
 import { AddStoryModal } from "@/components/work-history/AddStoryModal";
@@ -33,6 +32,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -54,9 +56,12 @@ import type {
   CoverLetterGeneratedSection,
   CoverLetterSection
 } from "@/types/workHistory";
+import type { CoverLetterOutcomeStatus } from "@/types/coverLetters";
 import { classifyRoleToBucket } from "@/lib/roleBuckets";
 
 type CoverLetterStatus = "draft" | "reviewed" | "finalized";
+type CoverLetterDisplayStatus = "draft" | "applied" | CoverLetterOutcomeStatus;
+type CoverLetterFilter = "all" | CoverLetterDisplayStatus;
 
 interface CoverLetterAnalytics {
   atsScore?: number | null;
@@ -75,6 +80,9 @@ interface CoverLetterListItem {
   company: string;
   position: string;
   status: CoverLetterStatus;
+  outcomeStatus?: CoverLetterOutcomeStatus | null;
+  appliedAt?: string | null;
+  outcomeUpdatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   jobDescriptionContent: string;
@@ -207,6 +215,9 @@ const transformSummary = (summary: CoverLetterSummary): CoverLetterListItem => {
     company,
     position,
     status: summary.status,
+    outcomeStatus: summary.outcomeStatus ?? null,
+    appliedAt: summary.appliedAt ?? null,
+    outcomeUpdatedAt: summary.outcomeUpdatedAt ?? null,
     createdAt: summary.createdAt,
     updatedAt: summary.updatedAt,
     jobDescriptionContent: summary.jobDescription?.content ?? "",
@@ -288,26 +299,51 @@ const toModalPayload = (coverLetter: CoverLetterListItem): ModalCoverLetterPaylo
   return result;
 };
 
-const getStatusTone = (status: CoverLetterStatus): string => {
+const getStatusToneFromDisplay = (status: CoverLetterDisplayStatus): string => {
   switch (status) {
-    case "finalized":
+    case "interview":
       return "bg-success text-success-foreground";
-    case "reviewed":
+    case "applied":
       return "bg-primary/10 text-primary";
+    case "no_response":
+      return "bg-muted/70 text-muted-foreground";
+    case "not_selected":
+      return "bg-muted text-muted-foreground";
     default:
       return "bg-warning text-warning-foreground";
   }
 };
 
-const getStatusLabel = (status: CoverLetterStatus): string => {
+const getStatusLabelFromDisplay = (status: CoverLetterDisplayStatus): string => {
   switch (status) {
-    case "finalized":
-      return "Finalized";
-    case "reviewed":
-      return "Reviewed";
+    case "interview":
+      return "Interview";
+    case "applied":
+      return "Applied";
+    case "no_response":
+      return "No Response";
+    case "not_selected":
+      return "Not Selected";
     default:
       return "Draft";
   }
+};
+
+const normalizeCoverLetterStatus = (status: CoverLetterStatus): "draft" | "finalized" =>
+  status === "reviewed" ? "draft" : status;
+
+const getDisplayStatus = (
+  status: CoverLetterStatus,
+  outcomeStatus?: CoverLetterOutcomeStatus | null
+): CoverLetterDisplayStatus => {
+  const normalizedStatus = normalizeCoverLetterStatus(status);
+  if (normalizedStatus === "draft") {
+    return "draft";
+  }
+  if (outcomeStatus) {
+    return outcomeStatus;
+  }
+  return "applied";
 };
 
 const formatShortDate = (value: string): string =>
@@ -318,6 +354,28 @@ const formatShortDate = (value: string): string =>
     minute: "2-digit"
   });
 
+const AUTO_NO_RESPONSE_DAYS = 30;
+const FILTER_BUTTON_CLASS = "h-8 px-3 text-xs";
+
+const getAppliedAt = (coverLetter: CoverLetterListItem): string | null =>
+  coverLetter.appliedAt ?? coverLetter.createdAt ?? coverLetter.updatedAt ?? null;
+
+const isAutoNoResponseCandidate = (coverLetter: CoverLetterListItem): boolean => {
+  if (normalizeCoverLetterStatus(coverLetter.status) !== "finalized") {
+    return false;
+  }
+  if (coverLetter.outcomeStatus) {
+    return false;
+  }
+  const appliedAt = getAppliedAt(coverLetter);
+  if (!appliedAt) {
+    return false;
+  }
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - AUTO_NO_RESPONSE_DAYS);
+  return new Date(appliedAt) < cutoff;
+};
+
 export default function CoverLetters() {
   const { user, isDemo } = useAuth();
   const { goals: userGoals, setGoals } = useUserGoals();
@@ -325,7 +383,7 @@ export default function CoverLetters() {
   const [searchParams] = useSearchParams();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | CoverLetterStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<CoverLetterFilter>("all");
 
   // Persist modal state in sessionStorage to prevent loss on tab switch
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(() => {
@@ -333,7 +391,6 @@ export default function CoverLetters() {
     return saved === 'true';
   });
 
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false); // Agent C: goals CTA
   const [isAddStoryModalOpen, setIsAddStoryModalOpen] = useState(false); // Agent C: add story CTA
@@ -351,6 +408,47 @@ export default function CoverLetters() {
   useEffect(() => {
     sessionStorage.setItem('coverLetterCreateModalOpen', String(isCreateModalOpen));
   }, [isCreateModalOpen]);
+
+  const applyAutoNoResponse = useCallback(
+    async (letters: CoverLetterListItem[]) => {
+      if (!user?.id || isDemo) {
+        return;
+      }
+
+      const hasCandidates = letters.some(isAutoNoResponseCandidate);
+      if (!hasCandidates) {
+        return;
+      }
+
+      try {
+        const { updatedIds, outcomeUpdatedAt } =
+          await CoverLetterTemplateService.autoApplyNoResponse({
+            userId: user.id,
+            days: AUTO_NO_RESPONSE_DAYS,
+          });
+
+        if (!mountedRef.current || updatedIds.length === 0) {
+          return;
+        }
+
+        setCoverLetters((prev) =>
+          prev.map((letter) =>
+            updatedIds.includes(letter.id)
+              ? {
+                  ...letter,
+                  outcomeStatus: "no_response",
+                  outcomeUpdatedAt,
+                  updatedAt: outcomeUpdatedAt,
+                }
+              : letter
+          )
+        );
+      } catch (error) {
+        console.warn("[CoverLetters] Auto no-response update failed:", error);
+      }
+    },
+    [isDemo, user?.id]
+  );
 
   const fetchCoverLetters = useCallback(async () => {
     if (!user?.id) {
@@ -373,6 +471,7 @@ export default function CoverLetters() {
 
       const mapped = summaries.map(transformSummary);
       setCoverLetters(mapped);
+      void applyAutoNoResponse(mapped);
     } catch (err) {
       if (!mountedRef.current) {
         return;
@@ -386,7 +485,7 @@ export default function CoverLetters() {
         setIsLoading(false);
       }
     }
-  }, [user?.id]);
+  }, [applyAutoNoResponse, user?.id]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -407,7 +506,9 @@ export default function CoverLetters() {
         letter.position.toLowerCase().includes(term);
 
       const matchesStatus =
-        statusFilter === "all" ? true : letter.status === statusFilter;
+        statusFilter === "all"
+          ? true
+          : getDisplayStatus(letter.status, letter.outcomeStatus) === statusFilter;
 
       const matchesRoleBucket = roleBucket
         ? classifyRoleToBucket(letter.position).key === roleBucket
@@ -421,18 +522,27 @@ export default function CoverLetters() {
     if (coverLetters.length === 0) {
       return {
         total: 0,
-        finalized: 0,
+        applied: 0,
+        interviews: 0,
         drafts: 0,
         lastMonthTotal: 0,
-        lastMonthFinalized: 0,
+        lastMonthApplied: 0,
+        lastMonthInterviews: 0,
         lastMonthDrafts: 0,
         averageAts: null as number | null,
         lastUpdated: null as string | null
       };
     }
 
-    const finalized = coverLetters.filter((item) => item.status === "finalized").length;
-    const drafts = coverLetters.filter((item) => item.status === "draft").length;
+    const applied = coverLetters.filter(
+      (item) => normalizeCoverLetterStatus(item.status) === "finalized"
+    ).length;
+    const interviews = coverLetters.filter(
+      (item) => item.outcomeStatus === "interview"
+    ).length;
+    const drafts = coverLetters.filter(
+      (item) => normalizeCoverLetterStatus(item.status) === "draft"
+    ).length;
 
     // Calculate monthly stats (created in the last 30 days)
     const thirtyDaysAgo = new Date();
@@ -443,8 +553,15 @@ export default function CoverLetters() {
     );
     
     const lastMonthTotal = lastMonthLetters.length;
-    const lastMonthFinalized = lastMonthLetters.filter((item) => item.status === "finalized").length;
-    const lastMonthDrafts = lastMonthLetters.filter((item) => item.status === "draft").length;
+    const lastMonthApplied = lastMonthLetters.filter(
+      (item) => normalizeCoverLetterStatus(item.status) === "finalized"
+    ).length;
+    const lastMonthInterviews = lastMonthLetters.filter(
+      (item) => item.outcomeStatus === "interview"
+    ).length;
+    const lastMonthDrafts = lastMonthLetters.filter(
+      (item) => normalizeCoverLetterStatus(item.status) === "draft"
+    ).length;
 
     const atsScores = coverLetters
       .map((item) => item.analytics.atsScore)
@@ -461,10 +578,12 @@ export default function CoverLetters() {
 
     return {
       total: coverLetters.length,
-      finalized,
+      applied,
+      interviews,
       drafts,
       lastMonthTotal,
-      lastMonthFinalized,
+      lastMonthApplied,
+      lastMonthInterviews,
       lastMonthDrafts,
       averageAts,
       lastUpdated
@@ -476,11 +595,6 @@ export default function CoverLetters() {
   const handleCoverLetterCreated = async () => {
     setIsCreateModalOpen(false);
     await fetchCoverLetters();
-  };
-
-  const handleView = (coverLetter: CoverLetterListItem) => {
-    setSelectedCoverLetter(coverLetter);
-    setIsViewModalOpen(true);
   };
 
   const handleEdit = (coverLetter: CoverLetterListItem) => {
@@ -514,6 +628,60 @@ export default function CoverLetters() {
       });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleOutcomeChange = async (
+    coverLetter: CoverLetterListItem,
+    nextStatus: CoverLetterOutcomeStatus | "applied"
+  ) => {
+    if (isDemo) {
+      return;
+    }
+    if (normalizeCoverLetterStatus(coverLetter.status) !== "finalized") {
+      return;
+    }
+
+    const outcomeStatus = nextStatus === "applied" ? null : nextStatus;
+    const appliedAt = getAppliedAt(coverLetter) ?? new Date().toISOString();
+
+    try {
+      const { outcomeUpdatedAt } =
+        await CoverLetterTemplateService.updateCoverLetterOutcome({
+          coverLetterId: coverLetter.id,
+          outcomeStatus,
+          appliedAt,
+        });
+
+      if (!mountedRef.current) {
+        return;
+      }
+
+      setCoverLetters((prev) =>
+        prev.map((letter) =>
+          letter.id === coverLetter.id
+            ? {
+                ...letter,
+                outcomeStatus,
+                appliedAt,
+                outcomeUpdatedAt,
+                updatedAt: outcomeUpdatedAt,
+              }
+            : letter
+        )
+      );
+
+      toast({
+        title: "Status updated",
+        description: outcomeStatus ? "Outcome saved." : "Status set to Applied.",
+      });
+    } catch (error) {
+      console.error("[CoverLetters] Failed to update outcome:", error);
+      toast({
+        title: "Update failed",
+        description: "Unable to update status. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -573,14 +741,18 @@ export default function CoverLetters() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               {!isDemo && (
                 <Button variant="secondary" asChild>
-                  <Link to="/cover-letter-template">
+                  <Link
+                    to="/cover-letter-template"
+                  >
                     <LayoutTemplate className="h-4 w-4 mr-2" />
                     Edit Template
                   </Link>
                 </Button>
               )}
               {!isDemo && (
-                <Button onClick={handleCreateNew}>
+                <Button
+                  onClick={handleCreateNew}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Create New Letter
                 </Button>
@@ -604,7 +776,7 @@ export default function CoverLetters() {
             </Card>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <StatsCard
               title="Total Letters"
               value={stats.total}
@@ -617,14 +789,25 @@ export default function CoverLetters() {
               }}
             />
             <StatsCard
-              title="Finalized"
-              value={stats.finalized}
+              title="Applied"
+              value={stats.applied}
               description=""
               icon={Calendar}
               trend={{
-                value: `+${stats.lastMonthFinalized} this month`,
-                isPositive: stats.lastMonthFinalized > 0,
-                change: stats.lastMonthFinalized
+                value: `+${stats.lastMonthApplied} this month`,
+                isPositive: stats.lastMonthApplied > 0,
+                change: stats.lastMonthApplied
+              }}
+            />
+            <StatsCard
+              title="Interviews"
+              value={stats.interviews}
+              description=""
+              icon={Calendar}
+              trend={{
+                value: `+${stats.lastMonthInterviews} this month`,
+                isPositive: stats.lastMonthInterviews > 0,
+                change: stats.lastMonthInterviews
               }}
             />
             <StatsCard
@@ -640,20 +823,21 @@ export default function CoverLetters() {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
-              <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <GrammarInput
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative w-full lg:max-w-[420px] xl:max-w-[520px]">
+              <Search className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <GrammarInput
                 placeholder="Search by company, role, or title"
-                  value={searchTerm}
+                value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                  className="pl-10"
-                />
+                className="pl-10"
+              />
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 lg:ml-auto lg:flex-nowrap lg:justify-end">
               <Button
                 variant={statusFilter === "all" ? "default" : "secondary"}
                 size="sm"
+                className={FILTER_BUTTON_CLASS}
                 onClick={() => setStatusFilter("all")}
               >
                 All
@@ -661,29 +845,57 @@ export default function CoverLetters() {
               <Button
                 variant={statusFilter === "draft" ? "default" : "secondary"}
                 size="sm"
+                className={FILTER_BUTTON_CLASS}
                 onClick={() => setStatusFilter("draft")}
               >
                 Drafts
               </Button>
               <Button
-                variant={statusFilter === "reviewed" ? "default" : "secondary"}
+                variant={statusFilter === "applied" ? "default" : "secondary"}
                 size="sm"
-                onClick={() => setStatusFilter("reviewed")}
+                className={FILTER_BUTTON_CLASS}
+                onClick={() => setStatusFilter("applied")}
               >
-                Reviewed
+                Applied
               </Button>
               <Button
-                variant={statusFilter === "finalized" ? "default" : "secondary"}
+                variant={statusFilter === "interview" ? "default" : "secondary"}
                 size="sm"
-                onClick={() => setStatusFilter("finalized")}
+                className={FILTER_BUTTON_CLASS}
+                onClick={() => setStatusFilter("interview")}
               >
-                Finalized
+                Interview
+              </Button>
+              <Button
+                variant={statusFilter === "no_response" ? "default" : "secondary"}
+                size="sm"
+                className={FILTER_BUTTON_CLASS}
+                onClick={() => setStatusFilter("no_response")}
+              >
+                No Response
+              </Button>
+              <Button
+                variant={statusFilter === "not_selected" ? "default" : "secondary"}
+                size="sm"
+                className={FILTER_BUTTON_CLASS}
+                onClick={() => setStatusFilter("not_selected")}
+              >
+                Not Selected
               </Button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {filteredCoverLetters.map((coverLetter) => (
+            {filteredCoverLetters.map((coverLetter) => {
+              const displayStatus = getDisplayStatus(
+                coverLetter.status,
+                coverLetter.outcomeStatus
+              );
+              const isFinalized =
+                normalizeCoverLetterStatus(coverLetter.status) === "finalized";
+              const canUpdateOutcome = !isDemo && isFinalized;
+
+              return (
                 <Card
                   key={coverLetter.id}
                   className="shadow-soft transition-all duration-200 hover:shadow-medium cursor-pointer"
@@ -693,9 +905,61 @@ export default function CoverLetters() {
                     <div className="flex items-start justify-between gap-3">
                       <CardTitle className="text-lg">{coverLetter.title}</CardTitle>
                       <div className="flex items-center gap-2">
-                        <Badge className={getStatusTone(coverLetter.status)}>
-                          {getStatusLabel(coverLetter.status)}
-                        </Badge>
+                        {canUpdateOutcome ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="focus:outline-none"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Badge className={getStatusToneFromDisplay(displayStatus)}>
+                                  {getStatusLabelFromDisplay(displayStatus)}
+                                </Badge>
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="start"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <DropdownMenuLabel>Status</DropdownMenuLabel>
+                              <DropdownMenuRadioGroup
+                                value={coverLetter.outcomeStatus ?? "applied"}
+                                onValueChange={(value) =>
+                                  handleOutcomeChange(
+                                    coverLetter,
+                                    value as CoverLetterOutcomeStatus | "applied"
+                                  )
+                                }
+                              >
+                                <DropdownMenuRadioItem value="applied">
+                                  <Badge className={getStatusToneFromDisplay("applied")}>
+                                    Applied
+                                  </Badge>
+                                </DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="interview">
+                                  <Badge className={getStatusToneFromDisplay("interview")}>
+                                    Interview
+                                  </Badge>
+                                </DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="no_response">
+                                  <Badge className={getStatusToneFromDisplay("no_response")}>
+                                    No Response
+                                  </Badge>
+                                </DropdownMenuRadioItem>
+                                <DropdownMenuRadioItem value="not_selected">
+                                  <Badge className={getStatusToneFromDisplay("not_selected")}>
+                                    Not Selected
+                                  </Badge>
+                                </DropdownMenuRadioItem>
+                              </DropdownMenuRadioGroup>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <Badge className={getStatusToneFromDisplay(displayStatus)}>
+                            {getStatusLabelFromDisplay(displayStatus)}
+                          </Badge>
+                        )}
                         {!isDemo && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -710,6 +974,42 @@ export default function CoverLetters() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                              {canUpdateOutcome && (
+                                <>
+                                  <DropdownMenuLabel>Status</DropdownMenuLabel>
+                                  <DropdownMenuRadioGroup
+                                    value={coverLetter.outcomeStatus ?? "applied"}
+                                    onValueChange={(value) =>
+                                      handleOutcomeChange(
+                                        coverLetter,
+                                        value as CoverLetterOutcomeStatus | "applied"
+                                      )
+                                    }
+                                  >
+                                    <DropdownMenuRadioItem value="applied">
+                                      <Badge className={getStatusToneFromDisplay("applied")}>
+                                        Applied
+                                      </Badge>
+                                    </DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="interview">
+                                      <Badge className={getStatusToneFromDisplay("interview")}>
+                                        Interview
+                                      </Badge>
+                                    </DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="no_response">
+                                      <Badge className={getStatusToneFromDisplay("no_response")}>
+                                        No Response
+                                      </Badge>
+                                    </DropdownMenuRadioItem>
+                                    <DropdownMenuRadioItem value="not_selected">
+                                      <Badge className={getStatusToneFromDisplay("not_selected")}>
+                                        Not Selected
+                                      </Badge>
+                                    </DropdownMenuRadioItem>
+                                  </DropdownMenuRadioGroup>
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
                                 onClick={() => handleConfirmDelete(coverLetter)}
@@ -717,8 +1017,6 @@ export default function CoverLetters() {
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete cover letter
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleEdit(coverLetter)}>Open</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         )}
@@ -760,9 +1058,10 @@ export default function CoverLetters() {
                         </p>
                       </div>
                     </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       </main>
@@ -777,16 +1076,6 @@ export default function CoverLetters() {
         onCoverLetterCreated={handleCoverLetterCreated}
       />
       
-      <CoverLetterViewModal
-        isOpen={isViewModalOpen}
-        onClose={() => setIsViewModalOpen(false)}
-        coverLetter={modalPayload}
-        onEditGoals={handleEditGoals}
-        onAddStory={handleAddStory}
-        onEnhanceSection={handleEnhanceSection}
-        onAddMetrics={handleAddMetrics}
-      />
-      
       <CoverLetterEditModal
         isOpen={isEditModalOpen}
         onClose={async () => {
@@ -794,6 +1083,11 @@ export default function CoverLetters() {
           await fetchCoverLetters();
         }}
         coverLetter={modalPayload}
+        startInPreview={
+          modalPayload
+            ? normalizeCoverLetterStatus(modalPayload.status) === "finalized"
+            : false
+        }
         onSave={fetchCoverLetters}
         onEditGoals={handleEditGoals}
         onAddStory={handleAddStory}

@@ -19,7 +19,7 @@ export const CONTENT_STANDARDS: ContentStandardConfig[] = [
   {
     id: 'compelling_opening',
     label: 'Compelling Opening',
-    description: 'Strong hook that captures attention and shows genuine interest.',
+    description: 'Clear credibility and relevance early; hook is optional.',
     scope: 'section',
     aggregation: 'any_section', // Met if intro section meets it
     applicability: 'intro_only',
@@ -37,7 +37,7 @@ export const CONTENT_STANDARDS: ContentStandardConfig[] = [
   {
     id: 'quantified_impact',
     label: 'Quantified Impact',
-    description: 'Contains specific metrics, percentages, or measurable results.',
+    description: 'Contains specific metrics or concrete scope markers.',
     scope: 'section',
     aggregation: 'any_section', // Met if ANY section has metrics
     applicability: 'all_sections',

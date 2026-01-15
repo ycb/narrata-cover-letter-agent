@@ -526,7 +526,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
         <div className="flex items-center gap-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="text-white opacity-90 hover:opacity-100 transition-opacity p-2 h-auto">
+              <Button
+                variant="ghost"
+                className="text-white opacity-90 hover:opacity-100 transition-opacity p-2 h-auto"
+              >
                 <div className="flex items-center gap-2">
                   {/* User Avatar with Gap Badge */}
                   <div className="relative">
@@ -597,27 +600,42 @@ export const Header = ({ currentPage }: HeaderProps) => {
           )}
             <DropdownMenuContent align="end" className="w-56 p-3 rounded-t-none border-0" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)' }}>
               {!isDemo && (
-                <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
+                <DropdownMenuItem
+                  onClick={() => setShowDataModal(true)}
+                  className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end"
+                >
                   <span>My Data</span>
                 </DropdownMenuItem>
               )}
               {!isDemo && (
-                <DropdownMenuItem onClick={() => setShowGoalsModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
+                <DropdownMenuItem
+                  onClick={() => setShowGoalsModal(true)}
+                  className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end"
+                >
                   <span>My Goals</span>
                 </DropdownMenuItem>
               )}
               {!isDemo && (
-                <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
+                <DropdownMenuItem
+                  onClick={() => setShowVoiceModal(true)}
+                  className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end"
+                >
                   <span>My Voice</span>
                 </DropdownMenuItem>
               )}
               {!isDemo && (
-                <DropdownMenuItem onClick={() => navigate('/my-library')} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
+                <DropdownMenuItem
+                  onClick={() => navigate('/my-library')}
+                  className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end"
+                >
                   <span>My Library</span>
                 </DropdownMenuItem>
               )}
               {!isDemo && (
-                <DropdownMenuItem onClick={() => navigate('/my-tags')} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
+                <DropdownMenuItem
+                  onClick={() => navigate('/my-tags')}
+                  className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end"
+                >
                   <span>My Tags</span>
                 </DropdownMenuItem>
               )}

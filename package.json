@@ -61,6 +61,7 @@
     "harper.js": "^1.2.0",
     "html2canvas": "^1.4.1",
     "input-otp": "^1.2.4",
+    "jspdf": "^4.0.0",
     "logrocket": "^8.1.2",
     "logrocket-react": "^5.0.1",
     "lucide-react": "^0.395.0",

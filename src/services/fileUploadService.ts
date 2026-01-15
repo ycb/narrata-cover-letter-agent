@@ -1466,11 +1466,11 @@ source_type: dbSourceType,
       let workItemsCreated = 0;
       let workItemsUpdated = 0;
       let storiesCreated = 0;
-      let storiesFailed = 0;
+      const storiesFailed = 0;
       let companyUpsertMs = 0;
       let workItemUpsertMs = 0;
       let storyInsertMs = 0;
-      let gapDetectionMs = 0;
+      const gapDetectionMs = 0;
       
       // Debug: Log raw workHistory structure to see if stories are present
       console.log('🔍 DEBUG: Sample workHistory item:', {

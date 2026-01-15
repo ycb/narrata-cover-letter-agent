@@ -1,6 +1,7 @@
 import type { Json } from './supabase';
 
 export type RequirementCategory = 'standard' | 'preferred' | 'differentiator';
+export type CoverLetterOutcomeStatus = 'interview' | 'no_response' | 'not_selected';
 
 export interface RequirementInsight {
   id: string;
@@ -249,10 +250,23 @@ export interface SectionGapInsight {
   promptSummary: string;
   requirementGaps: Array<{
     id: string;
+    issue?: string;
     label: string;
+    status?: 'met' | 'unmet' | 'not_applicable';
     severity: 'high' | 'medium' | 'low';
+    rubricCriterionId?: string;
+    jdRequirementId?: string;
     requirementType?: 'core' | 'preferred' | 'differentiator' | 'narrative';
+    evidenceQuote?: string;
     rationale: string;
+    hiringRisk?: string;
+    whyNow?: string;
+    decisionTest?: {
+      addsSignal: boolean;
+      removesRedundancy: boolean;
+      clarifiesOwnership: boolean;
+      fixesSeniorityWeakness: boolean;
+    };
     recommendation: string;
   }>;
   recommendedMoves: string[];
@@ -289,6 +303,9 @@ export interface CoverLetterDraft {
   company?: string;
   role?: string;
   status: 'draft' | 'reviewed' | 'finalized';
+  outcomeStatus?: CoverLetterOutcomeStatus | null;
+  appliedAt?: string | null;
+  outcomeUpdatedAt?: string | null;
   sections: CoverLetterDraftSection[];
   metrics: CoverLetterMatchMetric[];
   atsScore: number;

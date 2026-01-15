@@ -37,7 +37,7 @@ const PROFILES = [
   'P06', 'P07', 'P08', 'P09', 'P10'
 ] as const;
 
-const OPENAI_API_KEY = envVars['VITE_OPENAI_KEY'] || process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY = envVars['VITE_OPENAI_API_KEY'] || process.env.OPENAI_API_KEY;
 const FIXTURES_PATH = path.join(__dirname, '../fixtures/synthetic/v1/raw_uploads');
 const RESULTS_PATH = path.join(__dirname, '../test-results');
 

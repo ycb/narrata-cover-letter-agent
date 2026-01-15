@@ -81,6 +81,43 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
   "differentiatorSummary": "1-2 sentence summary of what makes this role unique or what the company is specifically seeking (e.g., 'Seeks PM with AI/ML experience and growth metrics focus')"
 }
 
+INFERENCE EXAMPLES - Learn these patterns for extracting vertical, buyer, and user segments:
+
+Example 1: Mudflap (Fintech for Truckers)
+  JD mentions: "fuel payment platform for truckers", "helping owner-operators save money"
+  → companyIndustry: "Fintech"
+  → companyVertical: "Payments and Fuel Management"
+  → buyerSegment: "SMB / Independent operators" (truckers are small businesses)
+  → userSegment: "Truckers / Fleet operators"
+
+Example 2: Fieldguide (Audit Software)
+  JD mentions: "audit automation platform", "serving enterprise audit teams", "cybersecurity audits"
+  → companyIndustry: "Audit Tech"
+  → companyVertical: "Cybersecurity and Financial Audit"
+  → buyerSegment: "Enterprise" (audit teams are at enterprises)
+  → userSegment: "Audit practitioners"
+
+Example 3: GitHub (Developer Platform)
+  JD mentions: "developer tools", "code collaboration", "enterprise customers"
+  → companyIndustry: "Developer Tools"
+  → companyVertical: null (already maximally specific)
+  → buyerSegment: "Enterprise"
+  → userSegment: "Developers"
+
+Example 4: Headspace (Mental Health App)
+  JD mentions: "meditation and mental health app", "consumer subscription", "members"
+  → companyIndustry: "Healthcare SaaS"
+  → companyVertical: "Mental Health and Wellness"
+  → buyerSegment: "Consumer"
+  → userSegment: "Members / Consumers"
+
+Example 5: May Mobility (Autonomous Vehicles)
+  JD mentions: "autonomous vehicle technology", "transit agencies", "cities"
+  → companyIndustry: "Transportation Technology"
+  → companyVertical: "Autonomous Vehicles"
+  → buyerSegment: "Enterprise / Government" (infer from "transit agencies" and "cities")
+  → userSegment: "Transit operators / Passengers" (infer from autonomous transit context)
+
 EXTRACTION RULES:
 
 1. COMPANY:
@@ -109,9 +146,16 @@ EXTRACTION RULES:
    - Return null ONLY if no industry clues exist anywhere in the JD
 
 5. COMPANY VERTICAL:
-   - Extract the specific vertical or sub-industry the company serves
-   - Examples: "Solar SaaS", "Construction Tech", "Retail Analytics", "Healthcare Billing"
-   - Return null if no vertical is mentioned or implied
+   - Extract the specific vertical or sub-industry (more specific than industry)
+   - STRONGLY ENCOURAGED: Infer from product descriptions and company mission when possible
+   - Look for explicit mentions OR infer from context:
+     * Industry=Legal Tech + "personal injury case management" → "Personal Injury Tech"
+     * Industry=Fintech + "fuel payments for truckers" → "Payments and Fuel Management"
+     * Industry=Energy Tech + "AI for grid infrastructure" → "AI Infrastructure"
+     * Industry=Healthcare SaaS + "mental health and meditation" → "Mental Health and Wellness"
+     * Industry=Transportation + "autonomous vehicles" → "Autonomous Vehicles"
+   - Examples: "Solar SaaS", "Construction Tech", "Retail Analytics", "Healthcare Billing", "Cybersecurity and Financial Audit"
+   - Return null ONLY if industry is already maximally specific (e.g., "Legal Tech" with no discernible sub-vertical)
 
 6. COMPANY BUSINESS MODEL:
    - Extract how the company makes money or their customer model
@@ -120,14 +164,34 @@ EXTRACTION RULES:
    - Return null if not mentioned in JD
 
 7. BUYER SEGMENT:
-   - Identify the primary buyer segment(s)
-   - Look for: "enterprise", "mid-market", "SMB", "small business", "consumer"
-   - Return null if not mentioned or implied
+   - STRONGLY ENCOURAGED: Infer the primary buyer segment(s) from context clues
+   - Look for explicit mentions: "enterprise", "mid-market", "SMB", "small business", "consumer"
+   - INFER from context when not explicit:
+     * "Enterprise platform" / "Fortune 500 clients" → "Enterprise"
+     * "Small business software" / "helping local businesses" → "SMB"
+     * "Consumer app" / "millions of users" → "Consumer"
+     * "Mid-market companies" / "growing businesses" → "Mid-market"
+     * Business model includes "B2C" → "Consumer"
+     * Business model includes "B2B" + mentions large companies → "Enterprise"
+     * Mentions "independent operators" or "owner-operators" → "SMB / Independent operators"
+   - Can return combined segments (e.g., "SMB / Mid-market", "Enterprise / Mid-market")
+   - Return null ONLY if absolutely no clues exist about who buys the product
 
 8. USER SEGMENT:
-   - Identify the primary end-users or user personas
-   - Look for: "users", "customers", "operators", "installers", "admins", "consumers"
-   - Return null if not mentioned or implied
+   - STRONGLY ENCOURAGED: Infer the primary end-users from context clues
+   - Look for explicit mentions: "users", "customers", "operators", "installers", "admins", "consumers"
+   - INFER from job responsibilities and product descriptions:
+     * "Partner with sales teams to understand SMB needs" → "SMB operators / Small business owners"
+     * "Design features for enterprise admins" → "Enterprise admins"
+     * "Consumer-facing mobile app" → "Consumers"
+     * "Software for truckers" → "Truckers / Fleet operators"
+     * "Helping contractors and installers" → "Contractors / Integrators"
+     * "Platform for developers" → "Developers"
+     * "Audit software" → "Audit practitioners / Auditors"
+     * "Tools for finance teams" → "Finance / Accounting teams"
+   - Extract from product/service descriptions (e.g., "helping injured people" → "Personal injury victims")
+   - Can return combined segments (e.g., "Developers / Operations teams", "Finance / Sustainability leaders")
+   - Return null ONLY if absolutely no clues exist about who uses the product
 
 9. COMPANY MATURITY:
    - Determine company stage based on context clues

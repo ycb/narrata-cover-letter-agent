@@ -296,7 +296,7 @@ VITE_PDL_API_KEY=your_api_key_here
 ```
 
 ### Optional (already exist)
-- `VITE_OPENAI_KEY` - For resume parsing
+- `VITE_OPENAI_API_KEY` - For resume parsing
 - `VITE_SUPABASE_URL` - For data storage
 - `VITE_SUPABASE_ANON_KEY` - For auth
 

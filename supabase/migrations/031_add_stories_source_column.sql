@@ -3,8 +3,12 @@
 
 DO $$ 
 BEGIN
-  -- Only add if column doesn't exist
-  IF NOT EXISTS (
+  -- Only add if stories table exists and column doesn't exist
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+    AND table_name = 'stories'
+  ) AND NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
     WHERE table_schema = 'public' 
     AND table_name = 'stories' 
@@ -22,6 +26,12 @@ BEGIN
     COMMENT ON COLUMN public.stories.source IS 'Origin of the story: resume, linkedin, cover_letter, or manual';
   END IF;
 END $$;
+
+
+
+
+
+
 
 
 

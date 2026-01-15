@@ -80,7 +80,7 @@ export class ContentGenerationService {
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = (import.meta.env?.VITE_OPENAI_KEY) || '';
+    this.apiKey = (import.meta.env?.VITE_OPENAI_API_KEY) || '';
     this.baseUrl = 'https://api.openai.com/v1';
 
     if (!this.apiKey) {

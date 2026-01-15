@@ -3,6 +3,12 @@ import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { useState, useMemo } from "react";
 import { 
   Layers, 
@@ -10,7 +16,9 @@ import {
   ExternalLink as ExternalLinkIcon,
   Tags,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  MoreHorizontal,
+  Trash2
 } from "lucide-react";
 import type { WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
 import { cn } from "@/lib/utils";
@@ -61,6 +69,7 @@ interface StoryCardProps {
   onEdit?: (story: WorkHistoryBlurb) => void;
   onDuplicate?: (story: WorkHistoryBlurb) => void;
   onDelete?: (story: WorkHistoryBlurb) => void;
+  onDeleteVariation?: (storyId: string, variationId: string) => void;
   onTagSuggestions?: (tags: string[]) => void;
   className?: string;
   isGapResolved?: boolean;
@@ -76,6 +85,7 @@ export const StoryCard = ({
   onEdit, 
   onDuplicate, 
   onDelete,
+  onDeleteVariation,
   onTagSuggestions,
   className,
   isGapResolved = false,
@@ -221,17 +231,42 @@ export const StoryCard = ({
               {story.variations.map((variation, index) => (
                 <div key={variation.id} className="p-3 bg-muted/30 rounded-lg border-l-4 border-primary">
                   {/* Header */}
-                  <div className="mb-3">
-                    <div className="text-sm font-medium text-foreground mb-1">
-                      {variation.filledGap
-                        ? `Fills Gap: ${variation.filledGap}`
-                        : variation.developedForJobTitle
-                        ? `For ${variation.developedForJobTitle}`
-                        : `Variant #${index + 1}`}
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-foreground mb-1">
+                        {variation.filledGap
+                          ? `Fills Gap: ${variation.filledGap}`
+                          : variation.developedForJobTitle
+                          ? `For ${variation.developedForJobTitle}`
+                          : `Variant #${index + 1}`}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(variation.createdAt).toLocaleDateString()}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(variation.createdAt).toLocaleDateString()}
-                    </div>
+                    {onDeleteVariation && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                          >
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => onDeleteVariation(story.id, variation.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
 
                   {/* Content area */}

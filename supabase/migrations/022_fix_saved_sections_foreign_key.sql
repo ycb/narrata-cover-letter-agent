@@ -28,6 +28,12 @@ BEGIN
     FROM information_schema.tables 
     WHERE table_schema = 'public' 
     AND table_name = 'sources'
+  ) AND EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'saved_sections'
+      AND column_name = 'source_file_id'
   ) THEN
     ALTER TABLE public.saved_sections
     ADD CONSTRAINT saved_sections_source_file_id_fkey
@@ -36,4 +42,3 @@ BEGIN
     ON DELETE SET NULL;
   END IF;
 END $$;
-

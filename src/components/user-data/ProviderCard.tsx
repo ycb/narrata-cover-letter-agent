@@ -171,7 +171,7 @@ export function ProviderCard() {
       // Reset to defaults for new configuration
       resetForm();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [showBYOMDialog, settings]);
 
   // Get available models for selected provider

@@ -18,6 +18,7 @@ create index if not exists user_tags_user_id_category_idx
 
 alter table public.user_tags enable row level security;
 
+drop policy if exists "Users manage their tags" on public.user_tags;
 create policy "Users manage their tags"
   on public.user_tags
   for all

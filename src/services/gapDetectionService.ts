@@ -1523,7 +1523,7 @@ export class GapDetectionService {
     evalsLogger?.start();
 
     try {
-      const apiKey = (import.meta.env?.VITE_OPENAI_KEY) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) || '';
+      const apiKey = (import.meta.env?.VITE_OPENAI_API_KEY) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) || '';
       
       if (!apiKey) {
         console.warn('[GapDetection] OpenAI API key not found, using fallback heuristics for batch');
