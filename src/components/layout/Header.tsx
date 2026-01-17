@@ -24,7 +24,8 @@ import {
   Rocket,
   Cpu,
   Menu,
-  X
+  X,
+  UserRound
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -514,6 +515,18 @@ export const Header = ({ currentPage }: HeaderProps) => {
                         <Trophy className="h-4 w-4" />
                         User Leaderboard
                       </Link>
+                      <Link 
+                        to="/admin/spoof" 
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
+                          location.pathname === "/admin/spoof"
+                            ? "text-white bg-white/10"
+                            : "text-white"
+                        )}
+                      >
+                        <UserRound className="h-4 w-4" />
+                        View As User
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -956,6 +969,19 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   >
                     <Trophy className="h-4 w-4" />
                     User Leaderboard
+                  </Link>
+                  <Link
+                    to="/admin/spoof"
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2 text-sm transition-all rounded-md",
+                      location.pathname === "/admin/spoof"
+                        ? "text-white bg-white/10"
+                        : "text-white opacity-75 hover:opacity-100"
+                    )}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <UserRound className="h-4 w-4" />
+                    View As User
                   </Link>
                 </div>
               </div>

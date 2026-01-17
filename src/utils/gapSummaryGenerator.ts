@@ -51,6 +51,7 @@ export function generateGapSummary(
     'incomplete_intro': 7,
     'incomplete_cover_letter_section': 9,
     'missing_metrics_cover_letter': 6,
+    'incomplete_closing': 6,
     'incomplete_signature': 5,
     
     // Tags
@@ -100,6 +101,7 @@ export function generateGapSummary(
       'incomplete_intro': 'Add company and role-specific details',
       'incomplete_cover_letter_section': 'Add narrative structure (STAR format)',
       'missing_metrics_cover_letter': 'Add quantifiable achievements',
+      'incomplete_closing': 'Add closing intent (thanks or next steps)',
       'incomplete_signature': 'Add contact information',
       // Multiple gaps
       'multiple': 'Add structure, metrics, and specific content',

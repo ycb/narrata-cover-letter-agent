@@ -747,10 +747,12 @@ export class PMLevelsService {
     } else if (score < 5.5) {
       // High IC level - Principal/Staff with broad impact
       return { levelCode: 'L6', displayLevel: 'Principal Product Manager' };
-    } else {
-      // Very high scores indicate management-level scope
-      // M1 for Group PM/Director level, would need M2 for VP in future
+    } else if (score < 6.5) {
+      // M1 for Group PM/Director level
       return { levelCode: 'M1', displayLevel: 'Group Product Manager' };
+    } else {
+      // M2 for VP/Senior Leadership level
+      return { levelCode: 'M2', displayLevel: 'VP of Product' };
     }
   }
 
@@ -2292,7 +2294,7 @@ export class PMLevelsService {
       'L5': 'Senior Product Manager' as PMLevelDisplay,
       'L6': 'Staff/Principal Product Manager' as PMLevelDisplay,
       'M1': 'Group Product Manager' as PMLevelDisplay,
-      'M2': 'Director of Product' as PMLevelDisplay
+      'M2': 'VP of Product' as PMLevelDisplay
     };
     return displayMap[levelCode] || (levelCode as PMLevelDisplay);
   }

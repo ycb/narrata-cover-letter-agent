@@ -753,6 +753,34 @@ source_type: dbSourceType,
   }
 
   /**
+   * Guardrail: detect invalid extracted text (placeholders or empty output).
+   */
+  private getExtractionFailureReason(text: string, type: FileType): string | null {
+    const normalized = text.trim();
+    if (!normalized) {
+      return 'No text extracted from file';
+    }
+
+    const placeholderPatterns = [
+      /^\[(PDF file processed|DOCX content extracted)[^\]]*\]$/i,
+      /Text extraction unavailable/i,
+    ];
+    if (placeholderPatterns.some((pattern) => pattern.test(normalized))) {
+      return 'Placeholder text returned instead of document content';
+    }
+
+    if (type === 'resume' || type === 'coverLetter') {
+      const wordCount = normalized.split(/\s+/).filter(Boolean).length;
+      const minWords = type === 'coverLetter' ? 80 : 50;
+      if (wordCount < minWords) {
+        return `Extracted text too short (${wordCount} words)`;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Process content (file or text) with unified LLM analysis
    */
   async processContent(
@@ -850,6 +878,19 @@ source_type: dbSourceType,
       console.log('═══════════════════════════════════════════════════════════');
       console.log(extractedText);
       console.log('═══════════════════════════════════════════════════════════');
+
+      const extractionFailureReason = this.getExtractionFailureReason(extractedText, type);
+      if (extractionFailureReason) {
+        this.emitProgress('failed', 0, 'Text extraction failed', type, { reason: extractionFailureReason });
+        await this.updateProcessingStatus(
+          sourceId,
+          'failed',
+          undefined,
+          `Text extraction failed: ${extractionFailureReason}`,
+          accessToken
+        );
+        throw new Error(`Text extraction failed: ${extractionFailureReason}`);
+      }
       
       // Update with raw text
       console.log('⏱️  [TIMING] Saving raw_text to sources...');
@@ -896,6 +937,53 @@ source_type: dbSourceType,
         await this.saveCoverLetterSections(sections, sourceId, accessToken);
         saveSectionsMs = performance.now() - sectionsStart;
         console.log(`⏱️  [TIMING] ✅ Saved CL sections: ${saveSectionsMs.toFixed(2)}ms (${sections.length} sections)`);
+        
+        // ✅ NEW: Trigger gap detection for cover letter sections
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const userId = session?.user?.id;
+          
+          if (userId) {
+            const { GapDetectionService } = await import('./gapDetectionService');
+            const { data: savedSections } = await supabase
+              .from('saved_sections')
+              .select('id, type, content, title')
+              .eq('source_id', sourceId)
+              .eq('user_id', userId);
+            
+            // ✅ Type mapping: database types (body/closer) -> expected types (paragraph/closer)
+            const typeMapping: Record<string, 'intro' | 'paragraph' | 'closer' | 'signature'> = {
+              'intro': 'intro',
+              'body': 'paragraph',
+              'closer': 'closer',
+              'signature': 'signature'
+            };
+            
+            const sectionGaps: any[] = [];
+            for (const section of savedSections || []) {
+              const mappedType = typeMapping[section.type] || 'paragraph';
+              
+              const gaps = await GapDetectionService.detectCoverLetterSectionGaps(userId, {
+                id: section.id,
+                type: mappedType,
+                content: section.content,
+                title: section.title
+              });
+              sectionGaps.push(...gaps);
+            }
+            
+            if (sectionGaps.length > 0) {
+              await GapDetectionService.saveGaps(sectionGaps, accessToken);
+              console.log(`✅ [GapDetection] Created ${sectionGaps.length} cover letter section gap(s)`);
+            } else {
+              console.log(`ℹ️ [GapDetection] No gaps detected in cover letter sections`);
+            }
+          }
+        } catch (gapError) {
+          console.error('⚠️ [GapDetection] Failed to detect cover letter section gaps (non-blocking):', gapError);
+          // Non-blocking - don't fail upload
+        }
+        
         const totalParagraphs = parsed.bodyParagraphs.length + (parsed.introduction ? 1 : 0) + (parsed.closing ? 1 : 0) + (parsed.greeting ? 1 : 0);
         this.emitProgress(
           'sections-saved',
@@ -1556,6 +1644,10 @@ source_type: dbSourceType,
         companyUpsertMs = performance.now() - start;
         if (companiesErr) {
           console.error('❌ Error upserting companies batch:', companiesErr);
+          throw new Error(`Companies upsert failed: ${companiesErr.message}`);
+        }
+        if (!upsertedCompanies || upsertedCompanies.length === 0) {
+          throw new Error('Companies upsert returned no rows');
         }
         (upsertedCompanies || []).forEach((row: any) => {
           const norm = normalizeCompanyName(row.name);
@@ -1667,6 +1759,10 @@ source_type: dbSourceType,
         workItemUpsertMs = performance.now() - start;
         if (insertWorkErr) {
           console.error('❌ Error inserting work items batch:', insertWorkErr);
+          throw new Error(`Work items insert failed: ${insertWorkErr.message}`);
+        }
+        if (!insertedWorkItems || insertedWorkItems.length === 0) {
+          throw new Error('Work items insert returned no rows');
         }
         (insertedWorkItems || []).forEach((wi: any) => {
           const key = `${wi.company_id}|${wi.title}|${wi.start_date || ''}|${wi.end_date || ''}`;
@@ -1823,20 +1919,38 @@ source_type: dbSourceType,
       // Kick off background LLM judge for generic content gaps (non-blocking)
       if (isBackgroundGenericGapJudgeEnabled()) {
         console.log('⏱️  [TIMING] Queueing background generic gap judge (non-blocking)...');
-        this.runBackgroundGenericGapJudge(sourceId, userId, accessToken).catch((err) => {
-          console.error('[GapDetection] Background generic gap judge failed:', err);
-        });
+        this.runBackgroundGenericGapJudge(sourceId, userId, accessToken)
+          .then((gapCount) => {
+            console.log(`✅ [GapDetection] Background judge created ${gapCount} gap(s)`);
+          })
+          .catch((err) => {
+            console.error('❌ [GapDetection] Background generic gap judge FAILED:', err);
+            // TODO: Log to monitoring service (Sentry, etc.)
+          });
       } else {
-        console.log('📌 Background generic gap judge disabled by feature flag (ENABLE_BACKGROUND_GENERIC_GAP_JUDGE=false)');
+        console.warn('⚠️ [GapDetection] Background generic gap judge disabled - work history gaps will not be detected');
       }
 
+      // Schedule PM Levels analysis (non-blocking)
       schedulePMLevelBackgroundRun({
         userId,
         syntheticProfileId: activeProfileId || undefined,
         delayMs: 6000,
         reason: `[FileUploadService] Structured data processed from ${sourceData.file_name || sourceId}`,
         triggerReason: 'content-update',
-      });
+        runType: 'initial',
+      })
+        .then((result) => {
+          if (result.error) {
+            console.error('❌ [PMLevels] Failed to schedule background job:', result.error);
+            // TODO: Log to monitoring service, surface to user, or retry
+          } else {
+            console.log(`✅ [PMLevels] Background job scheduled: ${result.jobId}`);
+          }
+        })
+        .catch((err) => {
+          console.error('❌ [PMLevels] Unexpected error scheduling job:', err);
+        });
       
       // Emit progress update
       window.dispatchEvent(new CustomEvent('upload:progress', {
@@ -1849,6 +1963,7 @@ source_type: dbSourceType,
       }));
     } catch (error) {
       console.error('Error processing structured data:', error);
+      throw error;
     }
   }
 
@@ -3545,8 +3660,9 @@ source_type: dbSourceType,
 
   /**
    * Background LLM judge for generic content gaps (non-blocking)
+   * Returns the number of gaps created
    */
-  private async runBackgroundGenericGapJudge(sourceId: string, userId: string, accessToken?: string): Promise<void> {
+  private async runBackgroundGenericGapJudge(sourceId: string, userId: string, accessToken?: string): Promise<number> {
     try {
       const dbClient = accessToken
         ? createSbClient(
@@ -3590,7 +3706,7 @@ source_type: dbSourceType,
       });
 
       if (contentItems.length === 0) {
-        return;
+        return 0;  // ✅ Return 0 gaps
       }
 
       const { GapDetectionService } = await import('./gapDetectionService');
@@ -3616,8 +3732,11 @@ source_type: dbSourceType,
         await GapDetectionService.saveGaps(gaps, accessToken);
         console.log(`[GapDetection] Background LLM judge created ${gaps.length} generic gap(s)`);
       }
+      
+      return gaps.length;  // ✅ Return gap count
     } catch (err) {
       console.error('[GapDetection] Background judge error:', err);
+      throw err;  // ✅ Propagate error instead of swallowing
     }
   }
 }

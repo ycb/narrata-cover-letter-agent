@@ -13,7 +13,7 @@ import {
 import { toast } from 'sonner';
 
 export function usePersonalData() {
-  const { user } = useAuth();
+  const { user, refreshOnboardingStatus } = useAuth();
   const [assets, setAssets] = useState<PersonalDataAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -61,6 +61,7 @@ export function usePersonalData() {
       
       if (result.success) {
         await loadAssets();
+        await refreshOnboardingStatus();
         toast.success('Asset deleted successfully');
       } else {
         toast.error(result.error || 'Failed to delete asset');
@@ -117,4 +118,3 @@ export function usePersonalData() {
     checkDependencies,
   };
 }
-

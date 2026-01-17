@@ -110,6 +110,7 @@ export interface AdminEvaluationRunsFilters {
 
 export interface SpoofUserRequest {
   target_user_id: string;
+  redirect_to?: string;
 }
 
 export interface SpoofUserResponse {
@@ -134,4 +135,3 @@ export interface AdminState {
   spoofedUserId: string | null;
   spoofedUserEmail: string | null;
 }
-

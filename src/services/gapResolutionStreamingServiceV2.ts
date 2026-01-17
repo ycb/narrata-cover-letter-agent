@@ -386,6 +386,8 @@ If any criteria suggest “metrics” or “specific examples”, satisfy them i
 ${isClosing ? `**Closing Strategy (follow strictly):**
 - Goal: concise close that reinforces fit + genuine interest; a confident next step is optional.
 - Do NOT introduce new stories or new achievements here (those belong in the body).
+- Do NOT introduce metrics or quantitative outcomes unless they already appear in the closing content.
+- If a gap or suggestion mentions metrics, ignore it and reinforce fit/mission alignment instead.
 - Do NOT add a new paragraph for a story; do NOT expand into multiple paragraphs.
 - If this section includes a sign-off, preserve it; otherwise do not invent contact info.
 - Keep it 2–4 sentences for the closing paragraph (plus sign-off lines if already present in existing content).
@@ -412,6 +414,7 @@ ${outputMissingRule}
 - You are revising ONE section in a larger draft. Avoid adding details that would likely be repeated in dedicated story paragraphs.
 - If a requirement is already clearly demonstrated elsewhere (see Draft Coverage Map), avoid repeating the same evidence; instead focus this section on unmet requirements or add a new angle.
  - For body sections, never include salutation or sign-off.
+ - For closing sections, do NOT add new metrics or achievements; summarize established fit and mission alignment only.
 
 Output ONLY the revised paragraph.`;
   }

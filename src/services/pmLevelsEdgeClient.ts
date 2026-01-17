@@ -14,38 +14,49 @@ export const schedulePMLevelBackgroundRun = ({
   syntheticProfileId,
   delayMs = 0,
   reason,
-}: SchedulePMLevelsOptions): void => {
+  triggerReason = 'content-update',  // ✅ Add default value
+  runType = 'initial',                // ✅ Add default value
+}: SchedulePMLevelsOptions): Promise<{ jobId?: string; error?: any }> => {  // ✅ Return Promise
   if (!userId) {
     console.warn('[PMLevelsEdgeClient] schedulePMLevelBackgroundRun called without userId');
-    return;
+    return Promise.resolve({ error: 'Missing userId' });  // ✅ Return error
   }
 
-  const triggerJob = async () => {
+  const triggerJob = async (): Promise<{ jobId?: string; error?: any }> => {
     try {
-      const { error } = await supabase.functions.invoke<{ jobId: string }>('create-job', {
+      const { data, error } = await supabase.functions.invoke<{ jobId: string }>('create-job', {
         body: {
           type: 'pmLevels',
-      input: {
-        profileId: syntheticProfileId || undefined,
-        forceRefresh: true,
-        reason,
-        triggerReason,
-        runType,
-      },
-    },
-  });
+          input: {
+            profileId: syntheticProfileId || undefined,
+            forceRefresh: true,
+            reason,
+            triggerReason,  // ✅ Now defined
+            runType,        // ✅ Now defined
+          },
+        },
+      });
 
       if (error) {
-        console.warn('[PMLevelsEdgeClient] Failed to enqueue PM Levels job:', error);
+        console.error('[PMLevelsEdgeClient] Failed to enqueue PM Levels job:', error);
+        return { error };  // ✅ Return error for caller to handle
       }
+      
+      console.log(`✅ [PMLevelsEdgeClient] PM Levels job created: ${data?.jobId}`);
+      return { jobId: data?.jobId };  // ✅ Return success
     } catch (err) {
-      console.warn('[PMLevelsEdgeClient] Error enqueuing PM Levels job:', err);
+      console.error('[PMLevelsEdgeClient] Error enqueuing PM Levels job:', err);
+      return { error: err };  // ✅ Return error for caller to handle
     }
   };
 
   if (delayMs > 0) {
-    setTimeout(triggerJob, delayMs);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        triggerJob().then(resolve);  // ✅ Resolve with result
+      }, delayMs);
+    });
   } else {
-    void triggerJob();
+    return triggerJob();  // ✅ Return promise
   }
 };

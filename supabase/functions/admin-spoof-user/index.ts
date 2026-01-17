@@ -41,7 +41,7 @@ serve(async (req) => {
     }
     
     // Parse request
-    const { target_user_id } = await req.json();
+    const { target_user_id, redirect_to } = await req.json();
     
     if (!target_user_id) {
       return new Response(
@@ -89,6 +89,7 @@ serve(async (req) => {
     const { data: sessionData, error: sessionError } = await adminClient.auth.admin.generateLink({
       type: 'magiclink',
       email: targetUser.user.email!,
+      options: redirect_to ? { redirectTo: redirect_to } : undefined,
     });
     
     if (sessionError || !sessionData) {
@@ -129,4 +130,3 @@ serve(async (req) => {
     );
   }
 });
-

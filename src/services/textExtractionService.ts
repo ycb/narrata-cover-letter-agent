@@ -5,6 +5,8 @@ import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 // Dynamic imports for production libraries
 let pdfjsLib: any = null;
 let mammoth: any = null;
+let pdfjsInitError: string | null = null;
+let mammothInitError: string | null = null;
 
 export class TextExtractionService {
   /**
@@ -16,7 +18,8 @@ export class TextExtractionService {
         pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
       } catch (error) {
-        console.warn('pdfjs-dist not available, using fallback');
+        pdfjsInitError = error instanceof Error ? error.message : String(error);
+        console.warn('pdfjs-dist not available:', pdfjsInitError);
       }
     }
     
@@ -24,7 +27,8 @@ export class TextExtractionService {
       try {
         mammoth = await import('mammoth');
       } catch (error) {
-        console.warn('mammoth not available, using fallback');
+        mammothInitError = error instanceof Error ? error.message : String(error);
+        console.warn('mammoth not available:', mammothInitError);
       }
     }
   }
@@ -64,8 +68,14 @@ export class TextExtractionService {
     try {
       const arrayBuffer = await file.arrayBuffer();
       
-      if (pdfjsLib) {
-        // Use PDF.js library
+      if (!pdfjsLib) {
+        return {
+          success: false,
+          error: `PDF extraction unavailable. ${pdfjsInitError || 'pdfjs-dist failed to load.'}`
+        };
+      }
+
+      {
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         let fullText = '';
         
@@ -112,13 +122,6 @@ export class TextExtractionService {
           success: true,
           text: this.cleanText(fullText)
         };
-      } else {
-        // Fallback implementation
-        const text = await this.parsePDFFallback(arrayBuffer);
-        return {
-          success: true,
-          text: this.cleanText(text)
-        };
       }
     } catch (error) {
       console.error('PDF extraction error:', error);
@@ -136,27 +139,24 @@ export class TextExtractionService {
     try {
       const arrayBuffer = await file.arrayBuffer();
       
-      if (mammoth) {
-        // Use production mammoth library with better formatting preservation
-        const result = await mammoth.extractRawText({ 
-          arrayBuffer,
-          // Preserve paragraph breaks
-          convertImage: mammoth.images.imgElement(() => ({ src: '' }))
-        });
-        
-        // Mammoth's extractRawText already preserves line breaks
+      if (!mammoth) {
         return {
-          success: true,
-          text: this.cleanText(result.value)
-        };
-      } else {
-        // Fallback implementation
-        const text = await this.parseDOCXFallback(arrayBuffer);
-        return {
-          success: true,
-          text: this.cleanText(text)
+          success: false,
+          error: `DOCX extraction unavailable. ${mammothInitError || 'mammoth failed to load.'}`
         };
       }
+
+      const result = await mammoth.extractRawText({ 
+        arrayBuffer,
+        // Preserve paragraph breaks
+        convertImage: mammoth.images.imgElement(() => ({ src: '' }))
+      });
+      
+      // Mammoth's extractRawText already preserves line breaks
+      return {
+        success: true,
+        text: this.cleanText(result.value)
+      };
     } catch (error) {
       console.error('DOCX extraction error:', error);
       return {

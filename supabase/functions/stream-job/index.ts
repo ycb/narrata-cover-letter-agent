@@ -25,10 +25,12 @@ serve(async (req) => {
     const url = new URL(req.url);
     const jobId = url.searchParams.get('jobId');
     const accessToken = url.searchParams.get('access_token');
+    const mode = url.searchParams.get('mode') || 'pipeline';
 
     console.log('[stream-job] Request received:', {
       hasJobId: !!jobId,
       hasAccessToken: !!accessToken,
+      mode,
       url: url.pathname,
     });
 
@@ -118,6 +120,8 @@ serve(async (req) => {
       async start(controller) {
         const encoder = new TextEncoder();
         let heartbeatInterval: number | null = null;
+        let watchInterval: number | null = null;
+        let closed = false;
 
         // Helper to send SSE message
         const send = (event: string, data: any) => {
@@ -134,6 +138,93 @@ serve(async (req) => {
             timestamp: new Date().toISOString(),
           });
         }, 15000); // Every 15 seconds
+        const closeStream = () => {
+          if (closed) return;
+          closed = true;
+          if (heartbeatInterval) clearInterval(heartbeatInterval);
+          if (watchInterval) clearInterval(watchInterval);
+          controller.close();
+        };
+
+        if (mode === 'watch') {
+          let lastStages: Record<string, any> = job.stages || {};
+          let lastStatus: string | null = job.status || null;
+
+          const emitStageChanges = (nextStages: Record<string, any>) => {
+            const stageEntries = Object.entries(nextStages);
+            for (const [stageName, stageData] of stageEntries) {
+              const prev = lastStages[stageName];
+              const prevSignature = JSON.stringify(prev ?? {});
+              const nextSignature = JSON.stringify(stageData ?? {});
+              if (prevSignature === nextSignature) continue;
+              send('progress', {
+                jobId,
+                stage: stageName,
+                isPartial: stageData?.status === 'running',
+                data: stageData?.data ?? stageData,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          };
+
+          const pollJob = async () => {
+            if (closed) return;
+            const { data: latest, error: pollError } = await supabase
+              .from('jobs')
+              .select('*')
+              .eq('id', jobId)
+              .eq('user_id', user.id)
+              .single();
+
+            if (pollError || !latest) {
+              send('error', {
+                jobId,
+                error: pollError?.message || 'Job not found',
+                timestamp: new Date().toISOString(),
+              });
+              closeStream();
+              return;
+            }
+
+            const nextStages = (latest.stages as Record<string, any>) || {};
+            emitStageChanges(nextStages);
+            lastStages = nextStages;
+
+            if (latest.status !== lastStatus) {
+              lastStatus = latest.status;
+            }
+
+            if (latest.status === 'complete') {
+              send('complete', {
+                jobId,
+                result: latest.result || null,
+                timestamp: new Date().toISOString(),
+              });
+              closeStream();
+            } else if (latest.status === 'error') {
+              send('error', {
+                jobId,
+                error: latest.error_message || 'Job failed',
+                timestamp: new Date().toISOString(),
+              });
+              closeStream();
+            }
+          };
+
+          await pollJob();
+          watchInterval = setInterval(() => {
+            pollJob().catch((pollError) => {
+              console.error('[stream-job] Watch poll error:', pollError);
+              send('error', {
+                jobId,
+                error: pollError?.message || 'Job watch failed',
+                timestamp: new Date().toISOString(),
+              });
+              closeStream();
+            });
+          }, 2000);
+          return;
+        }
 
         // Update job status to running
         await supabase
@@ -226,4 +317,3 @@ serve(async (req) => {
 // - Cover Letter: executeCoverLetterPipeline
 // - Onboarding: executeOnboardingPipeline
 // - PM Levels: executePMLevelsPipeline
-

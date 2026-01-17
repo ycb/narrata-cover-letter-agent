@@ -15,6 +15,7 @@ export type Database = {
           email: string
           full_name: string | null
           avatar_url: string | null
+          onboarding_complete: boolean
           role: 'user' | 'admin'
           organization_id: string | null
           created_at: string
@@ -25,6 +26,7 @@ export type Database = {
           email: string
           full_name?: string | null
           avatar_url?: string | null
+          onboarding_complete?: boolean
           role?: 'user' | 'admin'
           organization_id?: string | null
           created_at?: string
@@ -35,6 +37,7 @@ export type Database = {
           email?: string
           full_name?: string | null
           avatar_url?: string | null
+          onboarding_complete?: boolean
           role?: 'user' | 'admin'
           organization_id?: string | null
           created_at?: string

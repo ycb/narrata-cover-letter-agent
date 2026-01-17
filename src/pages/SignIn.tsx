@@ -250,7 +250,7 @@ const SignIn = () => {
 
         {/* Footer */}
         <div className="text-center mt-8 text-xs text-muted-foreground">
-          <p>© 2024 Narrata. All rights reserved.</p>
+          <p>© 2026 Narrata. All rights reserved.</p>
         </div>
       </div>
     </div>

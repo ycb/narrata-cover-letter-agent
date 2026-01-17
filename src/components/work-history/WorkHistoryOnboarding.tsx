@@ -1,16 +1,29 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Linkedin, FileText, ArrowRight, Briefcase } from "lucide-react";
+import { isLinkedInScrapingEnabled } from "@/lib/flags";
 
 interface WorkHistoryOnboardingProps {
-  onConnectLinkedIn: () => void;
+  onConnectLinkedIn?: () => void;
   onUploadResume: () => void;
+  resumeActionLabel?: string;
+  resumeDescription?: string;
 }
 
 export function WorkHistoryOnboarding({
   onConnectLinkedIn,
-  onUploadResume
+  onUploadResume,
+  resumeActionLabel,
+  resumeDescription
 }: WorkHistoryOnboardingProps) {
+  const showLinkedIn = isLinkedInScrapingEnabled();
+  const resumeLabel = resumeActionLabel || (showLinkedIn ? 'Upload Resume' : 'Return to Onboarding');
+  const resumeCopy =
+    resumeDescription ||
+    (showLinkedIn
+      ? 'Extract work history and achievements from your existing resume document'
+      : 'Go back to onboarding to re-upload your resume and cover letter');
+
   return (
     <div className="flex items-center justify-center min-h-[500px]">
       <div className="max-w-2xl mx-auto text-center space-y-8">
@@ -26,29 +39,31 @@ export function WorkHistoryOnboarding({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className={`grid grid-cols-1 ${showLinkedIn ? 'md:grid-cols-2' : ''} gap-6`}>
           {/* LinkedIn Option */}
-          <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer group" onClick={onConnectLinkedIn}>
-            <div className="space-y-4">
-              <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                <Linkedin className="h-6 w-6 text-blue-600" />
+          {showLinkedIn && onConnectLinkedIn && (
+            <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer group" onClick={onConnectLinkedIn}>
+              <div className="space-y-4">
+                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                  <Linkedin className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-foreground">Connect LinkedIn</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically import your work history, roles, and achievements from your LinkedIn profile
+                  </p>
+                </div>
+                <Button 
+                  onClick={onConnectLinkedIn}
+                  className="w-full group-hover:bg-primary/90 transition-colors"
+                >
+                  <Linkedin className="h-4 w-4 mr-2" />
+                  Connect LinkedIn
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
               </div>
-              <div className="space-y-2">
-                <h3 className="font-semibold text-foreground">Connect LinkedIn</h3>
-                <p className="text-sm text-muted-foreground">
-                  Automatically import your work history, roles, and achievements from your LinkedIn profile
-                </p>
-              </div>
-              <Button 
-                onClick={onConnectLinkedIn}
-                className="w-full group-hover:bg-primary/90 transition-colors"
-              >
-                <Linkedin className="h-4 w-4 mr-2" />
-                Connect LinkedIn
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </Card>
+            </Card>
+          )}
 
           {/* Resume Option */}
           <Card className="p-6 hover:shadow-md transition-shadow cursor-pointer group" onClick={onUploadResume}>
@@ -57,9 +72,9 @@ export function WorkHistoryOnboarding({
                 <FileText className="h-6 w-6 text-slate-600" />
               </div>
               <div className="space-y-2">
-                <h3 className="font-semibold text-foreground">Upload Resume</h3>
+                <h3 className="font-semibold text-foreground">{resumeLabel}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Extract work history and achievements from your existing resume document
+                  {resumeCopy}
                 </p>
               </div>
               <Button 
@@ -68,7 +83,7 @@ export function WorkHistoryOnboarding({
                 className="w-full group-hover:bg-muted transition-colors"
               >
                 <FileText className="h-4 w-4 mr-2" />
-                Upload Resume
+                {resumeLabel}
                 <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>

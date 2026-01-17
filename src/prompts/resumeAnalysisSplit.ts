@@ -151,6 +151,10 @@ CRITICAL RULES:
 1. Extract ONLY content from ${roleContext.company}'s section in the resume
 2. Find the boundaries: where does this role's section start/end?
 3. Extract EVERY bullet for this role as a separate story
+   - Each bullet = one story, EVEN if bullets seem related or mention overlapping topics
+   - Example: "Managed X, Y, Z partnerships" and "Reinforced X, Y, Z alliances" = 2 separate stories
+   - Do NOT combine bullets based on semantic similarity
+   - Only exception: If a bullet is clearly a sub-point (indented, lettered) of the previous bullet
 4. Metrics: Can I find this exact number in THIS role's section?
    - YES → Include it
    - NO → Do NOT include it

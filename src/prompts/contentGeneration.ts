@@ -234,12 +234,12 @@ export function buildSavedSectionPrompt(
       ]
     },
     closer: {
-      purpose: 'Close the cover letter with a strong call-to-action and enthusiasm',
-      structure: '1) Restate value proposition, 2) Express enthusiasm, 3) Call-to-action',
+      purpose: 'Close the cover letter by reinforcing fit and mission alignment; a confident next step is optional',
+      structure: '1) Summarize fit or value alignment, 2) Express genuine interest or mission alignment, 3) Optional next step',
       length: '2-3 sentences',
       examples: [
-        'My track record of delivering 25% revenue growth through product innovation makes me confident I can drive similar results at [Company]...',
-        'I would welcome the opportunity to discuss how my experience scaling products from 0 to 100K users aligns with [Company]\'s growth trajectory...'
+        'I’m excited about the opportunity to contribute to [Company]’s mission and apply my product leadership to your users’ needs.',
+        'I would welcome the chance to discuss how my experience aligns with [Company]’s goals for [ROLE].'
       ]
     },
     signature: {

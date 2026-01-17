@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js'
 import { supabase, supabaseConfigError, getUserProfile, upsertUserProfile, getCurrentUser, safeAuthOperations } from '@/lib/supabase'
 import { setPreferredDashboardCache } from '@/lib/dashboardPreference'
 import type { Database } from '@/types/supabase'
+import { PersonalDataService } from '@/services/personalDataService'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -12,20 +13,25 @@ interface AuthContextType {
   profile: Profile | null
   isDemo: boolean
   demoSlug: string | null
+  newSignupRedirect: boolean
+  isOnboardingComplete: boolean | null
+  onboardingStatusLoading: boolean
   loading: boolean
   error: string | null
   enterDemo: (slug: string) => Promise<{ error: any }>
   signUp: (email: string, password: string, fullName?: string, acceptedTerms?: boolean) => Promise<{ error: any; message?: string }>
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: any }>
   signInWithMagicLink: (email: string) => Promise<{ error: any }>
-  signInWithGoogle: () => Promise<{ error: any }>
-  signInWithLinkedIn: () => Promise<{ error: any }>
+  signInWithGoogle: (redirectTo?: string) => Promise<{ error: any }>
+  signInWithLinkedIn: (redirectTo?: string) => Promise<{ error: any }>
   signOut: () => Promise<{ error: any }>
   resetPassword: (email: string) => Promise<{ error: any }>
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>
   refreshProfile: () => Promise<void>
   refreshOAuthData: () => Promise<void>
   needsProfileCompletion: () => boolean
+  clearNewSignupRedirect: () => void
+  refreshOnboardingStatus: () => Promise<void>
   getOAuthData: () => {
     fullName: string | null;
     firstName: string | null;
@@ -36,6 +42,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const DEMO_SLUG_STORAGE_KEY = 'narrata_demo_slug';
+const NEW_SIGNUP_WINDOW_MS = 10 * 60 * 1000;
 
 const getDemoSlugFromStorageOrPath = (): string | null => {
   try {
@@ -55,6 +62,13 @@ const getDemoSlugFromStorageOrPath = (): string | null => {
   }
 
   return null;
+};
+
+const isRecentSignup = (user: User | null) => {
+  if (!user?.created_at) return false;
+  const createdAt = new Date(user.created_at).getTime();
+  if (Number.isNaN(createdAt)) return false;
+  return Date.now() - createdAt < NEW_SIGNUP_WINDOW_MS;
 };
 
 // Note: Using existing profile columns only (full_name, avatar_url)
@@ -148,6 +162,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isDemo, setIsDemo] = useState(false)
   const [demoSlug, setDemoSlug] = useState<string | null>(null)
+  const [newSignupRedirect, setNewSignupRedirect] = useState(false)
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState<boolean | null>(null)
+  const [onboardingStatusLoading, setOnboardingStatusLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isSigningOut, setIsSigningOut] = useState(false)
@@ -156,6 +173,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     isDemoRef.current = isDemo
   }, [isDemo])
+
+  const refreshOnboardingStatus = useCallback(async () => {
+    if (!user?.id || isDemoRef.current) {
+      setIsOnboardingComplete(null);
+      setOnboardingStatusLoading(false);
+      return;
+    }
+
+    setOnboardingStatusLoading(true);
+    try {
+      const latestProfile = await getUserProfile(user.id);
+      if (latestProfile) {
+        setProfile(latestProfile);
+        const profileFlag = (latestProfile as any).onboarding_complete;
+        if (typeof profileFlag === 'boolean') {
+          setIsOnboardingComplete(profileFlag);
+          return;
+        }
+      }
+
+      const assets = await PersonalDataService.getAssets(user.id);
+      const completedTypes = new Set(
+        assets
+          .filter(asset => !asset.isDeleted && asset.processingStatus === 'completed')
+          .map(asset => asset.sourceType)
+      );
+      const complete = completedTypes.has('resume') && completedTypes.has('cover_letter');
+      setIsOnboardingComplete(complete);
+    } catch (err) {
+      console.error('[OnboardingGate] Failed to check onboarding status:', err);
+      setIsOnboardingComplete(prev => (prev === null ? false : prev));
+    } finally {
+      setOnboardingStatusLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || isDemoRef.current) {
+      setIsOnboardingComplete(null);
+      setOnboardingStatusLoading(false);
+      return;
+    }
+    refreshOnboardingStatus();
+  }, [user?.id, refreshOnboardingStatus]);
+
+  useEffect(() => {
+    if (!user?.id || isDemoRef.current) {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`onboarding-sources-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sources', filter: `user_id=eq.${user.id}` },
+        () => {
+          refreshOnboardingStatus();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, refreshOnboardingStatus]);
 
   const clearDemoMode = useCallback((reason?: string) => {
     if (reason) {
@@ -201,6 +283,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log('👤 Loading user profile for ID:', userId);
       let profileData = await getUserProfile(userId)
+      const shouldRedirectToOnboarding = !profileData
 
       // Demo mode: never attempt to create/update a profile (no real auth.uid()).
       if (isDemo) {
@@ -266,11 +349,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('✅ Existing profile found, using stored data:', profileData);
         // Profile exists, use stored data - no need to re-extract
       }
+
+
+      if (shouldRedirectToOnboarding && profileData) {
+        setPreferredDashboardCache('onboarding');
+        setNewSignupRedirect(true);
+      }
       
       console.log('🎯 Setting profile in state:', profileData);
       console.log('🔍 Profile preferred_dashboard:', (profileData as any)?.preferred_dashboard);
       if ((profileData as any)?.preferred_dashboard) {
         setPreferredDashboardCache((profileData as any).preferred_dashboard as 'main' | 'onboarding');
+      }
+      if (typeof (profileData as any)?.onboarding_complete === 'boolean') {
+        setIsOnboardingComplete((profileData as any).onboarding_complete);
       }
       setProfile(profileData)
     } catch (err: any) {
@@ -372,6 +464,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       setError(null)
+
+      if (event === 'SIGNED_IN' && session?.user && !isDemoRef.current) {
+        if (isRecentSignup(session.user)) {
+          setPreferredDashboardCache('onboarding');
+          setNewSignupRedirect(true);
+        }
+      }
       
       if (session?.user) {
         setProfile(null) // Clear profile first
@@ -412,6 +511,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/new-user`,
           data: {
             full_name: fullName,
           },
@@ -617,13 +717,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (redirectTo?: string) => {
     try {
       setError(null)
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${window.location.origin}${redirectTo || '/dashboard'}`,
         },
       })
       return { error }
@@ -633,15 +733,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const signInWithLinkedIn = async () => {
+  const signInWithLinkedIn = async (redirectTo?: string) => {
     try {
       console.log('🔗 Initiating LinkedIn OAuth sign-in...');
-      console.log('📍 Redirect URL:', `${window.location.origin}/dashboard`);
+      console.log('📍 Redirect URL:', `${window.location.origin}${redirectTo || '/dashboard'}`);
       setError(null)
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${window.location.origin}${redirectTo || '/dashboard'}`,
         },
       })
       
@@ -783,6 +883,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { fullName: null, firstName: null, lastName: null, picture: null };
   }, [profile, user])
 
+  const clearNewSignupRedirect = useCallback(() => {
+    setNewSignupRedirect(false);
+  }, []);
+
   // Memoize the context value to prevent unnecessary re-renders
   const value = useMemo(() => ({
     user,
@@ -790,6 +894,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     isDemo,
     demoSlug,
+    newSignupRedirect,
+    isOnboardingComplete,
+    onboardingStatusLoading,
     loading,
     error,
     enterDemo,
@@ -804,6 +911,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshProfile,
     refreshOAuthData,
     needsProfileCompletion,
+    clearNewSignupRedirect,
+    refreshOnboardingStatus,
     getOAuthData,
   }), [
     user,
@@ -811,6 +920,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     isDemo,
     demoSlug,
+    newSignupRedirect,
+    isOnboardingComplete,
+    onboardingStatusLoading,
     loading,
     error,
     enterDemo,
@@ -825,6 +937,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshProfile,
     refreshOAuthData,
     needsProfileCompletion,
+    clearNewSignupRedirect,
+    refreshOnboardingStatus,
     getOAuthData,
   ])
 

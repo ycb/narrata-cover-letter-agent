@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import { TourProvider } from "@/contexts/TourContext";
@@ -17,6 +17,7 @@ import { DemoBanner } from "@/components/layout/DemoBanner";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { UserSpoofBanner } from "@/components/admin/UserSpoofBanner";
 import { isExternalLinksEnabled, isSignupEnabled } from "@/lib/flags";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUiZoom } from "@/hooks/useUiZoom";
@@ -66,11 +67,13 @@ import { AdminEvalsDashboard } from "./pages/admin/AdminEvalsDashboard";
 import { AdminEvaluationDashboard } from "./pages/admin/AdminEvaluationDashboard";
 import { AdminFunnelDashboard } from "./pages/admin/AdminFunnelDashboard";
 import { AdminLeaderboardDashboard } from "./pages/admin/AdminLeaderboardDashboard";
+import { AdminSpoofDashboard } from "./pages/admin/AdminSpoofDashboard";
 import { AdminDebug } from "./pages/admin/AdminDebug";
 
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import ForgotPassword from "./pages/ForgotPassword";
+import AuthCallback from "./pages/AuthCallback";
 import LinkedInCallback from "./pages/LinkedInCallback";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
@@ -83,8 +86,9 @@ const queryClient = new QueryClient();
 
 function AppLayout() {
   const signupEnabled = isSignupEnabled();
-  const { isDemo, user, getOAuthData } = useAuth();
+  const { isDemo, user, getOAuthData, newSignupRedirect, clearNewSignupRedirect } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const allowAlphaSignup = new URLSearchParams(location.search).has('alpha');
   const shouldHideFeedbackOnLanding = location.pathname === '/';
   const isPublicRoute =
@@ -104,6 +108,11 @@ function AppLayout() {
   const isDemoRoute =
     location.pathname.startsWith("/demo") ||
     location.pathname === "/peter";
+  const isAuthRoute =
+    location.pathname === "/signin" ||
+    location.pathname === "/signup" ||
+    location.pathname === "/forgot-password" ||
+    location.pathname === "/waitlist";
   const shouldInitPendoPublic = !user && (isLandingRoute || isDemoRoute);
 
   const isZoomExcludedRoute = location.pathname.startsWith("/cover-letters");
@@ -115,6 +124,16 @@ function AppLayout() {
     step: 10,
     defaultZoom: 100
   });
+
+  useEffect(() => {
+    if (!newSignupRedirect || !user) return;
+    if (location.pathname === "/new-user") {
+      clearNewSignupRedirect();
+      return;
+    }
+    navigate("/new-user", { replace: true });
+    clearNewSignupRedirect();
+  }, [newSignupRedirect, user, location.pathname, navigate, clearNewSignupRedirect]);
 
   useEffect(() => {
     if (!user || isDemo) return;
@@ -171,6 +190,7 @@ function AppLayout() {
 
   return (
     <div className={`min-h-screen flex flex-col ${isDemo ? 'pb-14' : ''}`}>
+      <UserSpoofBanner />
       <div className="flex-1">
         <div
           style={
@@ -395,6 +415,11 @@ function AppLayout() {
             <AdminLeaderboardDashboard />
           </ProtectedRoute>
         } />
+        <Route path="/admin/spoof" element={
+          <ProtectedRoute>
+            <AdminSpoofDashboard />
+          </ProtectedRoute>
+        } />
         <Route path="/dev/job-cleaning" element={
           <ProtectedRoute>
             <Header />
@@ -413,6 +438,7 @@ function AppLayout() {
         />
         <Route path="/signin" element={<ProtectedRoute requireAuth={false}><SignIn /></ProtectedRoute>} />
         <Route path="/forgot-password" element={<ProtectedRoute requireAuth={false}><ForgotPassword /></ProtectedRoute>} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -444,7 +470,7 @@ function AppLayout() {
       
       {/* Footer on all pages */}
       <Footer />
-      <DemoBanner />
+      {isDemo && !isAuthRoute && <DemoBanner />}
     </div>
   );
 }

@@ -8,8 +8,9 @@ const LandingPage = () => {
   const waitlistMode = isWaitlistModeEnabled();
   const ctaHref = waitlistMode ? '/waitlist' : '/signup';
   const ctaLabel = waitlistMode ? 'Waitlist Signup' : 'Get Started (Free)';
-  const headerHref = waitlistMode ? '/peter' : '/signin';
-  const headerLabel = waitlistMode ? 'View Public Demo' : 'Sign In';
+  const demoHref = '/peter';
+  const authHref = waitlistMode ? '/waitlist' : '/signin';
+  const authLabel = waitlistMode ? 'Waitlist Signup' : 'Sign In';
 
   // Analytics tracking helper
   const trackCTA = (location: string, action: "demo" | "signup" | "waitlist") => {
@@ -55,25 +56,21 @@ const LandingPage = () => {
               <div className="text-white text-center">⏩ Your Dream Job</div>
             </div>
             
-            {/* Right: Sign In / Waitlist */}
-            <div className="flex flex-col items-center gap-1 text-center">
+            {/* Right: Demo + Auth */}
+            <div className="flex items-center gap-3">
               <Link
-                to={headerHref}
-                onClick={() => {
-                  if (waitlistMode) {
-                    trackCTA('header', 'demo');
-                  }
-                }}
+                to={demoHref}
+                onClick={() => trackCTA('header', 'demo')}
               >
-                <Button variant="outline" size="sm" className="bg-white text-[#121212] hover:bg-white/90">
-                  {headerLabel}
+                <Button variant="outline" size="sm" className="border-white text-white hover:bg-white/10">
+                  View Public Demo
                 </Button>
               </Link>
-              {waitlistMode && (
-                <span className="hidden md:block text-xs text-white/70 mt-2">
-                  (Desktop-only)
-                </span>
-              )}
+              <Link to={authHref}>
+                <Button variant="outline" size="sm" className="bg-white text-[#121212] hover:bg-white/90">
+                  {authLabel}
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

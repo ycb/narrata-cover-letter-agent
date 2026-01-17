@@ -8,6 +8,7 @@ import { isLinkedInScrapingEnabled } from '@/lib/flags';
 
 interface ImportSummaryStepProps {
   onNext: () => void;
+  onBackToUploads?: () => void;
 }
 
 interface ImportStats {
@@ -18,7 +19,7 @@ interface ImportStats {
   loading: boolean;
 }
 
-export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
+export function ImportSummaryStep({ onNext, onBackToUploads }: ImportSummaryStepProps) {
   const { user } = useAuth();
   const [stats, setStats] = useState<ImportStats>({
     companies: 0,
@@ -124,6 +125,12 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
     fetchImportStats();
   }, [user]);
 
+  const noDataExtracted =
+    !stats.loading &&
+    stats.companies === 0 &&
+    stats.roles === 0 &&
+    stats.stories === 0;
+
   return (
     <div className="space-y-8">
       {/* Success Header */}
@@ -131,9 +138,13 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
         <div className="flex justify-center">
         </div>
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Import Successful!</h2>
+          <h2 className="text-3xl font-bold tracking-tight">
+            {noDataExtracted ? 'Import Incomplete' : 'Import Successful!'}
+          </h2>
           <p className="text-muted-foreground mt-2">
-            Your career data has been extracted and organized
+            {noDataExtracted
+              ? 'We could not read your resume or cover letter content'
+              : 'Your career data has been extracted and organized'}
           </p>
         </div>
       </div>
@@ -199,7 +210,7 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
       </div>
 
       {/* Warning if no data was extracted */}
-      {!stats.loading && stats.companies === 0 && stats.roles === 0 && stats.stories === 0 && (
+      {noDataExtracted && (
         <Card className="border-destructive/20 bg-destructive/5">
           <CardHeader>
             <CardTitle className="text-xl">⚠️ No Data Extracted</CardTitle>
@@ -264,14 +275,25 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
 
       {/* Action Buttons */}
       <div className="flex justify-center items-center pt-4">
-        <Button
-          onClick={onNext}
-          size="lg"
-          className="gap-2 w-full max-w-md"
-        >
-          Start Product Tour
-          <ArrowRight className="h-4 w-4" />
-        </Button>
+        {noDataExtracted ? (
+          <Button
+            onClick={onBackToUploads}
+            size="lg"
+            className="gap-2 w-full max-w-md"
+          >
+            Back to Uploads
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button
+            onClick={onNext}
+            size="lg"
+            className="gap-2 w-full max-w-md"
+          >
+            Start Product Tour
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -108,6 +108,14 @@ interface UseJobStreamOptions {
    * Callback on each progress update
    */
   onProgress?: (stage: string, data: any) => void;
+
+  /**
+   * SSE mode for stream-job endpoint.
+   * - pipeline: execute the job pipeline and stream events
+   * - watch: only watch job row updates and stream changes
+   * @default "pipeline"
+   */
+  streamMode?: 'pipeline' | 'watch';
 }
 
 interface CreateJobOptions {
@@ -172,6 +180,7 @@ export function useJobStream(
     onComplete,
     onError,
     onProgress,
+    streamMode = 'pipeline',
   } = options;
 
   // State
@@ -432,16 +441,18 @@ export function useJobStream(
             tokenLength: token?.length,
             supabaseUrl: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'MISSING',
             autoStart,
+            streamMode,
           });
           
+          const modeParam = streamMode === 'watch' ? '&mode=watch' : '';
           const primaryUrl = `${supabaseUrl}/functions/v1/stream-job?jobId=${encodeURIComponent(
             jobId
-          )}${token ? `&access_token=${encodeURIComponent(token)}` : ''}`;
+          )}${token ? `&access_token=${encodeURIComponent(token)}` : ''}${modeParam}`;
           // Fallback endpoint style (functions subdomain)
           const functionsSubdomain = supabaseUrl.replace('://', '://').replace('.supabase.co', '.functions.supabase.co');
           const secondaryUrl = `${functionsSubdomain}/stream-job?jobId=${encodeURIComponent(
             jobId
-          )}${token ? `&access_token=${encodeURIComponent(token)}` : ''}`;
+          )}${token ? `&access_token=${encodeURIComponent(token)}` : ''}${modeParam}`;
 
           // Try primary; if it errors early, retry secondary once
           // Task 5: Dev-only detailed SSE connection logging

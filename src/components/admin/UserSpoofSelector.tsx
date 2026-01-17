@@ -76,9 +76,8 @@ export function UserSpoofSelector() {
         </button>
       </div>
       <p className="mt-2 text-xs text-gray-500">
-        This will reload the app and show you the selected user's view (same RLS scope).
+        This will open the app as the selected user (same RLS scope).
       </p>
     </div>
   );
 }
-

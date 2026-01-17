@@ -23,45 +23,7 @@ import {
 import type { WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
 import { cn } from "@/lib/utils";
 import { generateGapSummary } from "@/utils/gapSummaryGenerator";
-
-// Function to highlight changes between original story and variation
-const highlightChanges = (originalContent: string, variationContent: string): React.ReactNode[] => {
-  // Simple word-level diff highlighting
-  const originalWords = originalContent.split(' ');
-  const variationWords = variationContent.split(' ');
-  
-  const highlightedContent: React.ReactNode[] = [];
-  let i = 0, j = 0;
-  
-  while (i < originalWords.length || j < variationWords.length) {
-    if (i < originalWords.length && j < variationWords.length && originalWords[i] === variationWords[j]) {
-      // Same word, no highlighting
-      highlightedContent.push(originalWords[i] + ' ');
-      i++;
-      j++;
-    } else if (j < variationWords.length) {
-      // New word in variation - highlight as addition
-      highlightedContent.push(
-        <span key={`add-${j}`} className="bg-green-100 text-green-800 px-1 rounded">
-          {variationWords[j]}
-        </span>
-      );
-      highlightedContent.push(' ');
-      j++;
-    } else if (i < originalWords.length) {
-      // Word removed from original - highlight as deletion
-      highlightedContent.push(
-        <span key={`del-${i}`} className="bg-red-100 text-red-800 px-1 rounded line-through">
-          {originalWords[i]}
-        </span>
-      );
-      highlightedContent.push(' ');
-      i++;
-    }
-  }
-  
-  return highlightedContent;
-};
+import { highlightWordDiff } from "@/lib/textDiff";
 
 interface StoryCardProps {
   story: WorkHistoryBlurb;
@@ -228,6 +190,16 @@ export const StoryCard = ({
           {/* Variations content - only show when expanded */}
           {story.variations.some(variation => expandedVariations[variation.id]) && (
             <div className="space-y-2">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-green-400" />
+                  Added
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-red-400" />
+                  Removed
+                </span>
+              </div>
               {story.variations.map((variation, index) => (
                 <div key={variation.id} className="p-3 bg-muted/30 rounded-lg border-l-4 border-primary">
                   {/* Header */}
@@ -271,7 +243,7 @@ export const StoryCard = ({
 
                   {/* Content area */}
                   <div className="text-sm text-muted-foreground mb-3">
-                    {highlightChanges(story.content, variation.content)}
+                    {highlightWordDiff(story.content, variation.content)}
                   </div>
                   {variation.tags && variation.tags.length > 0 && (
                     <div className="mt-2">

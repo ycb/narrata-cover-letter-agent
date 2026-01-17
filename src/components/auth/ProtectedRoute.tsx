@@ -14,8 +14,9 @@ export function ProtectedRoute({
   requireAuth = true, 
   requireProfile = false 
 }: ProtectedRouteProps) {
-  const { user, profile, loading, error, isDemo } = useAuth()
+  const { user, profile, loading, error, isDemo, isOnboardingComplete } = useAuth()
   const location = useLocation()
+  const isOnboardingRoute = location.pathname.startsWith('/new-user')
 
   console.log('ProtectedRoute check:', { 
     user: user?.email, 
@@ -51,8 +52,8 @@ export function ProtectedRoute({
     return <>{children}</>
   }
 
-  // If there's an error, redirect to sign-in instead of showing full-page error
-  if (error) {
+  // If there's an error, redirect to sign-in for protected routes only.
+  if (error && requireAuth) {
     return <Navigate to="/signin" state={{ from: location, error: error }} replace />
   }
 
@@ -73,9 +74,22 @@ export function ProtectedRoute({
     )
   }
 
+  if (user && !isDemo && !isOnboardingRoute) {
+    if (isOnboardingComplete === null) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
+      )
+    }
+    if (!isOnboardingComplete) {
+      return <Navigate to="/new-user" replace />
+    }
+  }
+
   if (!requireAuth && user && !isDemo) {
     // Redirect authenticated users away from auth pages
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={isOnboardingComplete === false ? "/new-user" : "/dashboard"} replace />
   }
 
   return <>{children}</>

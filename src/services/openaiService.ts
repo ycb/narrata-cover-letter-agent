@@ -218,7 +218,7 @@ export class LLMAnalysisService {
           title: role.title,
           id: role.id
         });
-        const response = await this.callOpenAI(prompt, 3000); // Medium output per role
+        const response = await this.callOpenAI(prompt, 5000); // Increased for complex roles with many stories
         const roleMs = Date.now() - roleStart;
         if (!response.success || !response.data) {
           console.log(`⏱️  [TIMING] ⚠️  Role ${idx + 1}/${skeleton.workHistory?.length} (${role.company}) failed: ${roleMs}ms - ${response.error}`);
@@ -233,7 +233,17 @@ export class LLMAnalysisService {
           return { roleId: role.id, outcomeMetrics: [], stories: [] } as RoleStoriesResult;
         }
         const result = response.data as unknown as RoleStoriesResult;
-        console.log(`⏱️  [TIMING] ✅ Role ${idx + 1}/${skeleton.workHistory?.length} (${role.company}): ${roleMs}ms (${result.stories?.length || 0} stories)`);
+        
+        // VALIDATION: Count expected vs actual stories (heuristic: bullets in resume)
+        const roleSection = this.extractRoleSection(text, role.company, role.title);
+        const bulletCount = this.countBullets(roleSection);
+        const storyCount = result.stories?.length || 0;
+        
+        if (bulletCount > 0 && storyCount < bulletCount) {
+          console.warn(`⚠️  [Story Extraction] ${role.company}: Found ${storyCount} stories but detected ${bulletCount} bullets in resume. Possible under-extraction.`);
+        }
+        
+        console.log(`⏱️  [TIMING] ✅ Role ${idx + 1}/${skeleton.workHistory?.length} (${role.company}): ${roleMs}ms (${storyCount} stories, ${bulletCount} bullets detected)`);
         const partialProgress = 55 + Math.min(20, ((idx + 1) / Math.max(totalRoles, 1)) * 20);
         onStageComplete?.('roleStories', {
           roleId: role.id,
@@ -1177,6 +1187,46 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
         url: (projectItem.url as string) || undefined
       };
     });
+  }
+
+  /**
+   * Extract role section from resume text (heuristic)
+   */
+  private extractRoleSection(resumeText: string, company: string, title: string): string {
+    // Find the company name in the text
+    const companyIndex = resumeText.indexOf(company);
+    if (companyIndex === -1) return '';
+    
+    // Find the next company name or end of text
+    const remainingText = resumeText.slice(companyIndex);
+    const lines = remainingText.split('\n');
+    
+    // Heuristic: role section ends when we see another all-caps company name or "EDUCATION" section
+    let sectionEnd = lines.length;
+    for (let i = 3; i < lines.length; i++) {
+      const line = lines[i].trim();
+      // Likely a new section if line is all uppercase and > 5 chars
+      if (line.length > 5 && line === line.toUpperCase() && !line.includes('●') && !line.includes('•')) {
+        sectionEnd = i;
+        break;
+      }
+    }
+    
+    return lines.slice(0, sectionEnd).join('\n');
+  }
+
+  /**
+   * Count bullets in a text section (heuristic)
+   */
+  private countBullets(text: string): number {
+    // Match common bullet markers: ●, •, -, *, numbers followed by period/paren
+    const bulletRegex = /^[\s]*[●•\-\*][\s]/gm;
+    const numberedBulletRegex = /^[\s]*\d+[\.\)][\s]/gm;
+    
+    const bulletMatches = text.match(bulletRegex) || [];
+    const numberedMatches = text.match(numberedBulletRegex) || [];
+    
+    return bulletMatches.length + numberedMatches.length;
   }
 
 }

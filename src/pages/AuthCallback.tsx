@@ -51,6 +51,10 @@ export default function AuthCallback() {
         // Check if we have OAuth parameters in the URL
         const urlParams = new URLSearchParams(window.location.search);
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const redirectParam = urlParams.get('redirect');
+        const redirectTarget = redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
+          ? redirectParam
+          : '/dashboard';
         
         console.log('URL search params:', Object.fromEntries(urlParams));
         console.log('URL hash params:', Object.fromEntries(hashParams));
@@ -72,7 +76,7 @@ export default function AuthCallback() {
                 setShowNameCapture(true);
               } else {
                 setStatus('success');
-                setTimeout(() => navigate('/dashboard'), 2000);
+                setTimeout(() => navigate(redirectTarget), 2000);
               }
             } else if (event === 'SIGNED_OUT') {
               console.log('User signed out');
@@ -106,7 +110,7 @@ export default function AuthCallback() {
             setShowNameCapture(true);
           } else {
             setStatus('success');
-            setTimeout(() => navigate('/dashboard'), 2000);
+            setTimeout(() => navigate(redirectTarget), 2000);
           }
           return;
         }
@@ -148,7 +152,12 @@ export default function AuthCallback() {
   const handleNameCaptureComplete = () => {
     setShowNameCapture(false);
     setStatus('success');
-    setTimeout(() => navigate('/dashboard'), 1000);
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectParam = urlParams.get('redirect');
+    const redirectTarget = redirectParam && redirectParam.startsWith('/') && !redirectParam.startsWith('//')
+      ? redirectParam
+      : '/dashboard';
+    setTimeout(() => navigate(redirectTarget), 1000);
   };
 
   if (loading || status === 'loading') {

@@ -19,8 +19,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import type { BlurbVariation, WorkHistoryBlurb, WorkHistoryCompany } from "@/types/workHistory";
 import type { SavedSection } from "@/services/coverLetterTemplateService";
+import { highlightWordDiff } from "@/lib/textDiff";
 
 export type InvocationType =
   | { type: "replace_or_insert_below"; sectionId: string; sectionType: "intro" | "body" | "closing"; sectionIndex: number }
@@ -214,7 +216,20 @@ export function AddSectionFromLibraryModal({
           <div className="space-y-4">
             {isStoryContent && storyVariations.length > 0 && (
               <div className="space-y-3">
-                <p className="text-sm font-medium">Choose version</p>
+                <div>
+                  <p className="text-sm font-medium">Choose version</p>
+                  <p className="text-xs text-muted-foreground">Section type: {sectionTypeLabel}</p>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-green-400" />
+                    Added
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-red-400" />
+                    Removed
+                  </span>
+                </div>
                 <div className="space-y-2">
                   <div
                     className={`p-3 border rounded-lg cursor-pointer transition-colors ${
@@ -238,6 +253,9 @@ export function AddSectionFromLibraryModal({
                     {storyVariations.map((variation, index) => {
                       const variationLabel = formatVariationLabel(variation, index);
                       const isSelected = selectedVariationId === variation.id;
+                      const hasDiff =
+                        Boolean(variation.content) &&
+                        variation.content.trim() !== (storyContent?.content ?? '').trim();
                       return (
                         <div
                           key={variation.id}
@@ -250,9 +268,17 @@ export function AddSectionFromLibraryModal({
                             <h5 className="text-sm font-medium">{variationLabel}</h5>
                             <Badge variant="outline">Variation</Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground whitespace-pre-line max-h-24 overflow-hidden">
-                            {variation.content || 'No variation content captured yet.'}
-                          </p>
+                          {variation.content ? (
+                            <div className="text-sm text-muted-foreground whitespace-pre-line max-h-24 overflow-hidden">
+                              {hasDiff ? (
+                                highlightWordDiff(storyContent?.content ?? '', variation.content)
+                              ) : (
+                                <p className="text-xs text-muted-foreground">No differences from main story.</p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No variation content captured yet.</p>
+                          )}
                         </div>
                       );
                     })}
@@ -260,13 +286,17 @@ export function AddSectionFromLibraryModal({
                 </div>
               </div>
             )}
-            <div>
-              <h3 className="font-semibold text-lg">{itemTitle}</h3>
-              <p className="text-sm text-muted-foreground">Section type: {sectionTypeLabel}</p>
-            </div>
-            <div className="p-4 border rounded-lg bg-muted/30">
-              <p className="text-sm whitespace-pre-line">{itemContent}</p>
-            </div>
+            {(!isStoryContent || storyVariations.length === 0) && (
+              <>
+                <div>
+                  <h3 className="font-semibold text-lg">{itemTitle}</h3>
+                  <p className="text-sm text-muted-foreground">Section type: {sectionTypeLabel}</p>
+                </div>
+                <div className="p-4 border rounded-lg bg-muted/30">
+                  <p className="text-sm whitespace-pre-line">{itemContent}</p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

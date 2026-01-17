@@ -76,7 +76,7 @@ export function parseCoverLetter(text: string): ParsedCoverLetter {
   
   // 2. Extract SEMANTIC paragraphs (not just split on \n\n)
   // A paragraph is a cohesive block of related sentences, may span multiple lines
-  const paragraphs = extractParagraphs(mainText);
+  const paragraphs = stripHeaderParagraphs(extractParagraphs(mainText));
   
   if (paragraphs.length === 0) {
     throw new Error('No paragraphs found in cover letter');
@@ -158,6 +158,74 @@ function extractParagraphs(text: string): string[] {
     });
   
   return paragraphs;
+}
+
+function stripHeaderParagraphs(paragraphs: string[]): string[] {
+  if (paragraphs.length <= 1) {
+    return paragraphs;
+  }
+
+  const greetingIndex = paragraphs.findIndex((paragraph) =>
+    GREETINGS.some((pattern) => pattern.test(paragraph.trim()))
+  );
+
+  if (greetingIndex > 0) {
+    return paragraphs.slice(greetingIndex);
+  }
+
+  if (greetingIndex === 0) {
+    return paragraphs;
+  }
+
+  const maxSkip = Math.min(6, paragraphs.length - 1);
+  let start = 0;
+  for (; start < maxSkip; start += 1) {
+    if (!isHeaderParagraph(paragraphs[start])) {
+      break;
+    }
+  }
+  return paragraphs.slice(start);
+}
+
+function isHeaderParagraph(paragraph: string): boolean {
+  const trimmed = paragraph.trim();
+  if (!trimmed) {
+    return true;
+  }
+
+  if (/@/.test(trimmed)) {
+    return true;
+  }
+
+  if (/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/.test(trimmed)) {
+    return true;
+  }
+
+  if (/\b[A-Z]{2}\s*\d{5}\b/.test(trimmed)) {
+    return true;
+  }
+
+  if (/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/.test(trimmed)) {
+    return true;
+  }
+
+  if (/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/i.test(trimmed) && trimmed.length <= 40) {
+    return true;
+  }
+
+  if (/\b(st|street|ave|avenue|blvd|boulevard|road|rd|lane|ln|drive|dr|way|suite|ste|apt|unit)\b/i.test(trimmed)) {
+    return true;
+  }
+
+  if (!/[.!?]/.test(trimmed) && trimmed.length <= 50) {
+    return true;
+  }
+
+  if (/^[A-Za-z]+(?:\s+[A-Za-z]+){0,2}$/.test(trimmed) && trimmed.length <= 40) {
+    return true;
+  }
+
+  return false;
 }
 
 /**

@@ -1127,8 +1127,8 @@ export class GapDetectionService {
           ]
         });
       }
-    } else if (section.type === 'paragraph' || section.type === 'closer') {
-      // Body/closing should use STAR format and address job requirements
+    } else if (section.type === 'paragraph') {
+      // Body paragraphs should use STAR format and address job requirements
       const completenessGap = this.checkStoryCompleteness({
         id: section.id,
         title: section.title || section.type,
@@ -1149,26 +1149,45 @@ export class GapDetectionService {
         });
       }
 
-      // Closing should not require metrics; only body paragraphs get this check
-      if (section.type === 'paragraph') {
-        const hasMetrics = /\d+%|\d+\$|\d+\s*(users|customers|revenue|growth|increase|decrease|improved|reduced)/i.test(section.content);
-        if (!hasMetrics) {
-          gaps.push({
-            user_id: userId,
-            entity_type: 'saved_section',
-            entity_id: section.id,
-            gap_type: 'best_practice',
-            gap_category: 'missing_metrics_cover_letter',
-            severity: 'medium',
-            description: 'Section would benefit from quantifiable achievements',
-            suggestions: [
-              {
-                type: 'add_metric',
-                description: 'Add specific metrics, percentages, or quantifiable results'
-              }
-            ]
-          });
-        }
+      const hasMetrics = /\d+%|\d+\$|\d+\s*(users|customers|revenue|growth|increase|decrease|improved|reduced)/i.test(section.content);
+      if (!hasMetrics) {
+        gaps.push({
+          user_id: userId,
+          entity_type: 'saved_section',
+          entity_id: section.id,
+          gap_type: 'best_practice',
+          gap_category: 'missing_metrics_cover_letter',
+          severity: 'medium',
+          description: 'Section would benefit from quantifiable achievements',
+          suggestions: [
+            {
+              type: 'add_metric',
+              description: 'Add specific metrics, percentages, or quantifiable results'
+            }
+          ]
+        });
+      }
+    } else if (section.type === 'closer') {
+      // Closing should convey appreciation or a clear next step, not STAR format
+      const hasGratitude = /\b(thank|thanks|appreciate|appreciation|grateful)\b/i.test(section.content);
+      const hasNextStep = /\b(look forward|would welcome|opportunity to discuss|discuss|connect|speak with|meet|interview|excited to)\b/i.test(section.content);
+
+      if (!hasGratitude && !hasNextStep) {
+        gaps.push({
+          user_id: userId,
+          entity_type: 'saved_section',
+          entity_id: section.id,
+          gap_type: 'best_practice',
+          gap_category: 'incomplete_closing',
+          severity: 'medium',
+          description: 'Closing should include appreciation or invite next steps',
+          suggestions: [
+            {
+              type: 'add_closing_intent',
+              description: 'Add a brief thank-you and/or an invitation to discuss the role'
+            }
+          ]
+        });
       }
     } else if (section.type === 'signature') {
       // Signature should have contact info

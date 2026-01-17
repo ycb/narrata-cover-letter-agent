@@ -9,6 +9,7 @@ import { Eye, EyeOff, Mail, Lock, User, Linkedin, AlertCircle, Loader2 } from "l
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
+import { setPreferredDashboardCache } from "@/lib/dashboardPreference";
 
 const SignUp = () => {
   const { signUp, signInWithGoogle, signInWithLinkedIn, loading, error } = useAuth();
@@ -62,7 +63,9 @@ const SignUp = () => {
         setFormError(null);
         // Small delay to show success state
         setTimeout(() => {
-          navigate('/dashboard');
+          // Force onboarding for brand-new users and avoid stale cache overrides.
+          setPreferredDashboardCache('onboarding');
+          navigate('/new-user');
         }, 1000);
       }
     } catch (err: any) {
@@ -75,7 +78,7 @@ const SignUp = () => {
 
   const handleGoogleSignIn = async () => {
     try {
-      const { error } = await signInWithGoogle();
+      const { error } = await signInWithGoogle('/new-user');
       if (error) {
         setFormError(error.message || 'Google sign in failed');
       }
@@ -86,7 +89,7 @@ const SignUp = () => {
 
   const handleLinkedInSignIn = async () => {
     try {
-      const { error } = await signInWithLinkedIn();
+      const { error } = await signInWithLinkedIn('/new-user');
       if (error) {
         setFormError(
           error.message || 
@@ -114,21 +117,15 @@ const SignUp = () => {
           <div className="flex items-center justify-between mb-2">
             <div className="flex-1"></div>
             <h1 className="text-2xl font-bold text-foreground">Narrata</h1>
-            <div className="flex-1 flex justify-end">
-              <Link to="/signin" className="text-sm text-accent hover:underline">
-                Sign In
-              </Link>
-            </div>
+            <div className="flex-1" />
           </div>
-          <p className="text-muted-foreground">Create your truth-based narrative engine</p>
+
         </div>
 
         <Card className="shadow-medium">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">Create Account</CardTitle>
-            <CardDescription className="text-center">
-              Choose your preferred sign up method
-            </CardDescription>
+  
           </CardHeader>
           
           <CardContent className="space-y-4">
@@ -179,9 +176,6 @@ const SignUp = () => {
                 Continue with LinkedIn
               </Button>
               
-              <p className="text-xs text-muted-foreground text-center">
-                Having trouble with LinkedIn? Try Google or email sign-up instead.
-              </p>
             </div>
 
             <div className="relative">
@@ -314,7 +308,7 @@ const SignUp = () => {
 
         {/* Footer */}
         <div className="text-center mt-8 text-xs text-muted-foreground">
-          <p>© 2024 Narrata. All rights reserved.</p>
+          <p>© 2026 Narrata. All rights reserved.</p>
         </div>
       </div>
     </div>

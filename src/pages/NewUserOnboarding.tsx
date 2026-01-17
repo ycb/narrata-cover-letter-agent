@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,14 +29,15 @@ import { StageStepper } from "@/components/streaming/StageStepper";
 import { isValidLinkedInUrl, normalizeLinkedInUrl } from "@/utils/linkedinUtils";
 import { Progress } from "@/components/ui/progress";
 import { isLinkedInScrapingEnabled } from "@/lib/flags";
+import { PersonalDataService } from "@/services/personalDataService";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
 
 interface OnboardingData {
-  resume?: File;
+  resume?: File | string;
   linkedinUrl?: string;
   coverLetter?: string;
-  coverLetterFile?: File;
+  coverLetterFile?: File | string;
   pmLevel?: string;
   confidence?: number;
   progress?: number;
@@ -65,6 +67,7 @@ interface OnboardingData {
 }
 
 export default function NewUserOnboarding() {
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isProcessing, setIsProcessing] = useState(false);
@@ -96,8 +99,98 @@ export default function NewUserOnboarding() {
   const [linkedinPrefetchAttempted, setLinkedinPrefetchAttempted] = useState(false);
   const [linkedinPrefetchSuccess, setLinkedinPrefetchSuccess] = useState(false);
   const { startTour } = useTour();
-  const { user, profile } = useAuth();
+  const { user, profile, refreshOnboardingStatus } = useAuth();
   const linkedInUpload = useLinkedInUpload();
+  const [prefillComplete, setPrefillComplete] = useState(false);
+
+  useEffect(() => {
+    if (!profile) return;
+    if ((profile as any).preferred_dashboard === 'main') {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [profile, navigate]);
+
+  useEffect(() => {
+    setPrefillComplete(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || prefillComplete) return;
+
+    let isMounted = true;
+
+    const seedFromExistingUploads = async () => {
+      try {
+        const assets = await PersonalDataService.getAssets(user.id);
+        if (!isMounted) return;
+
+        const resumeAsset = assets.find(
+          asset => asset.sourceType === 'resume' && asset.processingStatus === 'completed'
+        );
+        const coverLetterAsset = assets.find(
+          asset => asset.sourceType === 'cover_letter' && asset.processingStatus === 'completed'
+        );
+
+        if (!resumeAsset && !coverLetterAsset) {
+          setPrefillComplete(true);
+          return;
+        }
+
+        if (resumeAsset) {
+          setResumeCompleted(true);
+          setOnboardingData(prev => ({ ...prev, resume: resumeAsset.fileName }));
+        }
+
+        if (coverLetterAsset) {
+          setCoverLetterCompleted(true);
+          setOnboardingData(prev => ({ ...prev, coverLetterFile: coverLetterAsset.fileName }));
+        }
+
+        const tasks: Array<'resume' | 'coverLetter' | 'linkedin'> = isLinkedInScrapingEnabled()
+          ? ['resume', 'coverLetter', 'linkedin']
+          : ['resume', 'coverLetter'];
+
+        const seededProgress: Record<'resume' | 'coverLetter' | 'linkedin', number> = {
+          resume: resumeAsset ? 95 : 0,
+          coverLetter: coverLetterAsset ? 95 : 0,
+          linkedin: linkedinCompleted ? 95 : 0,
+        };
+
+        setTaskProgress(prev => ({
+          ...prev,
+          ...seededProgress,
+        }));
+
+        const total = tasks.reduce((sum, key) => sum + seededProgress[key], 0);
+        const percent = Math.min(total / tasks.length, 99);
+
+        if (percent > 0) {
+          const message = resumeAsset && coverLetterAsset
+            ? 'All sources complete'
+            : resumeAsset
+              ? 'Resume: Upload complete'
+              : 'Cover letter: Upload complete';
+          setGlobalProgress({ percent, message, stage: 'seeded' });
+        }
+
+        if (resumeAsset || coverLetterAsset) {
+          setCurrentStep(resumeAsset && coverLetterAsset ? 'review' : 'upload');
+        }
+      } catch (err) {
+        console.warn('[Onboarding] Failed to load existing uploads:', err);
+      } finally {
+        if (isMounted) {
+          setPrefillComplete(true);
+        }
+      }
+    };
+
+    void seedFromExistingUploads();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, prefillComplete, linkedinCompleted]);
   
   // Approved blocking progress bar (tracks active upload)
   const [uploadingFile, setUploadingFile] = useState<'resume' | 'coverLetter' | 'linkedin' | null>(null);
@@ -328,6 +421,9 @@ export default function NewUserOnboarding() {
     // Clear processing state after upload completes
     // This ensures button is enabled after all uploads are done
     setIsProcessing(false);
+    if (uploadType === 'resume' || uploadType === 'coverLetter') {
+      void refreshOnboardingStatus();
+    }
   };
 
   const handleUploadError = (error: string) => {
@@ -931,7 +1027,10 @@ export default function NewUserOnboarding() {
     return (
       <div className="space-y-8">
 
-        <ImportSummaryStep onNext={handleNextStep} />
+        <ImportSummaryStep
+          onNext={handleNextStep}
+          onBackToUploads={() => setCurrentStep('upload')}
+        />
       </div>
     );
   };

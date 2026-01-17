@@ -58,9 +58,9 @@ const ALL_LEVELS: LevelCard[] = [
   },
   { 
     code: 'M2', 
-    name: 'Director of Product', 
-    yearsOfExperience: '10+ years',
-    coreCompetency: 'Business leadership',
+    name: 'VP of Product', 
+    yearsOfExperience: '12+ years',
+    coreCompetency: 'Executive leadership',
     scopeOfOwnership: 'Product organization',
     isIC: false 
   },

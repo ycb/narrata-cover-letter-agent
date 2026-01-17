@@ -1473,6 +1473,10 @@ export default function WorkHistory() {
     input.click();
   };
 
+  const handleReturnToOnboarding = () => {
+    navigate('/new-user');
+  };
+
   const handleViewLinkedInProfile = () => {
     // TODO: Open LinkedIn profile view
     console.log("View LinkedIn profile");
@@ -1610,7 +1614,9 @@ export default function WorkHistory() {
 	            ) : (
               <WorkHistoryOnboarding
                 onConnectLinkedIn={isDemo ? undefined : handleConnectLinkedIn}
-                onUploadResume={isDemo ? undefined : handleUploadResume}
+                onUploadResume={isDemo ? undefined : handleReturnToOnboarding}
+                resumeActionLabel="Return to Onboarding"
+                resumeDescription="Go back to onboarding to re-upload your resume and cover letter"
               />
 	            )}
 	          </div>

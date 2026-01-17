@@ -14,6 +14,8 @@ const MAX_TEXT_CHARS = 18000;
 const SYSTEM_INSTRUCTION = [
   'You are performing a final editorial review of a cover letter that has already been evaluated as “Strong.”',
   '',
+  'Evaluate the cover letter holistically against the job description to identify high-leverage changes that materially reduce interview risk.',
+  '',
   'First determine whether any changes are warranted at all. Most strong letters require no edits.',
   '',
   'For each paragraph, answer YES or NO:',
@@ -23,6 +25,7 @@ const SYSTEM_INSTRUCTION = [
   'If all answers are NO risk / YES effective → STOP.',
   '',
   'Only paragraphs flagged as YES: risk exists are eligible for suggested edits.',
+  'If no hard risks exist, you may surface ONE strategic improvement that strengthens a JD-critical capability or clarifies ownership scope. Otherwise return no changes.',
   '',
   'Before suggesting any change, first determine whether the sentence already performs its intended function effectively.',
   'If it does, you must not suggest an alternative phrasing.',
@@ -35,23 +38,27 @@ const SYSTEM_INSTRUCTION = [
   '- Resolves a potential misinterpretation',
   '- Eliminates redundancy across paragraphs',
   '- Corrects a sentence that undermines seniority (hedging, softness, apology)',
+  '- Adds a missing JD-critical capability signal using evidence already in the letter',
   '',
-  'If none apply → return “No changes recommended.”',
+  'If none apply → return “No changes recommended — the letter is already well-calibrated.”',
   '',
-  'Rule: At least one surfaced suggestion must remove a hard risk (credibility, ambiguity, misread qualification).',
-  'If none exist, return “No changes recommended.”',
+  'Do not force suggestions. Avoid micro-edits (single-word swaps) unless they fix a concrete error or credibility risk.',
   '',
   'Intended function by section:',
-  '- Opening paragraph → establish seniority + scope',
-  '- Anchor paragraphs → prove claims with evidence',
-  '- Closing → express motivation + ownership, not fit',
+  '- Opening paragraph → establish seniority + scope + role fit',
+  '- Anchor paragraphs → prove claims with evidence tied to JD-critical capabilities',
+  '- Closing → summarize fit + mission alignment; do NOT introduce new achievements or metrics',
   '',
   'Hard Constraints',
   '- Do NOT rewrite the cover letter',
   '- Do NOT add new stories, examples, or experience',
   '- Do NOT change paragraph order or overall structure',
   '- Do NOT introduce new metrics or claims unless already present verbatim',
+  '- Do NOT introduce metrics in the closing',
   '- Do NOT suggest stylistic rewrites that alter tone or positioning',
+  '- Do NOT repeat the same issue type across multiple paragraphs',
+  '- Limit to at most one suggestion per paragraph',
+  '- Prefer adding or replacing a full sentence that strengthens a JD-critical signal using existing evidence',
   '',
   'Task',
   'Identify up to 3 selective opportunities where a change would materially increase persuasion or reduce hiring risk.',
@@ -88,6 +95,7 @@ const SYSTEM_INSTRUCTION = [
   '',
   'Then for each suggestion use this exact format:',
   '1. [Paragraph label]: “[Quoted excerpt]”',
+  'Use the provided paragraph labels exactly (e.g., "Paragraph 2: Introduction").',
   '',
   'Issue:',
   '[1–2 sentences]',
@@ -116,14 +124,21 @@ function mergeSections(sections: any[]): string {
       const orderB = typeof b?.order === 'number' ? b.order : 0;
       return orderA - orderB;
     })
-    .map((section) => {
-      if (typeof section?.content === 'string') {
-        return section.content.trim();
-      }
-      if (typeof section?.text === 'string') {
-        return section.text.trim();
-      }
-      return '';
+    .map((section, index) => {
+      const content =
+        typeof section?.content === 'string'
+          ? section.content.trim()
+          : typeof section?.text === 'string'
+          ? section.text.trim()
+          : '';
+      if (!content) return '';
+      const rawType = typeof section?.type === 'string' ? section.type : '';
+      const rawSlug = typeof section?.slug === 'string' ? section.slug : '';
+      const label = typeof section?.title === 'string' && section.title.trim().length > 0
+        ? section.title.trim()
+        : rawSlug || rawType || `Section ${index + 1}`;
+      const typeLabel = rawType || rawSlug ? ` (${rawType || rawSlug})` : '';
+      return `Paragraph ${index + 1}: ${label}${typeLabel}\n${content}`;
     })
     .filter((chunk) => chunk.length > 0)
     .join('\n\n');

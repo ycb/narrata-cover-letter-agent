@@ -18,7 +18,12 @@
     "model-comparison": "tsx scripts/model-comparison-test.ts",
     "test:upload": "tsx scripts/direct-upload-test.ts",
     "test:clear": "tsx scripts/direct-upload-test.ts --clear-only",
-    "generate:fixtures": "tsx scripts/generate-fixtures-from-json.ts"
+    "generate:fixtures": "tsx scripts/generate-fixtures-from-json.ts",
+    "migrate:work-history": "tsx scripts/migrate-user-work-history.ts",
+    "regenerate:cover-letter": "tsx scripts/regenerate-cover-letter-sections.ts",
+    "trigger:gaps": "tsx scripts/trigger-gap-detection.ts",
+    "trigger:pm-levels": "tsx scripts/trigger-pm-levels.ts",
+    "trigger:pm-levels:admin": "tsx scripts/trigger-pm-levels-admin.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.65",

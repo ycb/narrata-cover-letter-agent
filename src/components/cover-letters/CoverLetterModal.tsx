@@ -747,10 +747,17 @@ export const CoverLetterModal = ({
 
   const refreshStreamingHook = useCoverLetterJobStream({
     autoStart: true,
-    disableSSE: true,
+    disableSSE: false,
     pollIntervalMs: 2000,
     timeout: 300000,
+    streamMode: 'watch',
   });
+  const refreshCompletionRef = useRef<{
+    jobId: string;
+    resolve: () => void;
+    reject: (error: Error) => void;
+  } | null>(null);
+  const refreshJobIdRef = useRef<string | null>(null);
 
   // Dev-only: Log modal mount (Task 5: streaming wiring diagnostics)
   useEffect(() => {
@@ -762,6 +769,25 @@ export const CoverLetterModal = ({
       autoStart: true,
     });
   }, []);
+
+  useEffect(() => {
+    const pending = refreshCompletionRef.current;
+    const state = refreshStreamingHook.state;
+    if (!pending || !state || state.jobId !== pending.jobId) return;
+    if (state.status === 'complete') {
+      pending.resolve();
+      refreshCompletionRef.current = null;
+    } else if (state.status === 'error') {
+      pending.reject(new Error(state.error || 'Refresh failed'));
+      refreshCompletionRef.current = null;
+    }
+  }, [refreshStreamingHook.state]);
+
+  useEffect(() => {
+    if (!refreshStreamingHook.error || !refreshCompletionRef.current) return;
+    refreshCompletionRef.current.reject(new Error(refreshStreamingHook.error));
+    refreshCompletionRef.current = null;
+  }, [refreshStreamingHook.error]);
 
   // Dev-only telemetry guards for stage/insight one-time events
   const emittedStagesRef = useRef({
@@ -2625,6 +2651,9 @@ export const CoverLetterModal = ({
       } catch (jobError) {
         console.warn('[CoverLetterModal] Unable to create refresh streaming job (non-blocking):', jobError);
       }
+      if (refreshJobId) {
+        refreshJobIdRef.current = refreshJobId;
+      }
 
       // Persist any local edits so metrics/gaps are computed against the latest content.
       if (Object.keys(sectionDrafts).length > 0) {
@@ -2642,7 +2671,13 @@ export const CoverLetterModal = ({
         jobDescriptionId,
         undefined,
         { jobId: refreshJobId ?? undefined },
-      );
+      ).catch((error) => {
+        if (refreshCompletionRef.current && refreshCompletionRef.current.jobId === (refreshJobId ?? '')) {
+          refreshCompletionRef.current.reject(error instanceof Error ? error : new Error(String(error)));
+          refreshCompletionRef.current = null;
+        }
+        throw error;
+      });
 
       refreshPollingRef.current = true;
       let lastUpdatedAt = draft.updatedAt;
@@ -2657,14 +2692,18 @@ export const CoverLetterModal = ({
           }
         }
       })();
+      const completionPromise = refreshJobId
+        ? new Promise<void>((resolve, reject) => {
+            refreshCompletionRef.current = { jobId: refreshJobId, resolve, reject };
+            const state = refreshStreamingHook.state;
+            if (state?.jobId === refreshJobId) {
+              if (state.status === 'complete') resolve();
+              if (state.status === 'error') reject(new Error(state.error || 'Refresh failed'));
+            }
+          })
+        : refreshPromise.then(() => undefined);
 
-      const refreshTimeoutMs = 90000;
-      await Promise.race([
-        refreshPromise,
-        new Promise((_, reject) =>
-          window.setTimeout(() => reject(new Error('Refresh timed out')), refreshTimeoutMs),
-        ),
-      ]);
+      await Promise.all([refreshPromise, completionPromise]);
 
       const refreshed = await coverLetterDraftService.getDraft(draft.id);
       if (refreshed) {
@@ -2698,6 +2737,8 @@ export const CoverLetterModal = ({
       refreshPollingRef.current = false;
       await new Promise(resolve => window.setTimeout(resolve, 0));
       setIsManualRefreshLoading(false);
+      refreshCompletionRef.current = null;
+      refreshJobIdRef.current = null;
     }
   };
 

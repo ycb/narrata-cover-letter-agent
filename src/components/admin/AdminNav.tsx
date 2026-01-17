@@ -8,7 +8,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Cpu, TrendingUp, Trophy, FileCheck } from 'lucide-react';
+import { Cpu, TrendingUp, Trophy, FileCheck, UserRound } from 'lucide-react';
 
 interface AdminNavProps {
   currentTab?: string;
@@ -22,6 +22,7 @@ export function AdminNav({ currentTab }: AdminNavProps = {}) {
     { name: 'File Upload Quality', href: '/admin/evaluation', icon: FileCheck, key: 'evaluation' },
     { name: 'Funnel Analytics', href: '/admin/funnel', icon: TrendingUp, key: 'funnel' },
     { name: 'User Leaderboard', href: '/admin/leaderboard', icon: Trophy, key: 'leaderboard' },
+    { name: 'View As User', href: '/admin/spoof', icon: UserRound, key: 'spoof' },
   ];
   
   return (
@@ -57,4 +58,3 @@ export function AdminNav({ currentTab }: AdminNavProps = {}) {
     </div>
   );
 }
-
