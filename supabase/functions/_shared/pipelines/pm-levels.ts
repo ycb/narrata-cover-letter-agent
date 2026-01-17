@@ -35,10 +35,25 @@ const baselineAssessmentStage: PipelineStage = {
     // Fetch user data
     const workHistory = await fetchWorkHistory(supabase, job.user_id);
 
-    // Build context
+    // Build context with descriptions and key metrics
     const workHistoryText = workHistory
-      .map((wh: any) => `${wh.title} at ${wh.companies?.name || 'Unknown'} (${wh.start_date} - ${wh.end_date || 'Present'})`)
-      .join('\n');
+      .map((wh: any) => {
+        let text = `${wh.title} at ${wh.companies?.name || 'Unknown'} (${wh.start_date} - ${wh.end_date || 'Present'})`;
+        if (wh.description) text += `\n  ${wh.description}`;
+        
+        // Add key metrics if available
+        if (Array.isArray(wh.metrics) && wh.metrics.length > 0) {
+          const metricsSummary = wh.metrics
+            .slice(0, 3)
+            .map((m: any) => `${m.value || ''} ${m.context || ''}`.trim())
+            .filter(Boolean)
+            .join(', ');
+          if (metricsSummary) text += `\n  Key metrics: ${metricsSummary}`;
+        }
+        
+        return text;
+      })
+      .join('\n\n');
 
     const prompt = `Assess PM level for this profile:
 
