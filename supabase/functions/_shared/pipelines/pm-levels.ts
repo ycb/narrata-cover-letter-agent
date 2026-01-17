@@ -103,6 +103,12 @@ SCOPE INDICATORS FOR M2 (check ANY role in history, not just most recent):
 - Strategic scope: Company-wide initiatives, C-level stakeholder management
 - Career trajectory: Progression to Director/Head/VP level titles with increasing scope
 
+**CRITICAL: If you see budget ≥ $50M OR team ≥ 50 people in ANY role, that role is MANAGERIAL (M1/M2), NOT IC.**
+- You cannot manage $50M+ budget or 50+ people as an IC contributor
+- Senior Director / Director with these metrics → M1 minimum
+- Senior Director with $100M+ budget OR 100+ team → M2
+- Head of / VP with $100M+ budget OR 100+ team → M2
+
 Be evidence-based and recognize leadership titles + scope appropriately.`;
 
     const response = await callOpenAI({
