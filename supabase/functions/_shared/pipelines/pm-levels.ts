@@ -62,6 +62,12 @@ ${workHistoryText}
 
 ${targetRole ? `TARGET ROLE: ${targetRole}` : ''}
 
+ASSESSMENT INSTRUCTIONS:
+Consider the ENTIRE career trajectory, not just the most recent role:
+- Look for evidence of scope growth over time (budget, team, impact)
+- Recognize that senior executives may move between Product, BD, Strategy roles
+- Career peak scope (even if from a previous role) indicates capability level
+
 You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "icLevel": number (1-9, IC level assessment based on Meta/FAANG scale),
@@ -90,11 +96,12 @@ IMPORTANT:
 - Principal/Staff PM with company-level impact → IC6-IC8 range
 - Look for years of experience AND scope of impact (feature → product → company)
 
-SCOPE INDICATORS FOR M2:
+SCOPE INDICATORS FOR M2 (check ANY role in history, not just most recent):
 - Budget responsibility: $50M+ annual budget
 - Team size: 50+ headcount (direct + indirect)
 - Impact scale: Multi-million users, $100M+ revenue impact, or company-defining products
 - Strategic scope: Company-wide initiatives, C-level stakeholder management
+- Career trajectory: Progression to Director/Head/VP level titles with increasing scope
 
 Be evidence-based and recognize leadership titles + scope appropriately.`;
 
