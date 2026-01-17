@@ -64,15 +64,24 @@ Use this scale:
 - IC7: Senior Staff PM (10-15 years, Senior Staff PM)
 - IC8: Principal PM (15+ years, Principal/Distinguished PM)
 - IC9: Distinguished PM (rare, 20+ years, Fellow/VP level IC)
-- M1: Group PM / Director (10+ years, managing PMs)
-- M2: VP of Product (12+ years, leading product org)
+- M1: Group PM / Director (10+ years, managing PMs or leading product initiatives)
+- M2: VP / SVP / Head of Product or equivalent (12+ years, exec leadership, $100M+ budget OR 100+ team OR company-wide scope)
 
 IMPORTANT: 
-- VP of Product, Head of Product, Director of Product → typically M1-M2 (management track)
+- **Executive roles** (VP, SVP, Head of, C-level) with clear scope indicators (large budget, big team, company impact) → M2
+- **Senior IC roles** with company-level impact but no direct reports → IC7-IC8
+- **Director/Group PM** managing other PMs → M1
+- VP of Product, Head of Product, Head of Business Development (with product scope), SVP → typically M2
 - Principal/Staff PM with company-level impact → IC6-IC8 range
 - Look for years of experience AND scope of impact (feature → product → company)
 
-Be evidence-based but recognize leadership titles appropriately.`;
+SCOPE INDICATORS FOR M2:
+- Budget responsibility: $50M+ annual budget
+- Team size: 50+ headcount (direct + indirect)
+- Impact scale: Multi-million users, $100M+ revenue impact, or company-defining products
+- Strategic scope: Company-wide initiatives, C-level stakeholder management
+
+Be evidence-based and recognize leadership titles + scope appropriately.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
