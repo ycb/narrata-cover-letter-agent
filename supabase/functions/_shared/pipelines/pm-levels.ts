@@ -70,23 +70,23 @@ Consider the ENTIRE career trajectory, not just the most recent role:
 
 You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
-  "icLevel": number (1-9, IC level assessment based on Meta/FAANG scale),
+  "icLevel": number (1-9, seniority level - can be IC OR Manager, see scale below),
   "roleToLevelMapping": {
     "role_title": number (level)
   },
-  "assessmentBand": string ("IC3-IC4", "IC5-IC6", etc.)
+  "assessmentBand": string ("IC3-IC4", "IC5-IC6", "M1", "M2", etc.)
 }
 
-Use this scale:
-- IC3: Entry PM (0-2 years, Associate Product Manager)
-- IC4: Mid-level PM (2-4 years, Product Manager)
-- IC5: Senior PM (4-7 years, Senior Product Manager)
-- IC6: Staff PM (7-10 years, Staff/Principal Product Manager)
-- IC7: Senior Staff PM (10-15 years, Senior Staff PM)
-- IC8: Principal PM (15+ years, Principal/Distinguished PM)
-- IC9: Distinguished PM (rare, 20+ years, Fellow/VP level IC)
-- M1: Group PM / Director (10+ years, managing PMs or leading product initiatives)
-- M2: VP / SVP / Head of Product or equivalent (12+ years, exec leadership, $100M+ budget OR 100+ team OR company-wide scope)
+Use this SENIORITY scale (1-9 covers both IC and Manager tracks):
+- 3: IC3 / Entry PM (0-2 years, Associate Product Manager)
+- 4: IC4 / Mid-level PM (2-4 years, Product Manager)
+- 5: IC5 / Senior PM (4-7 years, Senior Product Manager)
+- 6: IC6 / Staff PM (7-10 years, Staff/Principal Product Manager)
+- 7: IC7 / M1 (10+ years, Senior Staff PM OR Group PM/Director managing PMs)
+- 8: IC8 / M1 (15+ years, Principal PM OR Director with significant scope)
+- 9: M2 / Distinguished (VP/SVP/Head of Product, exec leadership with $100M+ budget OR 100+ team OR company-wide scope)
+
+**The "icLevel" field name is legacy - it actually represents SENIORITY (1-9), which includes both IC and Manager paths.**
 
 IMPORTANT: 
 - **Executive roles** (VP, SVP, Head of, C-level) with clear scope indicators (large budget, big team, company impact) → M2
@@ -97,19 +97,22 @@ IMPORTANT:
 - Look for years of experience AND scope of impact (feature → product → company)
 
 SCOPE INDICATORS FOR M2 (check ANY role in history, not just most recent):
-- Budget responsibility: $50M+ annual budget
-- Team size: 50+ headcount (direct + indirect)
+- Budget responsibility: $50M+ annual budget → automatic M1, $100M+ → M2
+- Team size: 50+ headcount (direct + indirect) → automatic M1, 100+ → M2
 - Impact scale: Multi-million users, $100M+ revenue impact, or company-defining products
-- Strategic scope: Company-wide initiatives, C-level stakeholder management
+- Strategic scope: Company-wide initiatives, C-level stakeholder management, org-level P&L
 - Career trajectory: Progression to Director/Head/VP level titles with increasing scope
 
-**CRITICAL: If you see budget ≥ $50M OR team ≥ 50 people in ANY role, that role is MANAGERIAL (M1/M2), NOT IC.**
-- You cannot manage $50M+ budget or 50+ people as an IC contributor
-- Senior Director / Director with these metrics → M1 minimum
-- Senior Director with $100M+ budget OR 100+ team → M2
-- Head of / VP with $100M+ budget OR 100+ team → M2
+**CRITICAL SCOPE-TO-LEVEL MAPPING:**
+- If you see budget ≥ $100M OR team ≥ 100 people in ANY role → **icLevel MUST be 9 (M2)**
+- If you see budget $50M-$100M OR team 50-100 people → **icLevel MUST be 7-8 (M1)**
+- If you see budget ≥ $50M OR team ≥ 50 people → that role is MANAGERIAL, NOT IC
+- Senior Director / Director with $100M+ budget OR 100+ team → **icLevel: 9**
+- Head of / VP with $50M+ budget OR 50+ team → **icLevel: 9**
 
-Be evidence-based and recognize leadership titles + scope appropriately.`;
+**Scope is a multiplier on competency. Large scope = executive level, regardless of job title ambiguity.**
+
+Be evidence-based and recognize scope indicators as the primary level determinant.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
