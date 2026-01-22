@@ -4,7 +4,7 @@
  * Regenerate saved sections + cover letter template from raw text for a user.
  * 
  * Usage:
- *   tsx scripts/regenerate-cover-letter-sections.ts <user_id> <source_id>
+ *   tsx scripts/regenerate-cover-letter-sections.ts <user_id> <source_id> [--reset] [--dedupe-sources]
  * 
  * Example:
  *   tsx scripts/regenerate-cover-letter-sections.ts d3937780-28ec-4221-8bfb-2bb0f670fd52 5a4e4bf9-4d98-408a-8259-808273d233d4
@@ -40,13 +40,101 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   }
 });
 
-async function regenerateCoverLetterSections(userId: string, sourceId: string) {
+async function archiveRows(userId: string, sourceTable: string, rows: Array<Record<string, any>>) {
+  if (rows.length === 0) return;
+
+  const payload = rows.map(row => ({
+    user_id: userId,
+    source_table: sourceTable,
+    source_id: String(row.id),
+    source_data: row,
+    deleted_by: null
+  }));
+
+  const { error } = await supabase
+    .from('deleted_records')
+    .insert(payload);
+
+  if (error) {
+    console.error(`❌ Error archiving ${sourceTable} rows:`, error);
+    process.exit(1);
+  }
+}
+
+async function regenerateCoverLetterSections(userId: string, sourceId: string, options: { reset: boolean; dedupeSources: boolean }) {
   console.log('═══════════════════════════════════════════════════════════');
   console.log('🔄 Regenerate Cover Letter Sections Script');
   console.log('═══════════════════════════════════════════════════════════');
   console.log(`User ID:   ${userId}`);
   console.log(`Source ID: ${sourceId}`);
+  if (options.reset || options.dedupeSources) {
+    console.log(`Cleanup:   ${options.reset ? 'reset sections' : 'no reset'}, ${options.dedupeSources ? 'dedupe sources' : 'keep sources'}`);
+  }
   console.log('');
+
+  // Step 0: Optional cleanup
+  if (options.reset) {
+    console.log('🧹 Step 0: Resetting existing cover letter sections...');
+    const { data: existingSections, error: existingSectionsError } = await supabase
+      .from('saved_sections')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('source_type', 'cover_letter');
+
+    if (existingSectionsError) {
+      console.error('❌ Error fetching existing sections:', existingSectionsError);
+      process.exit(1);
+    }
+
+    await archiveRows(userId, 'saved_sections', existingSections || []);
+
+    const { error: deleteSectionsError } = await supabase
+      .from('saved_sections')
+      .delete()
+      .eq('user_id', userId)
+      .eq('source_type', 'cover_letter');
+
+    if (deleteSectionsError) {
+      console.error('❌ Error deleting existing sections:', deleteSectionsError);
+      process.exit(1);
+    }
+
+    console.log(`✅ Cleared ${existingSections?.length || 0} saved sections`);
+    console.log('');
+  }
+
+  if (options.dedupeSources) {
+    console.log('🧹 Step 0b: Removing duplicate cover letter sources...');
+    const { data: duplicateSources, error: duplicateSourcesError } = await supabase
+      .from('sources')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('source_type', 'cover_letter')
+      .neq('id', sourceId);
+
+    if (duplicateSourcesError) {
+      console.error('❌ Error fetching duplicate sources:', duplicateSourcesError);
+      process.exit(1);
+    }
+
+    await archiveRows(userId, 'sources', duplicateSources || []);
+
+    const duplicateIds = (duplicateSources || []).map(source => source.id);
+    if (duplicateIds.length > 0) {
+      const { error: deleteSourcesError } = await supabase
+        .from('sources')
+        .delete()
+        .in('id', duplicateIds);
+
+      if (deleteSourcesError) {
+        console.error('❌ Error deleting duplicate sources:', deleteSourcesError);
+        process.exit(1);
+      }
+    }
+
+    console.log(`✅ Removed ${duplicateSources?.length || 0} duplicate sources`);
+    console.log('');
+  }
 
   // Step 1: Fetch source data
   console.log('📥 Step 1: Fetching source raw_text...');
@@ -282,9 +370,13 @@ async function regenerateCoverLetterSections(userId: string, sourceId: string) {
 
 // Run the script
 const args = process.argv.slice(2);
+const flags = new Set(args.filter(arg => arg.startsWith('--')));
+const positional = args.filter(arg => !arg.startsWith('--'));
+const reset = flags.has('--reset');
+const dedupeSources = flags.has('--dedupe-sources');
 
-if (args.length < 2) {
-  console.error('Usage: tsx scripts/regenerate-cover-letter-sections.ts <user_id> <source_id>');
+if (positional.length < 2) {
+  console.error('Usage: tsx scripts/regenerate-cover-letter-sections.ts <user_id> <source_id> [--reset] [--dedupe-sources]');
   console.error('');
   console.error('Example:');
   console.error('  tsx scripts/regenerate-cover-letter-sections.ts \\');
@@ -293,9 +385,9 @@ if (args.length < 2) {
   process.exit(1);
 }
 
-const [userId, sourceId] = args;
+const [userId, sourceId] = positional;
 
-regenerateCoverLetterSections(userId, sourceId)
+regenerateCoverLetterSections(userId, sourceId, { reset, dedupeSources })
   .then(() => {
     console.log('');
     console.log('✅ Script completed successfully');

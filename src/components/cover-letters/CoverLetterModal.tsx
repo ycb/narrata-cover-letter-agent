@@ -495,7 +495,8 @@ export const CoverLetterModal = ({
         const [
           { data: companies, error: companiesError },
           { data: workItems, error: workItemsError },
-          { data: stories, error: storiesError }
+          { data: stories, error: storiesError },
+          savedSectionsResult,
         ] = await Promise.all([
           supabase.from('companies').select('id, name, description, created_at, updated_at').eq('user_id', user.id),
           supabase
@@ -505,7 +506,8 @@ export const CoverLetterModal = ({
           supabase
             .from('stories')
             .select('id, title, content, status, confidence, tags, metrics, work_item_id, created_at, updated_at')
-            .eq('user_id', user.id)
+            .eq('user_id', user.id),
+          CoverLetterTemplateService.getUserSavedSections(user.id),
         ]);
 
         if (companiesError) throw companiesError;
@@ -639,7 +641,7 @@ export const CoverLetterModal = ({
         );
 
         setWorkHistoryLibrary(result);
-        setSavedSections([]);
+        setSavedSections(savedSectionsResult ?? []);
       } catch (error) {
         console.error('[CoverLetterModal] Failed to load library data:', error);
         setLibraryError(error instanceof Error ? error.message : 'Failed to load library');

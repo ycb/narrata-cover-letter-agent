@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { SoftDeleteService } from "@/services/softDeleteService";
 
 export const normalizeDictionaryWord = (word: string) =>
   word.trim().replace(/^[^A-Za-z0-9'-]+|[^A-Za-z0-9'-]+$/g, "");
@@ -36,6 +37,25 @@ export const UserDictionaryService = {
   async removeWord(userId: string, word: string): Promise<void> {
     const trimmed = normalizeDictionaryWord(word);
     if (!trimmed) return;
+
+    const { data: rows, error: fetchError } = await supabase
+      .from("user_dictionary_words")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("word", trimmed);
+
+    if (fetchError) {
+      throw fetchError;
+    }
+
+    if (rows && rows.length > 0) {
+      await SoftDeleteService.archiveRows({
+        userId,
+        sourceTable: "user_dictionary_words",
+        rows,
+        sourceIdResolver: (row) => `${userId}:${row.word as string}`
+      });
+    }
 
     const { error } = await supabase
       .from("user_dictionary_words")

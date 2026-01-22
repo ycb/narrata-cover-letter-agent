@@ -60,3 +60,15 @@
 ## 2026-01-09
 
 - `supabase/migrations/20260109_add_cover_letter_outcome_status.sql`: Reviewed existing migrations for cover letter status changes and found only the initial `letter_status` enum. Added new outcome columns and enum to support applied/outcome tracking without altering deprecated `reviewed` status.
+
+## 2026-01-17
+
+- `scripts/dedupe-content-variations.ts`: Searched `scripts/` for existing variation cleanup or dedupe tooling (`dedupe`, `content_variations`) and found none. Added a one-off script to remove duplicate `content_variations` rows by normalized content (optional per-user scope) so stored variations stop ballooning and UI preview doesn't surface repeated entries.
+
+## 2026-01-22
+
+- `supabase/migrations/20260122_create_deleted_records.sql`: Reviewed `supabase/migrations` for existing soft-delete/archive tables and found only `sources`-specific `is_deleted/deleted_at` handling. Added a generic `deleted_records` archive table with 90-day purge support to centralize soft-delete retention across tables.
+
+- `src/services/softDeleteService.ts`: Searched `src/services` for a shared archive/soft-delete helper (`softDelete`, `archiveService`, `trash`) and found none. Added a small service to archive deleted rows into `deleted_records` consistently from multiple delete flows.
+
+- `supabase/migrations/20260122120000_schedule_purge_deleted_records.sql`: Searched `supabase/migrations` for existing pg_cron schedules and found none. Added a daily pg_cron job to purge archived deleted records after the 90-day retention window.

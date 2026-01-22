@@ -20,6 +20,8 @@ dist-ssr
 .env.development
 # MCP configuration (contains environment-resolved secrets)
 .mcp.json
+# Codex config may contain secrets (MCP tokens)
+.codex/config.toml
 
 # Google Apps Script with sensitive data
 google-apps-script.js

@@ -16,6 +16,10 @@ function normalizeSpaces(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+function normalizeVariationContent(value: string): string {
+  return normalizeSpaces(value).toLowerCase();
+}
+
 function normalizeTag(value: string): string {
   const cleaned = value
     .toLowerCase()
@@ -138,6 +142,34 @@ export async function persistCoverLetterHilReuseArtifact(params: {
   const tags = buildGapTags({ paragraphId: params.gap.paragraphId, gapLabels, gapCategory: params.gapRecord?.category });
 
   if (sourceKind === 'work_story' && sourceEntityId) {
+    const cleaned = normalizeVariationContent(content);
+    const { data: existingVariations, error: existingError } = await supabase
+      .from('content_variations')
+      .select('id, content, filled_gap_id, gap_tags')
+      .eq('user_id', params.userId)
+      .eq('parent_entity_type', 'approved_content')
+      .eq('parent_entity_id', sourceEntityId);
+
+    if (!existingError && cleaned) {
+      const duplicate = (existingVariations || []).find((variation: any) =>
+        normalizeVariationContent(String(variation.content || '')) === cleaned,
+      );
+      if (duplicate?.id) {
+        const mergedTags = Array.from(new Set([...(duplicate.gap_tags ?? []), ...tags]));
+        const updatePayload: { filled_gap_id?: string; gap_tags?: string[] } = {};
+        if (params.gapRecord?.id && !duplicate.filled_gap_id) {
+          updatePayload.filled_gap_id = params.gapRecord.id;
+        }
+        if (mergedTags.length !== (duplicate.gap_tags ?? []).length) {
+          updatePayload.gap_tags = mergedTags;
+        }
+        if (Object.keys(updatePayload).length > 0) {
+          await supabase.from('content_variations').update(updatePayload).eq('id', duplicate.id);
+        }
+        return { variationId: duplicate.id };
+      }
+    }
+
     const title = buildSemanticTitle({
       kind: 'story_variation',
       paragraphId: params.gap.paragraphId,

@@ -46,8 +46,8 @@ const LEVEL_DISPLAY_MAP: Record<string, string> = {
   'L4': 'Product Manager',
   'L5': 'Senior Product Manager',
   'L6': 'Staff Product Manager',
-  'M1': 'Group Product Manager',
-  'M2': 'Director of Product',
+  'M1': 'Group PM / Director',
+  'M2': 'VP of Product',
 };
 
 /**
@@ -65,7 +65,7 @@ function deriveTargetLevelBand(inferredLevel: string | null): string | null {
 
   // Manager progression path
   if (inferredLevel === 'M1') return 'M2';
-  if (inferredLevel === 'M2') return null; // At top of current ladder
+  if (inferredLevel === 'M2') return 'SVP/CPO';
 
   return null;
 }
@@ -164,4 +164,3 @@ function createEmptyProfile(): PMLevelsProfile {
     lastAnalyzedAt: null,
   };
 }
-

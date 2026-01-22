@@ -522,6 +522,55 @@ export class ContentGenerationService {
       throw new Error('Variations not supported for work_item - use replace mode');
     }
 
+    const normalizeVariationContent = (value: string): string =>
+      value.replace(/\s+/g, ' ').trim().toLowerCase();
+    const cleaned = normalizeVariationContent(request.content || '');
+    const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+    const gapIdIsUuid = isUuid(String(request.gapId || ''));
+
+    const { data: existingVariations, error: existingError } = await supabase
+      .from('content_variations')
+      .select('id, content, filled_gap_id, gap_tags')
+      .eq('user_id', request.userId)
+      .eq('parent_entity_type', request.entityType)
+      .eq('parent_entity_id', request.entityId);
+
+    if (!existingError && (existingVariations || []).length > 0 && cleaned) {
+      const duplicate = (existingVariations || []).find((variation: any) =>
+        normalizeVariationContent(String(variation.content || '')) === cleaned,
+      );
+
+      if (duplicate?.id) {
+        const mergedTags = Array.from(
+          new Set([...(duplicate.gap_tags ?? []), ...(request.variationData.gapTags ?? [])]),
+        );
+
+        if (gapIdIsUuid && (!duplicate.filled_gap_id || mergedTags.length !== (duplicate.gap_tags ?? []).length)) {
+          const updatePayload: { filled_gap_id?: string; gap_tags?: string[] } = {};
+          if (!duplicate.filled_gap_id) {
+            updatePayload.filled_gap_id = request.gapId;
+          }
+          if (mergedTags.length !== (duplicate.gap_tags ?? []).length) {
+            updatePayload.gap_tags = mergedTags;
+          }
+          if (Object.keys(updatePayload).length > 0) {
+            await supabase.from('content_variations').update(updatePayload).eq('id', duplicate.id);
+          }
+        }
+
+        if (gapIdIsUuid) {
+          await GapDetectionService.resolveGap(
+            request.gapId,
+            request.userId,
+            'content_added',
+            duplicate.id,
+          );
+        }
+
+        return { success: true, id: duplicate.id };
+      }
+    }
+
     const variationInsert: ContentVariationInsert = {
       user_id: request.userId,
       parent_entity_type: request.entityType,

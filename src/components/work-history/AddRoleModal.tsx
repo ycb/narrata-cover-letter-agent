@@ -22,6 +22,7 @@ import { X, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { SoftDeleteService } from "@/services/softDeleteService";
 import { addUserTag, mergeUserTags, removeUserTag } from "@/lib/userTags";
 import { GapDetectionService } from "@/services/gapDetectionService";
 import { UserTagService } from "@/services/userTagService";
@@ -364,18 +365,61 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
       const workItemIds = editingRole.workItemIds || [editingRole.id];
 
       // Delete stories first (FK constraint)
+      const { data: storyRows, error: storyFetchError } = await supabase
+        .from('stories')
+        .select('*')
+        .in('work_item_id', workItemIds);
+
+      if (storyFetchError) throw storyFetchError;
+      if (storyRows && storyRows.length > 0) {
+        await SoftDeleteService.archiveRows({
+          userId: user.id,
+          sourceTable: 'stories',
+          rows: storyRows
+        });
+      }
+
       await supabase
         .from('stories')
         .delete()
         .in('work_item_id', workItemIds);
 
       // Delete gaps for these work items
+      const { data: gapRows, error: gapFetchError } = await supabase
+        .from('gaps')
+        .select('*')
+        .in('entity_id', workItemIds);
+
+      if (gapFetchError) throw gapFetchError;
+      if (gapRows && gapRows.length > 0) {
+        await SoftDeleteService.archiveRows({
+          userId: user.id,
+          sourceTable: 'gaps',
+          rows: gapRows
+        });
+      }
+
       await supabase
         .from('gaps')
         .delete()
         .in('entity_id', workItemIds);
 
       // Delete work_items
+      const { data: workItemRows, error: workItemFetchError } = await supabase
+        .from('work_items')
+        .select('*')
+        .in('id', workItemIds)
+        .eq('user_id', user.id);
+
+      if (workItemFetchError) throw workItemFetchError;
+      if (workItemRows && workItemRows.length > 0) {
+        await SoftDeleteService.archiveRows({
+          userId: user.id,
+          sourceTable: 'work_items',
+          rows: workItemRows
+        });
+      }
+
       const { error } = await supabase
         .from('work_items')
         .delete()

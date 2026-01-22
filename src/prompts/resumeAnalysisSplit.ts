@@ -150,17 +150,25 @@ METRIC FIELD RULES (CRITICAL):
 CRITICAL RULES:
 1. Extract ONLY content from ${roleContext.company}'s section in the resume
 2. Find the boundaries: where does this role's section start/end?
-3. Extract EVERY bullet for this role as a separate story
-   - Each bullet = one story, EVEN if bullets seem related or mention overlapping topics
-   - Example: "Managed X, Y, Z partnerships" and "Reinforced X, Y, Z alliances" = 2 separate stories
-   - Do NOT combine bullets based on semantic similarity
-   - Only exception: If a bullet is clearly a sub-point (indented, lettered) of the previous bullet
-4. Metrics: Can I find this exact number in THIS role's section?
+3. TARGET 3-7 STORIES PER ROLE (hard cap: 8 stories max)
+   - Combine related bullets that describe the same initiative, product, or outcome
+   - Example: "Managed X, Y, Z partnerships" and "Reinforced X, Y, Z alliances" = 1 combined story
+   - Group bullets by shared nouns (product name, platform, initiative, team)
+   - Each story should represent ONE distinct accomplishment or area of ownership
+   - Only split into separate stories if they represent clearly different work streams or outcomes
+4. QUALITY GATE (REQUIRED):
+   - Every story MUST contain at least ONE of:
+     a) A concrete action verb (launched, built, scaled, drove, designed, led, etc.)
+     b) A scope indicator (team size, user count, revenue, org level)
+     c) A measurable result or metric
+   - Skip generic responsibilities without concrete outcomes
+   - Skip vague statements like "worked on X" without action/impact
+5. Metrics: Can I find this exact number in THIS role's section?
    - YES → Include it
    - NO → Do NOT include it
-5. Stories: extract story.content verbatim (do NOT paraphrase or summarize the story text)
-6. Metrics: you MAY normalize how you split value vs context, but you MUST NOT change the numbers/units or introduce new claims
-7. Story IDs: sequential ("1", "2", "3", etc.)
+6. Stories: extract story.content verbatim (do NOT paraphrase or summarize the story text)
+7. Metrics: you MAY normalize how you split value vs context, but you MUST NOT change the numbers/units or introduce new claims
+8. Story IDs: sequential ("1", "2", "3", etc.)
 
 VALIDATION:
 - Every metric in outcomeMetrics appears in THIS role's section? YES/NO

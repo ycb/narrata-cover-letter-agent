@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { SoftDeleteService } from '@/services/softDeleteService';
 import { LLMAnalysisService } from './openaiService';
 import { GapDetectionService } from './gapDetectionService';
 import {
@@ -749,7 +750,7 @@ export class PMLevelsService {
       return { levelCode: 'L6', displayLevel: 'Principal Product Manager' };
     } else if (score < 6.5) {
       // M1 for Group PM/Director level
-      return { levelCode: 'M1', displayLevel: 'Group Product Manager' };
+      return { levelCode: 'M1', displayLevel: 'Group PM / Director' };
     } else {
       // M2 for VP/Senior Leadership level
       return { levelCode: 'M2', displayLevel: 'VP of Product' };
@@ -2032,6 +2033,26 @@ export class PMLevelsService {
       };
       
       // Delete existing row for this (user, synthetic_profile_id) to avoid unique conflicts on retry
+      const selectFilter = (supabase as any)
+        .from('user_levels')
+        .select('*')
+        .eq('user_id', userId);
+      if (syntheticProfileId) {
+        selectFilter.eq('synthetic_profile_id', syntheticProfileId);
+      } else {
+        selectFilter.is('synthetic_profile_id', null);
+      }
+      const { data: existingRows, error: selectError } = await selectFilter;
+      if (selectError) {
+        console.warn('[PMLevelsService] Failed to load existing user_levels for archive:', selectError);
+      } else if (existingRows?.length) {
+        await SoftDeleteService.archiveRows({
+          userId,
+          sourceTable: 'user_levels',
+          rows: existingRows
+        });
+      }
+
       const deleteFilter = (supabase as any)
         .from('user_levels')
         .delete()
@@ -2293,7 +2314,7 @@ export class PMLevelsService {
       'L4': 'Product Manager' as PMLevelDisplay,
       'L5': 'Senior Product Manager' as PMLevelDisplay,
       'L6': 'Staff/Principal Product Manager' as PMLevelDisplay,
-      'M1': 'Group Product Manager' as PMLevelDisplay,
+      'M1': 'Group PM / Director' as PMLevelDisplay,
       'M2': 'VP of Product' as PMLevelDisplay
     };
     return displayMap[levelCode] || (levelCode as PMLevelDisplay);

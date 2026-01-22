@@ -1,6 +1,7 @@
 // Synthetic user service for admin testing
 import { supabase } from '../lib/supabase';
 import { syntheticStorage, getSyntheticLocalOnlyFlag } from '../utils/storage';
+import { SoftDeleteService } from '@/services/softDeleteService';
 
 export interface SyntheticUser {
   id: string;
@@ -431,6 +432,21 @@ export class SyntheticUserService {
       }
 
       // Clear existing synthetic users
+      const { data: existingSyntheticUsers, error: fetchError } = await (supabase
+        .from('synthetic_users') as any)
+        .select('*')
+        .eq('parent_user_id', user.id);
+
+      if (fetchError) {
+        console.warn('[Synthetic] Failed to load existing synthetic users for archive:', fetchError);
+      } else if (existingSyntheticUsers?.length) {
+        await SoftDeleteService.archiveRows({
+          userId: user.id,
+          sourceTable: 'synthetic_users',
+          rows: existingSyntheticUsers
+        });
+      }
+
       await (supabase
         .from('synthetic_users') as any)
         .delete()

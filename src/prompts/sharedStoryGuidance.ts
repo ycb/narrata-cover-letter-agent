@@ -32,9 +32,15 @@ STAR FIELDS:
 
 STORY PRIORITIZATION:
 
-- Prefer fewer, higher-quality stories over many shallow ones.
+- TARGET 3-7 stories per role (hard cap: 8 max)
+- Prefer fewer, higher-quality stories over many shallow ones
+- Combine related bullets that describe the same initiative/product/outcome
 - Prioritize stories that include:
   - Clear, non-trivial impact,
   - Concrete actions,
-  - Metrics or strong qualitative results.
+  - Metrics or strong qualitative results
+- QUALITY GATE: Every story must have at least one of:
+  - Concrete action verb (launched, built, scaled, drove, designed, led)
+  - Scope indicator (team size, user count, revenue, org level)
+  - Measurable result or metric
 `;

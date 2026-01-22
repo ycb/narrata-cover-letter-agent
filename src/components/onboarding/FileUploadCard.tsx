@@ -92,6 +92,48 @@ export function FileUploadCard({
     }
   }, [currentValue, type]);
 
+  // Check for existing completed upload on mount
+  useEffect(() => {
+    const checkExistingUpload = async () => {
+      try {
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: sources } = await supabase
+          .from('sources')
+          .select('id, file_name, processing_status, source_type')
+          .eq('user_id', user.id)
+          .eq('processing_status', 'completed')
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (sources && sources.length > 0) {
+          // Find a completed source matching this type
+          const matchingSource = sources.find(s => {
+            if (type === 'coverLetter') {
+              return s.source_type === 'cover_letter';
+            } else if (type === 'resume') {
+              return s.source_type === 'resume';
+            }
+            return false;
+          });
+
+          if (matchingSource) {
+            console.log(`[FileUploadCard] Found existing completed ${type}:`, matchingSource.file_name);
+            setUploadedFileId(matchingSource.id);
+            setUploadedFileName(matchingSource.file_name);
+            setUploadedFileContent('(existing file)');
+          }
+        }
+      } catch (err) {
+        console.error('[FileUploadCard] Error checking existing uploads:', err);
+      }
+    };
+
+    checkExistingUpload();
+  }, [type]);
+
   // Listen for file upload progress events (status text only; no inline progress UI)
   useEffect(() => {
     const handleProgress = (event: Event) => {
@@ -230,6 +272,11 @@ export function FileUploadCard({
   useEffect(() => {
     const trimmed = typeof coverLetterText === 'string' ? coverLetterText.trim() : '';
     if (!trimmed || trimmed.length < 40) {
+      return;
+    }
+
+    // Skip if we already have a successfully uploaded file
+    if (uploadedFileId && uploadedFileContent) {
       return;
     }
 

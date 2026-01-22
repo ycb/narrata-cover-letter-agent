@@ -1,5 +1,6 @@
 // File upload service for Supabase Storage
 import { supabase } from '@/lib/supabase';
+import { SoftDeleteService } from '@/services/softDeleteService';
 import { createClient as createSbClient } from '@supabase/supabase-js';
 import { FILE_UPLOAD_CONFIG, ERROR_MESSAGES } from '@/lib/config/fileUpload';
 import type { 
@@ -52,6 +53,7 @@ const getSupabaseConfig = () => {
 import { TextExtractionService } from './textExtractionService';
 import { LLMAnalysisService } from './openaiService';
 import { EvaluationService } from './evaluationService';
+import { logEval } from './evalsLogger';
 import { TemplateService } from './templateService';
 import { UnifiedProfileService } from './unifiedProfileService';
 import { HumanReviewService } from './humanReviewService';
@@ -287,6 +289,56 @@ type SourceEntry = { id: string; processing_status: string; structured_data?: un
     } catch (error) {
       console.error('Error checking for existing source by checksum:', error);
       return null;
+    }
+  }
+
+  private async findActiveCoverLetterSource(
+    userId: string
+  ): Promise<{ id: string; processing_status: ProcessingStatus } | null> {
+    try {
+      const { data, error } = await supabase
+        .from('sources')
+        .select('id, processing_status')
+        .eq('user_id', userId)
+        .eq('source_type', 'cover_letter')
+        .in('processing_status', ['pending', 'processing', 'completed'])
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Cover letter lookup failed:', error);
+        return null;
+      }
+
+      if (!data || data.length === 0) {
+        return null;
+      }
+
+      return data[0] as { id: string; processing_status: ProcessingStatus };
+    } catch (error) {
+      console.error('Error checking existing cover letter source:', error);
+      return null;
+    }
+  }
+
+  private async isUserFlagged(
+    userId: string
+  ): Promise<{ isFlagged: boolean; reason?: string | null }> {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_flagged, flag_reason')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error || !data) {
+        return { isFlagged: false };
+      }
+
+      return { isFlagged: Boolean(data.is_flagged), reason: data.flag_reason ?? null };
+    } catch (error) {
+      console.error('Error checking user flag status:', error);
+      return { isFlagged: false };
     }
   }
 
@@ -608,6 +660,26 @@ source_type: dbSourceType,
         fileName: content instanceof File ? content.name : 'manual_text',
         size: content instanceof File ? content.size : content.length 
       });
+
+      const flagStatus = await this.isUserFlagged(userId);
+      if (flagStatus.isFlagged) {
+        return {
+          success: false,
+          error: ERROR_MESSAGES.ACCOUNT_REVIEW_REQUIRED,
+          retryable: false,
+        };
+      }
+
+      if (typeof content === 'string') {
+        const trimmed = content.trim();
+        if (trimmed.length < 40) {
+          return {
+            success: false,
+            error: 'Please paste at least 40 characters of text.',
+            retryable: false,
+          };
+        }
+      }
       
       let file: File;
       let isManualText = false;
@@ -663,6 +735,20 @@ source_type: dbSourceType,
         }
       }
 
+      if (type === 'coverLetter') {
+        const existingCoverLetter = await this.findActiveCoverLetterSource(userId);
+        if (existingCoverLetter) {
+          const message = existingCoverLetter.processing_status === 'pending' || existingCoverLetter.processing_status === 'processing'
+            ? 'Cover letter upload already in progress. Please wait for it to finish.'
+            : ERROR_MESSAGES.COVER_LETTER_LIMIT;
+          return {
+            success: false,
+            error: message,
+            retryable: false
+          };
+        }
+      }
+
       // For manual text, skip storage upload and create virtual storage path
       let storagePath: string;
       if (isManualText) {
@@ -708,11 +794,11 @@ source_type: dbSourceType,
       // Process content immediately (non-batched or other types)
       if (contentSize < FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD) {
         console.log('→ Processing IMMEDIATELY (small content)');
-        await this.processContent(sourceId, file, content, type, accessToken);
+        await this.processContent(sourceId, file, content, type, accessToken, userId);
       } else {
         console.log('→ Processing in BACKGROUND (large content)');
         // For large content, process in background
-        this.processContent(sourceId, file, content, type, accessToken).catch(error => {
+        this.processContent(sourceId, file, content, type, accessToken, userId).catch(error => {
           console.error('Background processing error:', error);
         });
       }
@@ -788,11 +874,14 @@ source_type: dbSourceType,
     file: File, 
     originalContent: File | string, 
     type: FileType, 
-    accessToken?: string
+    accessToken?: string,
+    userId?: string
   ): Promise<void> {
     // ═══════════════════════════════════════════════════════════
     // 🎯 TIMING INSTRUMENTATION - Streaming Onboarding Performance
     // ═══════════════════════════════════════════════════════════
+    const startedAt = new Date().toISOString();
+    let evalStage = 'extraction';
     const processStartTime = performance.now();
     let extractionLatencyMs = 0;
     let llmLatencyMs = 0;
@@ -913,6 +1002,7 @@ source_type: dbSourceType,
         console.log(`⏱️  [TIMING] No LinkedIn URL detected (${(performance.now() - linkedInDetectStart).toFixed(2)}ms)`);
       }
 
+      evalStage = 'llmAnalysis';
       // Analyze text with LLM based on file type
       console.log('⏱️  [TIMING] ─── STAGE 2: LLM ANALYSIS ───');
       console.log(`⏱️  [TIMING] Starting LLM analysis for type: ${type}`);
@@ -1221,6 +1311,7 @@ source_type: dbSourceType,
         }));
       }
 
+      evalStage = 'databaseSave';
       console.log('⏱️  [TIMING] ─── STAGE 3: DATABASE OPERATIONS ───');
       const dbStartTime = performance.now();
       
@@ -1380,6 +1471,30 @@ source_type: dbSourceType,
         error instanceof Error ? error.message : 'Processing failed',
         accessToken
       );
+      try {
+        const resolvedUserId = userId || (await supabase.auth.getUser()).data.user?.id;
+        if (resolvedUserId) {
+          await logEval({
+            job_id: sourceId,
+            job_type: 'onboarding',
+            stage: evalStage,
+            user_id: resolvedUserId,
+            environment: import.meta.env?.MODE || null,
+            started_at: startedAt,
+            completed_at: new Date().toISOString(),
+            success: false,
+            error_type: error instanceof Error ? error.name : 'Error',
+            error_message: error instanceof Error ? error.message : String(error),
+            result_subset: {
+              sourceId,
+              fileName: file.name,
+              fileType: type,
+            },
+          });
+        }
+      } catch (logError) {
+        console.warn('[FileUploadService] Failed to log eval failure:', logError);
+      }
       throw error;
     }
   }
@@ -1622,10 +1737,12 @@ source_type: dbSourceType,
 
       // Build unique company payloads
       const companyPayloads: any[] = [];
+      const seenCompanies = new Set<string>(); // Track companies we've already added to payloads
       for (const workItem of structuredData.workHistory) {
         if (!workItem.company) continue;
         const norm = normalizeCompanyName(workItem.company);
-        if (companyIdMap.has(norm)) continue;
+        if (seenCompanies.has(norm)) continue; // Skip duplicates
+        seenCompanies.add(norm);
         companyPayloads.push({
           name: workItem.company,
           description: workItem.companyDescription || '',
@@ -1785,11 +1902,35 @@ source_type: dbSourceType,
         if (!workItemId) continue;
 
         const stories = Array.isArray(workItem.stories) ? workItem.stories : [];
-        for (const story of stories) {
+        
+        // HARD CAP: Max 8 stories per role
+        const cappedStories = stories.slice(0, 8);
+        if (stories.length > 8) {
+          console.warn(`⚠️ Story cap applied: ${workItem.company} had ${stories.length} stories, capped to 8`);
+        }
+        
+        for (const story of cappedStories) {
           const storyTitle = story.title || story.content?.substring(0, 100);
           if (!storyTitle) continue;
-          const storyKey = `${workItemId}|${storyTitle}`;
-          if (seenStoryKey.has(storyKey)) continue;
+          
+          // QUALITY GATE: Must have action + scope/result
+          const content = story.content || '';
+          const hasAction = /\b(launched|built|scaled|drove|designed|led|created|managed|developed|implemented|increased|reduced|improved|established|introduced|shipped|delivered|architected|executed|optimized|transformed|spearheaded|pioneered|founded|grew|expanded)\b/i.test(content);
+          const hasMetric = (story.metrics && story.metrics.length > 0) || /\d+[%$kKmMbB]|\d+\+|\d+ (users|customers|teams|people|months|years|weeks|days|hours|minutes|seconds|x|X)/.test(content);
+          const hasScope = /\b(\d+\s*(person|people|user|customer|team|member|engineer|designer|PM|manager|stakeholder|department|org|organization|company|companies|client|clients|partner|partners)s?|million|billion|thousand|enterprise|global|international|cross-functional|multi-|org-wide|company-wide|team-wide)\b/i.test(content);
+          
+          if (!hasAction && !hasMetric && !hasScope) {
+            console.log(`⚠️ Story filtered (quality gate): "${storyTitle.substring(0, 50)}..." - no action/metric/scope`);
+            continue;
+          }
+          
+          // Simple deduplication: normalize title for comparison
+          const normalizedTitle = storyTitle.toLowerCase().replace(/[^\w\s]/g, '').trim();
+          const storyKey = `${workItemId}|${normalizedTitle}`;
+          if (seenStoryKey.has(storyKey)) {
+            console.log(`⚠️ Story filtered (duplicate): "${storyTitle.substring(0, 50)}..."`);
+            continue;
+          }
           seenStoryKey.add(storyKey);
 
           const storyMetrics = Array.isArray(story.metrics)
@@ -2620,13 +2761,22 @@ source_type: dbSourceType,
       // Get file info
       const { data: source, error: fetchError } = await supabase
         .from('sources')
-        .select('storage_path')
+        .select('*')
         .eq('id', sourceId)
         .eq('user_id', userId)
         .single();
 
       if (fetchError || !source) {
         throw new Error('File not found');
+      }
+
+      if (source) {
+        await SoftDeleteService.archiveRecord({
+          userId,
+          sourceTable: 'sources',
+          sourceId,
+          sourceData: source
+        });
       }
 
       // Delete from storage

@@ -22,6 +22,7 @@ import { X, Loader2, Trash2, Link as LinkIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { SoftDeleteService } from "@/services/softDeleteService";
 import { addUserTag, mergeUserTags, removeUserTag } from "@/lib/userTags";
 import { GapDetectionService } from "@/services/gapDetectionService";
 import { UserTagService } from "@/services/userTagService";
@@ -334,17 +335,22 @@ export function AddStoryModal({
         // NOTE: We store stories as `approved_content` in the variation model for consistency with gaps.
         if (storyChanged) {
           try {
-            const { data: existingVariation } = await supabase
+            const normalizeVariationContent = (value: string) =>
+              value.replace(/\s+/g, ' ').trim().toLowerCase();
+            const normalizedContent = normalizeVariationContent(nextContent);
+            const { data: existingVariations } = await supabase
               .from('content_variations')
-              .select('id')
+              .select('id, content')
               .eq('user_id', user.id)
               .eq('parent_entity_type', 'approved_content')
               .eq('parent_entity_id', editingStory.id)
-              .eq('content', nextContent)
-              .limit(1)
-              .maybeSingle();
+              .limit(25);
 
-            if (!existingVariation?.id) {
+            const duplicate = (existingVariations || []).find((variation: any) =>
+              normalizeVariationContent(String(variation.content || '')) === normalizedContent,
+            );
+
+            if (!duplicate?.id) {
               const variationInsert: ContentVariationInsert = {
                 user_id: user.id,
                 parent_entity_type: 'approved_content',
@@ -464,12 +470,43 @@ export function AddStoryModal({
 
     try {
       // Delete gaps for this story
+      const { data: gapRows, error: gapFetchError } = await supabase
+        .from('gaps')
+        .select('*')
+        .eq('entity_id', editingStory.id);
+
+      if (gapFetchError) throw gapFetchError;
+      if (gapRows && gapRows.length > 0) {
+        await SoftDeleteService.archiveRows({
+          userId: user.id,
+          sourceTable: 'gaps',
+          rows: gapRows
+        });
+      }
+
       await supabase
         .from('gaps')
         .delete()
         .eq('entity_id', editingStory.id);
 
       // Delete the story
+      const { data: storyRow, error: storyFetchError } = await supabase
+        .from('stories')
+        .select('*')
+        .eq('id', editingStory.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (storyFetchError) throw storyFetchError;
+      if (storyRow) {
+        await SoftDeleteService.archiveRecord({
+          userId: user.id,
+          sourceTable: 'stories',
+          sourceId: storyRow.id,
+          sourceData: storyRow
+        });
+      }
+
       const { error } = await supabase
         .from('stories')
         .delete()

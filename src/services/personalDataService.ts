@@ -6,6 +6,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { SyntheticUserService } from './syntheticUserService';
+import { SoftDeleteService } from '@/services/softDeleteService';
 
 export type SourceType = 'resume' | 'cover_letter';
 export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
@@ -306,6 +307,27 @@ export class PersonalDataService {
         asset.sourceType
       );
 
+      const { data: sourceRow, error: sourceError } = await supabase
+        .from('sources')
+        .select('*')
+        .eq('id', assetId)
+        .eq('user_id', userId)
+        .single();
+
+      if (sourceError) {
+        console.error('[PersonalDataService] Error loading source for archive:', sourceError);
+        throw sourceError;
+      }
+
+      if (sourceRow) {
+        await SoftDeleteService.archiveRecord({
+          userId,
+          sourceTable: 'sources',
+          sourceId: assetId,
+          sourceData: sourceRow
+        });
+      }
+
       // Soft delete the asset
       const { error } = await (supabase
         .from('sources') as any)
@@ -404,4 +426,3 @@ export class PersonalDataService {
     };
   }
 }
-

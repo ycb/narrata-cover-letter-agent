@@ -80,6 +80,21 @@ export function AddSectionFromLibraryModal({
   const [showPreview, setShowPreview] = React.useState(false);
   const isSavedSection = (content: WorkHistoryBlurb | SavedSection): content is SavedSection =>
     'type' in content && !('roleId' in content);
+  const normalizeVariationContent = React.useCallback((value: string): string => {
+    return value.replace(/\s+/g, ' ').trim().toLowerCase();
+  }, []);
+  const getUniqueVariations = React.useCallback(
+    (variations: BlurbVariation[] | undefined | null) => {
+      const seen = new Set<string>();
+      return (variations ?? []).filter((variation) => {
+        const key = normalizeVariationContent(variation.content ?? '') || '__empty__';
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    },
+    [normalizeVariationContent],
+  );
   const formatVariationLabel = (variation: BlurbVariation, index: number) =>
     variation.developedForJobTitle
       ? `Variation ${index + 1} - ${variation.developedForJobTitle}`
@@ -96,7 +111,7 @@ export function AddSectionFromLibraryModal({
     }
 
     const story = selectedContent as WorkHistoryBlurb;
-    const variations = story.variations ?? [];
+    const variations = getUniqueVariations(story.variations);
     if (selectedVariationId && variations.length > 0) {
       const variationIndex = variations.findIndex((variation) => variation.id === selectedVariationId);
       const variation = variationIndex >= 0 ? variations[variationIndex] : null;
@@ -195,10 +210,18 @@ export function AddSectionFromLibraryModal({
   const sectionTypeLabel = sectionType === "intro" ? "Introduction" : sectionType === "closing" ? "Closing" : "Body Paragraph";
   const isStoryContent = selectedContent && !isSavedSection(selectedContent);
   const storyContent = isStoryContent ? (selectedContent as WorkHistoryBlurb) : null;
-  const storyVariations = storyContent?.variations ?? [];
+  const storyVariations = getUniqueVariations(storyContent?.variations);
   const activePreview = resolveActiveContent();
   const itemContent = activePreview?.content ?? selectedContent?.content;
   const itemTitle = activePreview?.title ?? selectedContent?.title ?? "";
+
+  React.useEffect(() => {
+    if (!selectedVariationId) return;
+    const stillExists = storyVariations.some((variation) => variation.id === selectedVariationId);
+    if (!stillExists) {
+      setSelectedVariationId(null);
+    }
+  }, [selectedVariationId, storyVariations]);
 
   // Render preview or selection modal based on state
   return showPreview && selectedContent ? (

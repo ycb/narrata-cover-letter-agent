@@ -143,6 +143,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
   
   const fileUploadService = useRef(new FileUploadService());
   const uploadPromises = useRef<Map<string, Promise<UploadResult>>>(new Map());
+  const inFlightByType = useRef<Record<FileType, boolean>>({
+    resume: false,
+    coverLetter: false,
+    caseStudies: false,
+    linkedin: false,
+  });
 
   const {
     onProgress,
@@ -200,6 +206,13 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
       return { success: false, error: errorMsg, retryable: false };
     }
 
+    if (inFlightByType.current[type]) {
+      const errorMsg = 'Upload already in progress. Please wait for it to finish.';
+      setError(errorMsg);
+      onError?.(errorMsg);
+      return { success: false, error: errorMsg, retryable: false };
+    }
+
     // Validate file type
     if (!allowedTypes.includes(file.type)) {
       const errorMsg = `Invalid file type. Allowed types: ${allowedTypes.join(', ')}`;
@@ -234,6 +247,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
       progress: 0
     };
 
+    inFlightByType.current[type] = true;
     setProgress(prev => [...prev, progressEntry]);
     setIsUploading(true);
     setError(null);
@@ -308,6 +322,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
       onError?.(errorMsg);
       return { success: false, error: errorMsg, retryable: true };
     } finally {
+      inFlightByType.current[type] = false;
       setIsUploading(false);
     }
   }, [user, session, allowedTypes, maxFileSize, onProgress, onComplete, onError]);
@@ -385,6 +400,21 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
       return { success: false, error: errorMsg, retryable: false };
     }
 
+    const trimmed = text.trim();
+    if (trimmed.length < 40) {
+      const errorMsg = 'Please paste at least 40 characters of text.';
+      setError(errorMsg);
+      onError?.(errorMsg);
+      return { success: false, error: errorMsg, retryable: false };
+    }
+
+    if (inFlightByType.current[type]) {
+      const errorMsg = 'Upload already in progress. Please wait for it to finish.';
+      setError(errorMsg);
+      onError?.(errorMsg);
+      return { success: false, error: errorMsg, retryable: false };
+    }
+
     const fileId = `manual_${type}_${Date.now()}`;
     
     const progressEntry: FileUploadProgress = {
@@ -394,6 +424,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
       progress: 0
     };
 
+    inFlightByType.current[type] = true;
     setProgress(prev => [...prev, progressEntry]);
     setIsUploading(true);
     setError(null);
@@ -406,7 +437,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
 
       const textStartTime = performance.now();
       console.log(`🚀 Starting ${type} text processing for manual input`);
-      const result = await fileUploadService.current.uploadContent(text, user.id, type, session?.access_token);
+      const result = await fileUploadService.current.uploadContent(trimmed, user.id, type, session?.access_token);
       const textEndTime = performance.now();
       const textDuration = (textEndTime - textStartTime).toFixed(2);
       console.warn(`⏱️ ${type} text processing took: ${textDuration}ms`);
@@ -448,6 +479,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
       onError?.(errorMsg);
       return { success: false, error: errorMsg, retryable: true };
     } finally {
+      inFlightByType.current[type] = false;
       setIsUploading(false);
     }
   }, [user, session, onProgress, onComplete, onError]);

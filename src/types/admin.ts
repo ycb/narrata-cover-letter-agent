@@ -135,3 +135,16 @@ export interface AdminState {
   spoofedUserId: string | null;
   spoofedUserEmail: string | null;
 }
+
+// ============================================================================
+// Admin User List
+// ============================================================================
+
+export interface AdminUserListItem {
+  id: string;
+  email: string;
+  created_at: string;
+  is_flagged?: boolean;
+  flag_reason?: string | null;
+  flagged_at?: string | null;
+}

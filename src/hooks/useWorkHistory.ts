@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { SoftDeleteService } from '@/services/softDeleteService'
 import type { Database } from '@/types/supabase'
 import { schedulePMLevelBackgroundRun } from '@/services/pmLevelsEdgeClient'
 
@@ -227,6 +228,23 @@ export function useWorkHistory() {
   // Delete approved content
   const deleteStory = async (id: string) => {
     try {
+      const { data: row, error: fetchError } = await supabase
+        .from('stories')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      if (row) {
+        await SoftDeleteService.archiveRecord({
+          userId: row.user_id,
+          sourceTable: 'stories',
+          sourceId: row.id,
+          sourceData: row
+        })
+      }
+
       const { error } = await supabase
         .from('stories')
         .delete()

@@ -296,7 +296,10 @@ export type PMLevelDisplay =
   | 'Principal Product Manager'
   | 'Staff/Principal Product Manager'
   | 'Group Product Manager'
-  | 'Director of Product';
+  | 'Group PM / Director'
+  | 'Director of Product'
+  | 'VP of Product'
+  | 'SVP/CPO';
 
 export type RoleType = 'growth' | 'platform' | 'ai_ml' | 'founding' | 'technical' | 'general';
 export type BusinessMaturity = 'early' | 'growth' | 'late';

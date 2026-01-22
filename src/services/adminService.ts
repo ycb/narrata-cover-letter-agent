@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import type {
   AdminEvalsFilters,
   AdminEvaluationRunsFilters,
+  AdminUserListItem,
   FunnelStatsResponse,
   LeaderboardResponse,
   SpoofUserRequest,
@@ -224,7 +225,7 @@ class AdminService {
   /**
    * Get list of all users (for spoofing dropdown)
    */
-  async getAllUsers(limit: number = 100): Promise<Array<{ id: string; email: string }>> {
+  async getAllUsers(limit: number = 100): Promise<AdminUserListItem[]> {
     const { data: session } = await supabase.auth.getSession();
     if (!session.session) {
       throw new Error('Not authenticated');
@@ -250,7 +251,36 @@ class AdminService {
     const result = await response.json();
     return result.users || [];
   }
+
+  /**
+   * Flag or unflag a user account (admin-only)
+   */
+  async setUserFlag(userId: string, isFlagged: boolean, reason?: string): Promise<AdminUserListItem | null> {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-set-user-flag`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: userId, is_flagged: isFlagged, reason }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update user flag');
+    }
+
+    const result = await response.json();
+    return result.user || null;
+  }
 }
 
 export const adminService = new AdminService();
-

@@ -494,6 +494,23 @@ export class CoverLetterDraftService {
     this.now = options.now ?? (() => new Date());
   }
 
+  private async assertUserNotFlagged(userId: string): Promise<void> {
+    const { data, error } = await this.supabaseClient
+      .from('profiles')
+      .select('is_flagged')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('[CoverLetterDraftService] Failed to check flag status:', error);
+      return;
+    }
+
+    if (data?.is_flagged) {
+      throw new Error('Account is under review. Please contact support to continue.');
+    }
+  }
+
   /**
    * PERF: Invalidate user context cache (call after user edits stories/sections)
    */
@@ -690,6 +707,7 @@ export class CoverLetterDraftService {
     heuristicInsights?: Record<string, any>; // AGENT D: instant gap feedback
   }> {
     const { userId, templateId, jobDescriptionId, onProgress, onSectionBuilt, signal } = options;
+    await this.assertUserNotFlagged(userId);
 
     const evalsLogger = new EvalsLogger({
       userId,
@@ -2258,6 +2276,7 @@ export class CoverLetterDraftService {
 
   async generateDraft(options: DraftGenerationOptions): Promise<DraftGenerationResult> {
     const { userId, templateId, jobDescriptionId, onProgress, onSectionBuilt, signal } = options;
+    await this.assertUserNotFlagged(userId);
 
     this.emitProgress(onProgress, 'jd_parse', 'Loading job description…');
     const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);

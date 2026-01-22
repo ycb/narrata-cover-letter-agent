@@ -43,7 +43,7 @@ const SPECIALIZATION_MAP: Record<string, RoleType> = {
 
 const LEVEL_MAP: Array<{ min: number; code: PMLevelCode; label: string }> = [
   { min: 9, code: 'M2', label: 'VP of Product' },
-  { min: 7, code: 'M1', label: 'Group Product Manager' },
+  { min: 7, code: 'M1', label: 'Group PM / Director' },
   { min: 6, code: 'L6', label: 'Staff Product Manager' },
   { min: 5, code: 'L5', label: 'Senior Product Manager' },
   { min: 4, code: 'L4', label: 'Product Manager' },
@@ -128,7 +128,7 @@ const LEVEL_CODE_TO_LABEL: Record<PMLevelCode, string> = {
   L4: 'Product Manager',
   L5: 'Senior Product Manager',
   L6: 'Staff Product Manager',
-  M1: 'Group Product Manager',
+  M1: 'Group PM / Director',
   M2: 'VP of Product',
 };
 

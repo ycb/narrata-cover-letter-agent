@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { SoftDeleteService } from '@/services/softDeleteService';
 import type { Gap } from './gapTransformService';
 
 export interface VariationMetadata {
@@ -39,6 +40,10 @@ export interface CoverLetterVariation {
 }
 
 export class CoverLetterVariationService {
+  private static normalizeVariationContent(value: string): string {
+    return value.replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
   /**
    * Save a variation for a cover letter section
    */
@@ -49,6 +54,41 @@ export class CoverLetterVariationService {
     metadata: VariationMetadata
   ): Promise<CoverLetterVariation> {
     try {
+      const cleaned = this.normalizeVariationContent(content || '');
+      const { data: existingVariations, error: existingError } = await supabase
+        .from('content_variations')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('parent_entity_type', 'saved_section')
+        .eq('parent_entity_id', sectionId);
+
+      if (!existingError && cleaned) {
+        const duplicate = (existingVariations || []).find((variation: any) =>
+          this.normalizeVariationContent(String(variation.content || '')) === cleaned,
+        );
+        if (duplicate?.id) {
+          const mergedTags = Array.from(
+            new Set([...(duplicate.gap_tags ?? []), ...(metadata.requirementsAddressed ?? [])]),
+          );
+          const updatePayload: { filled_gap_id?: string | null; gap_tags?: string[] } = {};
+          if (metadata.gapId && !duplicate.filled_gap_id) {
+            updatePayload.filled_gap_id = metadata.gapId;
+          }
+          if (mergedTags.length !== (duplicate.gap_tags ?? []).length) {
+            updatePayload.gap_tags = mergedTags;
+          }
+          if (Object.keys(updatePayload).length > 0) {
+            await supabase.from('content_variations').update(updatePayload).eq('id', duplicate.id);
+            return {
+              ...(duplicate as CoverLetterVariation),
+              gap_tags: updatePayload.gap_tags ?? duplicate.gap_tags,
+              filled_gap_id: updatePayload.filled_gap_id ?? duplicate.filled_gap_id,
+            } as CoverLetterVariation;
+          }
+          return duplicate as CoverLetterVariation;
+        }
+      }
+
       const { data, error } = await supabase
         .from('content_variations')
         .insert({
@@ -170,6 +210,25 @@ export class CoverLetterVariationService {
    */
   static async deleteVariation(variationId: string): Promise<void> {
     try {
+      const { data: row, error: fetchError } = await supabase
+        .from('content_variations')
+        .select('*')
+        .eq('id', variationId)
+        .single();
+
+      if (fetchError) {
+        throw new Error(`Failed to load variation for archive: ${fetchError.message}`);
+      }
+
+      if (row) {
+        await SoftDeleteService.archiveRecord({
+          userId: row.user_id,
+          sourceTable: 'content_variations',
+          sourceId: row.id,
+          sourceData: row
+        });
+      }
+
       const { error } = await supabase
         .from('content_variations')
         .delete()
@@ -284,4 +343,3 @@ export class CoverLetterVariationService {
     }
   }
 }
-

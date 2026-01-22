@@ -15,6 +15,7 @@ const SignUp = () => {
   const { signUp, signInWithGoogle, signInWithLinkedIn, loading, error } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const allowAlphaSignup = new URLSearchParams(location.search).has('alpha');
   
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,11 +46,12 @@ const SignUp = () => {
 
     setIsSubmitting(true);
     setIsSigningUp(true);
-    setFormError(null);
+      setFormError(null);
 
     try {
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
-      const result = await signUp(formData.email, formData.password, fullName, formData.agreeTerms);
+      const accountType = allowAlphaSignup ? 'alpha' : 'beta';
+      const result = await signUp(formData.email, formData.password, fullName, formData.agreeTerms, accountType);
       
       if (result.error) {
         setFormError(result.error.message || 'Sign up failed');

@@ -92,6 +92,8 @@ export const ERROR_MESSAGES = {
   PROCESSING_FAILED: 'File processing failed. Please try uploading again.',
   LINKEDIN_AUTH_FAILED: 'LinkedIn connection failed. Please try again.',
   NETWORK_ERROR: 'Network error. Please check your connection and try again.',
+  COVER_LETTER_LIMIT: 'You already have a cover letter on file. Please delete it to upload a new one.',
+  ACCOUNT_REVIEW_REQUIRED: 'Account is under review. Please contact support to continue.',
   UNKNOWN_ERROR: 'An unexpected error occurred. Please try again.'
 } as const;
 

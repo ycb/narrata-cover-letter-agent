@@ -19,6 +19,9 @@ interface UserListItem {
   id: string;
   email: string;
   created_at: string;
+  is_flagged?: boolean;
+  flag_reason?: string | null;
+  flagged_at?: string | null;
 }
 
 serve(async (req) => {
@@ -62,11 +65,24 @@ serve(async (req) => {
       );
     }
     
+    const userIds = users.map((user) => user.id);
+    const { data: profileRows } = await adminClient
+      .from('profiles')
+      .select('id, is_flagged, flag_reason, flagged_at')
+      .in('id', userIds);
+
+    const profileMap = new Map(
+      (profileRows || []).map((profile) => [profile.id, profile])
+    );
+
     // Format user list
     const userList: UserListItem[] = users.map(user => ({
       id: user.id,
       email: user.email || `User ${user.id.slice(0, 8)}`,
       created_at: user.created_at,
+      is_flagged: Boolean(profileMap.get(user.id)?.is_flagged),
+      flag_reason: profileMap.get(user.id)?.flag_reason ?? null,
+      flagged_at: profileMap.get(user.id)?.flagged_at ?? null,
     }));
     
     // Sort by created_at descending (newest first)
@@ -89,4 +105,3 @@ serve(async (req) => {
     );
   }
 });
-

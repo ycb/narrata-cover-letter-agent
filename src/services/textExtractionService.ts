@@ -1,12 +1,11 @@
 // Text extraction service for PDF and DOCX files
 import type { TextExtractionResult } from '@/types/fileUpload';
-import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-
 // Dynamic imports for production libraries
 let pdfjsLib: any = null;
 let mammoth: any = null;
 let pdfjsInitError: string | null = null;
 let mammothInitError: string | null = null;
+let pdfWorkerSrc: string | null = null;
 
 export class TextExtractionService {
   /**
@@ -15,8 +14,18 @@ export class TextExtractionService {
   private async initializeLibraries(): Promise<void> {
     if (!pdfjsLib) {
       try {
-        pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
+        const isBrowser = typeof window !== 'undefined';
+        pdfjsLib = isBrowser
+          ? await import('pdfjs-dist')
+          : await import('pdfjs-dist/legacy/build/pdf.mjs');
+
+        if (isBrowser) {
+          const workerModule = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+          pdfWorkerSrc = workerModule?.default || workerModule;
+          if (pdfWorkerSrc) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
+          }
+        }
       } catch (error) {
         pdfjsInitError = error instanceof Error ? error.message : String(error);
         console.warn('pdfjs-dist not available:', pdfjsInitError);

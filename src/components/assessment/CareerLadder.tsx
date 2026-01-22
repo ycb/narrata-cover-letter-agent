@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Circle, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Circle, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { PMLevelCode } from '@/types/content';
 import { cn } from '@/lib/utils';
 
@@ -50,7 +50,7 @@ const ALL_LEVELS: LevelCard[] = [
   },
   { 
     code: 'M1', 
-    name: 'Group Product Manager', 
+    name: 'Group PM / Director', 
     yearsOfExperience: '10+ years',
     coreCompetency: 'Team leadership',
     scopeOfOwnership: 'Product group',
@@ -66,10 +66,10 @@ const ALL_LEVELS: LevelCard[] = [
   },
   { 
     code: 'coming-soon', 
-    name: 'Senior Leadership', 
-    yearsOfExperience: '',
-    coreCompetency: '',
-    scopeOfOwnership: 'VP, SVP, CPO roles: coming soon',
+    name: 'SVP/CPO', 
+    yearsOfExperience: '15+ years',
+    coreCompetency: 'Senior executive',
+    scopeOfOwnership: 'Company-level',
     isIC: false 
   }
 ];
@@ -135,9 +135,7 @@ export function CareerLadder({
   }, []);
 
   // Determine if level is completed (below current), current, or pending (above current)
-  const getLevelStatus = (code: PMLevelCode | 'coming-soon'): 'completed' | 'current' | 'pending' | 'coming-soon' => {
-    if (code === 'coming-soon') return 'coming-soon';
-    
+  const getLevelStatus = (code: PMLevelCode | 'coming-soon'): 'completed' | 'current' | 'pending' => {
     const levelOrder: (PMLevelCode | 'coming-soon')[] = ['L3', 'L4', 'L5', 'L6', 'M1', 'M2', 'coming-soon'];
     const currentIndex = levelOrder.indexOf(currentLevelCode);
     const levelIndex = levelOrder.indexOf(code);
@@ -153,11 +151,10 @@ export function CareerLadder({
   const leadershipLevels = ALL_LEVELS.filter(l => !l.isIC);
 
   // Level Card Component - Portrait orientation
-  const LevelCard = ({ level, status }: { level: LevelCard; status: 'completed' | 'current' | 'pending' | 'coming-soon' }) => {
+  const LevelCard = ({ level, status }: { level: LevelCard; status: 'completed' | 'current' | 'pending' }) => {
     const isCompleted = status === 'completed';
     const isCurrent = status === 'current';
     const isPending = status === 'pending';
-    const isComingSoon = status === 'coming-soon';
     const isIC = level.isIC;
     
     return (
@@ -175,8 +172,8 @@ export function CareerLadder({
           !isCurrent && !isIC && "border-2 border-green-300",
           // Pending: dotted border
           isPending && (isIC ? "border-dashed" : "border-dashed"),
-          // Coming soon: dotted gray border
-          isComingSoon && "border-2 border-dashed border-gray-300"
+          // Pending: dotted border
+          isPending && "border-dashed"
         )}
       >
         <div className="flex flex-col h-full">
@@ -202,9 +199,6 @@ export function CareerLadder({
                 isIC ? "text-blue-300" : "text-green-300"
               )} />
             )}
-            {isComingSoon && (
-              <Clock className="h-5 w-5 text-gray-400" />
-            )}
           </div>
           
           {/* Level Name */}
@@ -213,45 +207,38 @@ export function CareerLadder({
             isCurrent 
               ? "text-white"
               : (isIC ? "text-blue-900" : "text-green-900"),
-            isPending && !isCurrent && "text-gray-600",
-            isComingSoon && "text-gray-600"
+            isPending && !isCurrent && "text-gray-600"
           )}>
             {level.name}
           </h4>
           
           {/* Level Parameters - Bullet points */}
-          {!isComingSoon ? (
-            <ul className="mt-6 space-y-1 text-xs list-disc list-inside">
-              <li className={cn(
-                isCurrent 
-                  ? "text-white/90"
-                  : (isIC ? "text-blue-700" : "text-green-700"),
-                isPending && !isCurrent && "text-gray-500"
-              )}>
-                {level.yearsOfExperience}
-              </li>
-              <li className={cn(
-                isCurrent 
-                  ? "text-white/90"
-                  : (isIC ? "text-blue-700" : "text-green-700"),
-                isPending && !isCurrent && "text-gray-500"
-              )}>
-                {level.coreCompetency}
-              </li>
-              <li className={cn(
-                isCurrent 
-                  ? "text-white/90"
-                  : (isIC ? "text-blue-700" : "text-green-700"),
-                isPending && !isCurrent && "text-gray-500"
-              )}>
-                {level.scopeOfOwnership}
-              </li>
-            </ul>
-          ) : (
-            <p className="text-xs text-gray-500 italic mt-auto">
+          <ul className="mt-6 space-y-1 text-xs list-disc list-inside">
+            <li className={cn(
+              isCurrent 
+                ? "text-white/90"
+                : (isIC ? "text-blue-700" : "text-green-700"),
+              isPending && !isCurrent && "text-gray-500"
+            )}>
+              {level.yearsOfExperience}
+            </li>
+            <li className={cn(
+              isCurrent 
+                ? "text-white/90"
+                : (isIC ? "text-blue-700" : "text-green-700"),
+              isPending && !isCurrent && "text-gray-500"
+            )}>
+              {level.coreCompetency}
+            </li>
+            <li className={cn(
+              isCurrent 
+                ? "text-white/90"
+                : (isIC ? "text-blue-700" : "text-green-700"),
+              isPending && !isCurrent && "text-gray-500"
+            )}>
               {level.scopeOfOwnership}
-            </p>
-          )}
+            </li>
+          </ul>
         </div>
       </Card>
     );

@@ -119,4 +119,3 @@ CREATE INDEX IF NOT EXISTS idx_cover_letters_user_status
 
 CREATE INDEX IF NOT EXISTS idx_cover_letters_job_description
   ON public.cover_letters(job_description_id);
-

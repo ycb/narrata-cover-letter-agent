@@ -66,7 +66,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
 import { useContentGeneration } from "@/hooks/useContentGeneration";
-	import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
+import { SoftDeleteService } from "@/services/softDeleteService";
 import type { ContentVariationInsert } from "@/types/variations";
 
 interface WorkHistoryDetailProps {
@@ -1001,18 +1002,61 @@ export const WorkHistoryDetail = ({
       const workItemIds = selectedRole.workItemIds || [selectedRole.id];
 
       // Delete stories first (FK constraint)
+      const { data: storyRows, error: storyFetchError } = await supabase
+        .from('stories')
+        .select('*')
+        .in('work_item_id', workItemIds);
+
+      if (storyFetchError) throw storyFetchError;
+      if (storyRows && storyRows.length > 0) {
+        await SoftDeleteService.archiveRows({
+          userId: user.id,
+          sourceTable: 'stories',
+          rows: storyRows
+        });
+      }
+
       await supabase
         .from('stories')
         .delete()
         .in('work_item_id', workItemIds);
 
       // Delete gaps for these work items
+      const { data: gapRows, error: gapFetchError } = await supabase
+        .from('gaps')
+        .select('*')
+        .in('entity_id', workItemIds);
+
+      if (gapFetchError) throw gapFetchError;
+      if (gapRows && gapRows.length > 0) {
+        await SoftDeleteService.archiveRows({
+          userId: user.id,
+          sourceTable: 'gaps',
+          rows: gapRows
+        });
+      }
+
       await supabase
         .from('gaps')
         .delete()
         .in('entity_id', workItemIds);
 
       // Delete work_items
+      const { data: workItemRows, error: workItemFetchError } = await supabase
+        .from('work_items')
+        .select('*')
+        .in('id', workItemIds)
+        .eq('user_id', user.id);
+
+      if (workItemFetchError) throw workItemFetchError;
+      if (workItemRows && workItemRows.length > 0) {
+        await SoftDeleteService.archiveRows({
+          userId: user.id,
+          sourceTable: 'work_items',
+          rows: workItemRows
+        });
+      }
+
       const { error } = await supabase
         .from('work_items')
         .delete()
@@ -1123,18 +1167,61 @@ export const WorkHistoryDetail = ({
 
       if (workItemIds.length > 0) {
         // Delete stories first
+        const { data: storyRows, error: storyFetchError } = await supabase
+          .from('stories')
+          .select('*')
+          .in('work_item_id', workItemIds);
+
+        if (storyFetchError) throw storyFetchError;
+        if (storyRows && storyRows.length > 0) {
+          await SoftDeleteService.archiveRows({
+            userId: user.id,
+            sourceTable: 'stories',
+            rows: storyRows
+          });
+        }
+
         await supabase
           .from('stories')
           .delete()
           .in('work_item_id', workItemIds);
 
         // Delete gaps
+        const { data: gapRows, error: gapFetchError } = await supabase
+          .from('gaps')
+          .select('*')
+          .in('entity_id', workItemIds);
+
+        if (gapFetchError) throw gapFetchError;
+        if (gapRows && gapRows.length > 0) {
+          await SoftDeleteService.archiveRows({
+            userId: user.id,
+            sourceTable: 'gaps',
+            rows: gapRows
+          });
+        }
+
         await supabase
           .from('gaps')
           .delete()
           .in('entity_id', workItemIds);
 
         // Delete work_items
+        const { data: workItemRows, error: workItemFetchError } = await supabase
+          .from('work_items')
+          .select('*')
+          .eq('company_id', companyData.id)
+          .eq('user_id', user.id);
+
+        if (workItemFetchError) throw workItemFetchError;
+        if (workItemRows && workItemRows.length > 0) {
+          await SoftDeleteService.archiveRows({
+            userId: user.id,
+            sourceTable: 'work_items',
+            rows: workItemRows
+          });
+        }
+
         await supabase
           .from('work_items')
           .delete()
@@ -1143,6 +1230,23 @@ export const WorkHistoryDetail = ({
       }
 
       // Finally delete the company
+      const { data: companyRow, error: companyFetchError } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', companyData.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (companyFetchError) throw companyFetchError;
+      if (companyRow) {
+        await SoftDeleteService.archiveRecord({
+          userId: user.id,
+          sourceTable: 'companies',
+          sourceId: companyRow.id,
+          sourceData: companyRow
+        });
+      }
+
       const { error } = await supabase
         .from('companies')
         .delete()
@@ -1180,6 +1284,23 @@ export const WorkHistoryDetail = ({
     if (!user) return;
 
     try {
+      const { data: variationRow, error: variationFetchError } = await supabase
+        .from('content_variations')
+        .select('*')
+        .eq('id', variationId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (variationFetchError) throw variationFetchError;
+      if (variationRow) {
+        await SoftDeleteService.archiveRecord({
+          userId: user.id,
+          sourceTable: 'content_variations',
+          sourceId: variationRow.id,
+          sourceData: variationRow
+        });
+      }
+
       const { error } = await supabase
         .from('content_variations')
         .delete()
@@ -1216,6 +1337,23 @@ export const WorkHistoryDetail = ({
     setIsDeletingStory(true);
 
     try {
+      const { data: storyRow, error: storyFetchError } = await supabase
+        .from('stories')
+        .select('*')
+        .eq('id', deleteStoryTarget.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (storyFetchError) throw storyFetchError;
+      if (storyRow) {
+        await SoftDeleteService.archiveRecord({
+          userId: user.id,
+          sourceTable: 'stories',
+          sourceId: storyRow.id,
+          sourceData: storyRow
+        });
+      }
+
       const { error } = await supabase
         .from('stories')
         .delete()

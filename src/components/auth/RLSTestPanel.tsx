@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { SoftDeleteService } from '@/services/softDeleteService'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -91,6 +92,13 @@ export function RLSTestPanel() {
       if (accessError) throw accessError
 
       // Clean up test data
+      await SoftDeleteService.archiveRecord({
+        userId: testCompany.user_id,
+        sourceTable: 'companies',
+        sourceId: testCompany.id,
+        sourceData: testCompany
+      })
+
       await supabase.from('companies').delete().eq('id', testCompany.id)
 
       return {
@@ -146,6 +154,13 @@ export function RLSTestPanel() {
       if (updateError) throw updateError
 
       // Delete
+      await SoftDeleteService.archiveRecord({
+        userId: createdCompany.user_id,
+        sourceTable: 'companies',
+        sourceId: createdCompany.id,
+        sourceData: createdCompany
+      })
+
       const { error: deleteError } = await supabase
         .from('companies')
         .delete()

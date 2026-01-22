@@ -140,24 +140,102 @@ export function parseCoverLetter(text: string): ParsedCoverLetter {
  * 4. Very short blocks (< 20 chars) are likely fragments and should merge with adjacent paragraphs
  */
 function extractParagraphs(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n').trim();
+  if (!normalized) {
+    return [];
+  }
+
   // Since PDF extraction now properly identifies paragraph breaks (via 30px threshold),
-  // we can trust \n\n as actual paragraph boundaries.
-  // Just split on them and do minimal cleanup.
-  
-  const paragraphs = text
+  // we can trust \n\n as actual paragraph boundaries in most cases.
+  const blocks = normalized
     .split(/\n\s*\n+/)
     .map(para => para.trim())
-    .filter(para => para.length > 0)
-    .map(para => {
-      // Normalize whitespace within each paragraph
-      return para
-        .replace(/\n{2,}/g, ' ')        // Remove any internal double+ newlines → space
-        .replace(/\n/g, ' ')            // Convert remaining single newlines → space
-        .replace(/[ \t]+/g, ' ')        // Normalize spaces/tabs
-        .trim();
-    });
-  
+    .filter(para => para.length > 0);
+
+  const paragraphs = blocks.flatMap(block => {
+    const blockLineCount = block.split('\n').filter(line => line.trim().length > 0).length;
+    if (blockLineCount >= 6) {
+      return splitHardWrappedText(block);
+    }
+    return [block];
+  });
+
+  return paragraphs
+    .map(para => normalizeParagraph(para))
+    .filter(para => para.length > 0);
+}
+
+function normalizeParagraph(paragraph: string): string {
+  return paragraph
+    .replace(/\n{2,}/g, ' ')        // Remove any internal double+ newlines → space
+    .replace(/\n/g, ' ')            // Convert remaining single newlines → space
+    .replace(/[ \t]+/g, ' ')        // Normalize spaces/tabs
+    .trim();
+}
+
+function splitHardWrappedText(text: string): string[] {
+  const lines = text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  if (lines.length === 0) {
+    return [];
+  }
+  const paragraphs: string[] = [];
+  let startIndex = 0;
+
+  if (GREETINGS.some(pattern => pattern.test(lines[0]))) {
+    paragraphs.push(lines[0]);
+    startIndex = 1;
+  }
+
+  const bodyText = lines.slice(startIndex).join(' ').trim();
+  if (!bodyText) {
+    return paragraphs;
+  }
+
+  const sentences = splitIntoSentences(bodyText);
+  let buffer: string[] = [];
+
+  sentences.forEach((sentence) => {
+    const trimmed = sentence.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    if (buffer.length > 0 && isParagraphStarter(trimmed)) {
+      paragraphs.push(buffer.join(' ').trim());
+      buffer = [];
+    }
+
+    buffer.push(trimmed);
+  });
+
+  if (buffer.length > 0) {
+    paragraphs.push(buffer.join(' ').trim());
+  }
+
   return paragraphs;
+}
+
+function isParagraphStarter(line: string): boolean {
+  const starters = [
+    /^As\s+(a|an)\b/i,
+    /^I\s+bring\b/i,
+    /^I\s+am\s+eager\b/i
+  ];
+
+  return starters.some((pattern) => pattern.test(line.trim()));
+}
+
+function splitIntoSentences(text: string): string[] {
+  const matches = text.match(/[^.!?]+[.!?]["')\]]*(?=\s+|$)/g);
+  if (!matches) {
+    return [text];
+  }
+
+  return matches.map(sentence => sentence.trim()).filter(Boolean);
 }
 
 function stripHeaderParagraphs(paragraphs: string[]): string[] {

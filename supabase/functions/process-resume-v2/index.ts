@@ -283,23 +283,53 @@ async function runGapDetection(
     // Clear previous gaps for these entities to avoid duplicates
     if (workItemIds.length > 0 || stories.length > 0) {
       const storyIds = stories.map((s: any) => s.id);
-      const { error: deleteError } = await supabase
-        .from('gaps')
-        .delete()
-        .or(
-          [
-            workItemIds.length > 0
-              ? `and(entity_type.eq.work_item,entity_id.in.(${workItemIds.map((id: string) => `"${id}"`).join(',')}))`
-              : '',
-            storyIds.length > 0
-              ? `and(entity_type.eq.approved_content,entity_id.in.(${storyIds.map((id: string) => `"${id}"`).join(',')}))`
-              : '',
-          ]
-            .filter(Boolean)
-            .join(','),
-        );
-      if (deleteError) {
-        console.error('Gap detection: failed to clear old gaps', deleteError);
+      const gapFilter = [
+        workItemIds.length > 0
+          ? `and(entity_type.eq.work_item,entity_id.in.(${workItemIds.map((id: string) => `"${id}"`).join(',')}))`
+          : '',
+        storyIds.length > 0
+          ? `and(entity_type.eq.approved_content,entity_id.in.(${storyIds.map((id: string) => `"${id}"`).join(',')}))`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(',');
+
+      if (gapFilter) {
+        const { data: gapRows, error: gapFetchError } = await supabase
+          .from('gaps')
+          .select('*')
+          .or(gapFilter);
+
+        if (gapFetchError) {
+          console.error('Gap detection: failed to load gaps for archive', gapFetchError);
+        } else if (gapRows && gapRows.length > 0) {
+          const purgeAfter = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+          const payload = gapRows.map((row: any) => ({
+            user_id: row.user_id ?? userId,
+            source_table: 'gaps',
+            source_id: String(row.id),
+            source_data: row,
+            deleted_by: userId,
+            purge_after: purgeAfter
+          }));
+
+          const { error: archiveError } = await supabase
+            .from('deleted_records')
+            .insert(payload);
+
+          if (archiveError) {
+            console.error('Gap detection: failed to archive gaps', archiveError);
+          }
+        }
+
+        const { error: deleteError } = await supabase
+          .from('gaps')
+          .delete()
+          .or(gapFilter);
+
+        if (deleteError) {
+          console.error('Gap detection: failed to clear old gaps', deleteError);
+        }
       }
     }
 

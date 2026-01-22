@@ -15,6 +15,10 @@ export type Database = {
           email: string
           full_name: string | null
           avatar_url: string | null
+          is_flagged: boolean
+          flag_reason: string | null
+          flagged_at: string | null
+          flagged_by: string | null
           onboarding_complete: boolean
           role: 'user' | 'admin'
           organization_id: string | null
@@ -26,6 +30,10 @@ export type Database = {
           email: string
           full_name?: string | null
           avatar_url?: string | null
+          is_flagged?: boolean
+          flag_reason?: string | null
+          flagged_at?: string | null
+          flagged_by?: string | null
           onboarding_complete?: boolean
           role?: 'user' | 'admin'
           organization_id?: string | null
@@ -37,6 +45,10 @@ export type Database = {
           email?: string
           full_name?: string | null
           avatar_url?: string | null
+          is_flagged?: boolean
+          flag_reason?: string | null
+          flagged_at?: string | null
+          flagged_by?: string | null
           onboarding_complete?: boolean
           role?: 'user' | 'admin'
           organization_id?: string | null

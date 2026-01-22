@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { SoftDeleteService } from '@/services/softDeleteService'
 
 // Test data for RLS verification
 const testCompanyData = {
@@ -170,6 +171,21 @@ export class RLSTester {
       }
 
       // Test delete - should only work on own data
+      const { data: row } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', this.testCompanyId1)
+        .single()
+
+      if (row) {
+        await SoftDeleteService.archiveRecord({
+          userId: row.user_id,
+          sourceTable: 'companies',
+          sourceId: row.id,
+          sourceData: row
+        })
+      }
+
       const { error: deleteError } = await supabase
         .from('companies')
         .delete()
@@ -194,9 +210,35 @@ export class RLSTester {
     
     try {
       if (this.testCompanyId1) {
+        const { data: row } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('id', this.testCompanyId1)
+          .single()
+        if (row) {
+          await SoftDeleteService.archiveRecord({
+            userId: row.user_id,
+            sourceTable: 'companies',
+            sourceId: row.id,
+            sourceData: row
+          })
+        }
         await supabase.from('companies').delete().eq('id', this.testCompanyId1)
       }
       if (this.testCompanyId2) {
+        const { data: row } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('id', this.testCompanyId2)
+          .single()
+        if (row) {
+          await SoftDeleteService.archiveRecord({
+            userId: row.user_id,
+            sourceTable: 'companies',
+            sourceId: row.id,
+            sourceData: row
+          })
+        }
         await supabase.from('companies').delete().eq('id', this.testCompanyId2)
       }
       console.log('✅ Test data cleaned up')

@@ -6,6 +6,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { parseCoverLetter, convertToSavedSections } from '@/services/coverLetterParser';
+import { SoftDeleteService } from '@/services/softDeleteService';
 import type {
   CoverLetterGeneratedSection,
   CoverLetterSection,
@@ -869,6 +870,27 @@ export class CoverLetterTemplateService {
    */
   static async deleteSavedSection(sectionId: string): Promise<void> {
     const client = await this.getClient();
+    const { data: sectionRow, error: sectionError } = await client
+      .from('saved_sections')
+      .select('*')
+      .eq('id', sectionId)
+      .single();
+
+    if (sectionError) {
+      console.error('Error loading saved section for archive:', sectionError);
+      throw sectionError;
+    }
+
+    if (sectionRow) {
+      await SoftDeleteService.archiveRecord({
+        userId: sectionRow.user_id,
+        sourceTable: 'saved_sections',
+        sourceId: sectionRow.id,
+        sourceData: sectionRow,
+        client
+      });
+    }
+
     const { error } = await client
       .from('saved_sections')
       .delete()
@@ -885,6 +907,27 @@ export class CoverLetterTemplateService {
    */
   static async deleteCoverLetter(coverLetterId: string): Promise<void> {
     const client = await this.getClient();
+    const { data: coverLetterRow, error: coverLetterError } = await client
+      .from('cover_letters')
+      .select('*')
+      .eq('id', coverLetterId)
+      .single();
+
+    if (coverLetterError) {
+      console.error('Error loading cover letter for archive:', coverLetterError);
+      throw coverLetterError;
+    }
+
+    if (coverLetterRow) {
+      await SoftDeleteService.archiveRecord({
+        userId: coverLetterRow.user_id,
+        sourceTable: 'cover_letters',
+        sourceId: coverLetterRow.id,
+        sourceData: coverLetterRow,
+        client
+      });
+    }
+
     const { error } = await client
       .from('cover_letters')
       .delete()

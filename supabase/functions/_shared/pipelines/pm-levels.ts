@@ -40,11 +40,25 @@ const baselineAssessmentStage: PipelineStage = {
       .map((wh: any) => {
         let text = `${wh.title} at ${wh.companies?.name || 'Unknown'} (${wh.start_date} - ${wh.end_date || 'Present'})`;
         if (wh.description) text += `\n  ${wh.description}`;
+
+        const companyDesc = wh.companies?.description?.trim();
+        const companyTags = Array.isArray(wh.companies?.tags) ? wh.companies.tags.filter(Boolean) : [];
+        if (companyDesc || companyTags.length > 0) {
+          const trimmedDesc = companyDesc && companyDesc.length > 180
+            ? `${companyDesc.slice(0, 177)}...`
+            : companyDesc;
+          const companyContext = [
+            trimmedDesc,
+            companyTags.length > 0 ? `Tags: ${companyTags.join(', ')}` : null,
+          ]
+            .filter(Boolean)
+            .join(' | ');
+          if (companyContext) text += `\n  Company context: ${companyContext}`;
+        }
         
         // Add key metrics if available
         if (Array.isArray(wh.metrics) && wh.metrics.length > 0) {
           const metricsSummary = wh.metrics
-            .slice(0, 3)
             .map((m: any) => `${m.value || ''} ${m.context || ''}`.trim())
             .filter(Boolean)
             .join(', ');
@@ -68,6 +82,16 @@ Consider the ENTIRE career trajectory, not just the most recent role:
 - Recognize that senior executives may move between Product, BD, Strategy roles
 - Career peak scope (even if from a previous role) indicates capability level
 
+SCOPE INTERPRETATION STEP (internal, do not output):
+1) Identify scope/leadership signals: budget, headcount, P&L ownership, org-wide initiatives, executive stakeholders, company scale, and senior titles.
+2) Decide whether the evidence implies org-level leadership (even if "managed X people" is not explicit).
+3) Assign icLevel based on that scope and competency fit.
+
+Examples (patterns, not templates):
+- General Manager at a global/public company with $200M+ budget and 300+ headcount -> org-level leadership -> icLevel 9 (M2).
+- VP/Head of Product at a small Series A with single-product scope and <20 people -> likely M1 (7-8) unless org-wide scope is explicit.
+- Director leading one product group with 30-80 headcount and multi-team delivery -> M1 (7-8).
+
 You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "icLevel": number (1-9, seniority level - can be IC OR Manager, see scale below),
@@ -78,41 +102,26 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
 }
 
 Use this SENIORITY scale (1-9 covers both IC and Manager tracks):
-- 3: IC3 / Entry PM (0-2 years, Associate Product Manager)
-- 4: IC4 / Mid-level PM (2-4 years, Product Manager)
-- 5: IC5 / Senior PM (4-7 years, Senior Product Manager)
-- 6: IC6 / Staff PM (7-10 years, Staff/Principal Product Manager)
-- 7: IC7 / M1 (10+ years, Senior Staff PM OR Group PM/Director managing PMs)
-- 8: IC8 / M1 (15+ years, Principal PM OR Director with significant scope)
-- 9: M2 / Distinguished (VP/SVP/Head of Product, exec leadership with $100M+ budget OR 100+ team OR company-wide scope)
+- 3: L3 / Associate PM (owns single features)
+- 4: L4 / PM (owns a product area, sets roadmap/KPIs)
+- 5: L5 / Senior PM (owns a product line, leads strategic execution)
+- 6: L6 / Staff/Principal PM (owns multiple product lines, shapes org-level direction)
+- 7-8: M1 / Group PM or Director (leads a product group, manages PMs/teams)
+- 9: M2 / VP of Product (exec leadership of product org or company-wide initiatives)
 
-**The "icLevel" field name is legacy - it actually represents SENIORITY (1-9), which includes both IC and Manager paths.**
+Track decision:
+- Use Manager track (7-9) ONLY with evidence of people leadership (hiring, mentoring, managing PMs/teams, org design).
+- Scope can serve as leadership evidence: large budget/headcount, P&L ownership, or org-wide initiatives imply org-level leadership even if "managed X people" is not explicitly stated.
+- If scope signals are strong, prefer Manager track over IC.
+Company scale signals:
+- Global/public/enterprise companies indicate large-scale scope.
+- Senior leadership titles (GM, VP, SVP, Head, Director) at global/public/enterprise companies should be weighted toward org-level leadership when paired with scope signals.
+- If company context suggests early-stage or small scale (startup, seed, Series A/B), do NOT treat title alone as org-level leadership; require explicit scope signals (budget, headcount, org-wide ownership).
 
-IMPORTANT: 
-- **Executive roles** (VP, SVP, Head of, C-level) with clear scope indicators (large budget, big team, company impact) → M2
-- **Senior IC roles** with company-level impact but no direct reports → IC7-IC8
-- **Director/Group PM** managing other PMs → M1
-- VP of Product, Head of Product, Head of Business Development (with product scope), SVP → typically M2
-- Principal/Staff PM with company-level impact → IC6-IC8 range
-- Look for years of experience AND scope of impact (feature → product → company)
+Scope is a multiplier on the four competencies (Execution, Customer Insight, Strategy, Influence).
+Use scope signals to differentiate levels: budget ownership, team size, P&L accountability, org-wide initiatives, and executive stakeholders.
 
-SCOPE INDICATORS FOR M2 (check ANY role in history, not just most recent):
-- Budget responsibility: $50M+ annual budget → automatic M1, $100M+ → M2
-- Team size: 50+ headcount (direct + indirect) → automatic M1, 100+ → M2
-- Impact scale: Multi-million users, $100M+ revenue impact, or company-defining products
-- Strategic scope: Company-wide initiatives, C-level stakeholder management, org-level P&L
-- Career trajectory: Progression to Director/Head/VP level titles with increasing scope
-
-**CRITICAL SCOPE-TO-LEVEL MAPPING:**
-- If you see budget ≥ $100M OR team ≥ 100 people in ANY role → **icLevel MUST be 9 (M2)**
-- If you see budget $50M-$100M OR team 50-100 people → **icLevel MUST be 7-8 (M1)**
-- If you see budget ≥ $50M OR team ≥ 50 people → that role is MANAGERIAL, NOT IC
-- Senior Director / Director with $100M+ budget OR 100+ team → **icLevel: 9**
-- Head of / VP with $50M+ budget OR 50+ team → **icLevel: 9**
-
-**Scope is a multiplier on competency. Large scope = executive level, regardless of job title ambiguity.**
-
-Be evidence-based and recognize scope indicators as the primary level determinant.`;
+Be evidence-based and concise.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
@@ -760,7 +769,7 @@ function buildLevelEvidence(
   if (custScore < 5) gaps.push({ area: 'Customer Insight', description: 'Add research depth', examples: ['User studies', 'Analytics-driven insights'] });
   if (inflScore < 5) gaps.push({ area: 'Influence', description: 'Demonstrate exec and XFN influence', examples: ['Steering committees', 'C-suite reviews'] });
 
-  const nextLevel = icLevel >= 7 ? 'VP of Product' : icLevel >= 6 ? 'Group PM / Director' : 'Senior PM';
+  const nextLevel = icLevel >= 9 ? 'SVP/CPO' : icLevel >= 7 ? 'VP of Product' : icLevel >= 6 ? 'Group PM / Director' : 'Senior PM';
 
   return {
     currentLevel: mapLevel(icLevel).displayLevel,
@@ -799,7 +808,7 @@ function buildLevelEvidence(
 
 function mapLevel(score: number) {
   if (score >= 9) return { levelCode: 'M2', displayLevel: 'VP of Product' };
-  if (score >= 7) return { levelCode: 'M1', displayLevel: 'Group Product Manager' };
+  if (score >= 7) return { levelCode: 'M1', displayLevel: 'Group PM / Director' };
   if (score >= 6) return { levelCode: 'L6', displayLevel: 'Staff Product Manager' };
   if (score >= 5) return { levelCode: 'L5', displayLevel: 'Senior Product Manager' };
   if (score >= 4) return { levelCode: 'L4', displayLevel: 'Product Manager' };

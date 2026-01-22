@@ -1,0 +1,100 @@
+name: Supabase Backup
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Set backup date
+        id: backup_date
+        run: echo "value=$(TZ=America/Los_Angeles date +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Create backup directory
+        run: mkdir -p "backups/supabase/${{ steps.backup_date.outputs.value }}"
+
+      - name: Dump schema
+        run: supabase db dump --db-url "$SUPABASE_DB_URL" | gzip -9 > "backups/supabase/${{ steps.backup_date.outputs.value }}/schema.sql.gz"
+
+      - name: Dump data
+        run: supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy | gzip -9 > "backups/supabase/${{ steps.backup_date.outputs.value }}/data.sql.gz"
+
+      - name: Dump roles
+        run: supabase db dump --db-url "$SUPABASE_DB_URL" --role-only | gzip -9 > "backups/supabase/${{ steps.backup_date.outputs.value }}/roles.sql.gz"
+
+      - name: Apply retention policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          backup_root="backups/supabase"
+          if [[ ! -d "$backup_root" ]]; then
+            exit 0
+          fi
+
+          today="$(TZ=America/Los_Angeles date +%F)"
+          declare -A keep_dates=()
+
+          for i in {0..13}; do
+            keep_date="$(TZ=America/Los_Angeles date -d "$today - $i day" +%F)"
+            keep_dates["$keep_date"]=1
+          done
+
+          mapfile -t backups < <(find "$backup_root" -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | sort -r)
+
+          weekly_count=0
+          monthly_count=0
+          declare -A seen_weeks=()
+          declare -A seen_months=()
+
+          for d in "${backups[@]}"; do
+            if [[ ! "$d" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+              continue
+            fi
+
+            week_key="$(TZ=America/Los_Angeles date -d "$d" +%G-%V)"
+            if [[ -z "${seen_weeks[$week_key]:-}" && $weekly_count -lt 8 ]]; then
+              keep_dates["$d"]=1
+              seen_weeks["$week_key"]=1
+              weekly_count=$((weekly_count + 1))
+            fi
+
+            month_key="$(TZ=America/Los_Angeles date -d "$d" +%Y-%m)"
+            if [[ -z "${seen_months[$month_key]:-}" && $monthly_count -lt 12 ]]; then
+              keep_dates["$d"]=1
+              seen_months["$month_key"]=1
+              monthly_count=$((monthly_count + 1))
+            fi
+          done
+
+          for d in "${backups[@]}"; do
+            if [[ -z "${keep_dates[$d]:-}" ]]; then
+              rm -rf "$backup_root/$d"
+            fi
+          done
+
+      - name: Commit backup
+        run: |
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "backups/supabase/${{ steps.backup_date.outputs.value }}"
+          git commit -m "chore: supabase backup ${{ steps.backup_date.outputs.value }}"
+          git push

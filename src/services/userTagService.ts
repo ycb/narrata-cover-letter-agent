@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { mergeUserTags, normalizeUserTagKey, type TagCategory } from "@/lib/userTags";
 import { isExternalLinksEnabled } from "@/lib/flags";
+import { SoftDeleteService } from "@/services/softDeleteService";
 
 export type UserTagRecord = {
   id: string;
@@ -61,6 +62,26 @@ export const UserTagService = {
   },
 
   async removeTag(userId: string, tagId: string): Promise<void> {
+    const { data: row, error: fetchError } = await supabase
+      .from("user_tags")
+      .select("*")
+      .eq("id", tagId)
+      .eq("user_id", userId)
+      .single();
+
+    if (fetchError) {
+      throw fetchError;
+    }
+
+    if (row) {
+      await SoftDeleteService.archiveRecord({
+        userId,
+        sourceTable: "user_tags",
+        sourceId: row.id,
+        sourceData: row
+      });
+    }
+
     const { error } = await supabase
       .from("user_tags")
       .delete()

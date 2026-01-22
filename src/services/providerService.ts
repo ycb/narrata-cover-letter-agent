@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { SoftDeleteService } from '@/services/softDeleteService';
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 
@@ -160,6 +161,23 @@ export class ProviderService {
    */
   static async revertToDefault(userId: string): Promise<void> {
     try {
+      const { data: rows, error: fetchError } = await supabase
+        .from('provider_settings')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (rows && rows.length > 0) {
+        await SoftDeleteService.archiveRows({
+          userId,
+          sourceTable: 'provider_settings',
+          rows
+        });
+      }
+
       const { error } = await supabase
         .from('provider_settings')
         .delete()
@@ -319,4 +337,3 @@ export class ProviderService {
     };
   }
 }
-

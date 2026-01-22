@@ -68,6 +68,27 @@ interface LevelEvidenceModalProps {
 }
 
 const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalProps) => {
+  const scopeCategories: Array<{ label: string; regex: RegExp }> = [
+    { label: 'Budget or revenue', regex: /\$|budget|revenue|arr|gmv|profit|p&l|ebitda/i },
+    { label: 'Headcount or team size', regex: /headcount|team|people|hiring|organization|org\b|staff/i },
+    { label: 'User or customer scale', regex: /users|customers|accounts|subscribers|mau|dau|active/i },
+    { label: 'Global or market scale', regex: /global|international|countries|regions|worldwide|market share/i },
+  ];
+
+  const buildScopeSignals = (metrics: string[]) => {
+    const seen = new Set<string>();
+    return metrics
+      .map((metric) => {
+        const category = scopeCategories.find((c) => c.regex.test(metric))?.label;
+        if (!category) return null;
+        const key = `${category}:${metric}`;
+        if (seen.has(key)) return null;
+        seen.add(key);
+        return { category, metric };
+      })
+      .filter(Boolean) as Array<{ category: string; metric: string }>;
+  };
+
   // Get confidence percentage from evidence
   const getConfidencePercentage = (): number => {
     // Prefer explicit percentage from levelingFramework
@@ -131,6 +152,32 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
     gaps: evidence.gaps,
     location: locationHref,
   };
+
+  const combinedMetrics = [
+    ...(evidence.outcomeMetrics?.roleLevel || []),
+    ...(evidence.outcomeMetrics?.storyLevel || []),
+  ]
+    .map((metric) => metric?.trim())
+    .filter(Boolean) as string[];
+
+  const uniqueMetrics = Array.from(
+    new Set(
+      combinedMetrics.filter((metric) => metric.trim().length > 0 && !/^[%+\-]?$/.test(metric.trim()))
+    )
+  );
+  const scopeSignals = buildScopeSignals(uniqueMetrics).slice(0, 8);
+
+  const impactLevel = evidence.outcomeMetrics?.analysis?.impactLevel;
+  const impactLabelMap: Record<string, string> = {
+    feature: 'Feature level',
+    team: 'Team level',
+    org: 'Org level',
+    company: 'Company level',
+  };
+  const impactLabel = impactLevel ? (impactLabelMap[impactLevel] || impactLevel) : 'N/A';
+  const scopeSummary = scopeSignals.length > 0
+    ? `Evidence includes ${scopeSignals.slice(0, 3).map((signal) => signal.metric).join(', ')}.`
+    : 'No explicit scope signals detected yet.';
 
   return (
     <>
@@ -227,6 +274,19 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             </CardContent>
           </Card>
 
+          {/* Scope Evidence */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Scope Evidence</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="text-muted-foreground">
+                Impact: <Badge variant="outline">{impactLabel}</Badge>
+              </div>
+              <p className="text-muted-foreground">{scopeSummary}</p>
+            </CardContent>
+          </Card>
+
           {/* Leveling Framework */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
@@ -261,21 +321,12 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">
-                Outcome Metrics
+                Outcome Metrics{uniqueMetrics.length > 0 ? ` (${uniqueMetrics.length})` : ''}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <OutcomeMetrics
-                metrics={[
-                  ...(evidence.outcomeMetrics?.roleLevel || []),
-                  ...(evidence.outcomeMetrics?.storyLevel || [])
-                ].filter((metric, index, arr) => {
-                  // Remove duplicates and invalid metrics
-                  return metric && 
-                         metric.trim().length > 0 && 
-                         !/^[%+\-]?$/.test(metric.trim()) &&
-                         arr.indexOf(metric) === index; // Remove duplicates
-                })}
+                metrics={uniqueMetrics}
               />
             </CardContent>
           </Card>

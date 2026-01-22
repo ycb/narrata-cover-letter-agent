@@ -19,7 +19,13 @@ interface AuthContextType {
   loading: boolean
   error: string | null
   enterDemo: (slug: string) => Promise<{ error: any }>
-  signUp: (email: string, password: string, fullName?: string, acceptedTerms?: boolean) => Promise<{ error: any; message?: string }>
+  signUp: (
+    email: string,
+    password: string,
+    fullName?: string,
+    acceptedTerms?: boolean,
+    accountType?: 'alpha' | 'beta'
+  ) => Promise<{ error: any; message?: string }>
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: any }>
   signInWithMagicLink: (email: string) => Promise<{ error: any }>
   signInWithGoogle: (redirectTo?: string) => Promise<{ error: any }>
@@ -504,7 +510,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id, loadUserProfile])
 
-  const signUp = async (email: string, password: string, fullName?: string, acceptedTerms?: boolean) => {
+  const signUp = async (
+    email: string,
+    password: string,
+    fullName?: string,
+    acceptedTerms?: boolean,
+    accountType?: 'alpha' | 'beta'
+  ) => {
     try {
       setError(null)
       const { data, error } = await supabase.auth.signUp({
@@ -514,6 +526,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           emailRedirectTo: `${window.location.origin}/new-user`,
           data: {
             full_name: fullName,
+            account_type: accountType ?? 'beta',
           },
         },
       })

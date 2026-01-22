@@ -114,6 +114,11 @@ function AppLayout() {
     location.pathname === "/forgot-password" ||
     location.pathname === "/waitlist";
   const shouldInitPendoPublic = !user && (isLandingRoute || isDemoRoute);
+  const accountType = (() => {
+    const raw = (user?.user_metadata as { account_type?: string } | undefined)?.account_type;
+    if (raw === "alpha" || raw === "beta") return raw;
+    return "alpha";
+  })();
 
   const isZoomExcludedRoute = location.pathname.startsWith("/cover-letters");
   const shouldShowUiZoom = Boolean(user) && !isPublicRoute && !isZoomExcludedRoute;
@@ -144,20 +149,22 @@ function AppLayout() {
         email: user.email ?? undefined,
         firstName: oauth.firstName ?? undefined,
         lastName: oauth.lastName ?? undefined,
+        account_type: accountType,
       },
       account: {
         id: user.id,
+        account_type: accountType,
       },
     }).catch((error) => {
       console.warn('Pendo initialization failed:', error);
     });
-  }, [user?.id, user?.email, isDemo, getOAuthData]);
+  }, [user?.id, user?.email, isDemo, getOAuthData, accountType]);
 
   useEffect(() => {
     if (!shouldInitPendoPublic) return;
     const storageKey = "pendo:public-visitor-id";
     let visitorId = window.localStorage.getItem(storageKey);
-    if (!visitorId) {
+    if (!visitorId || !visitorId.startsWith("demo_")) {
       const uuid =
         typeof window.crypto?.randomUUID === "function"
           ? window.crypto.randomUUID()
@@ -169,9 +176,11 @@ function AppLayout() {
       visitor: {
         id: visitorId,
         demoRoute: isDemoRoute ? "demo" : "landing",
+        account_type: "demo",
       },
       account: {
         id: "public_demo",
+        account_type: "demo",
       },
     }).catch((error) => {
       console.warn('Pendo public initialization failed:', error);
