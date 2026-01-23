@@ -235,6 +235,7 @@ async function fetchLatestPMLevelsResult(userId: string, profileId?: string | nu
     .select('*')
     .eq('user_id', userId)
     .eq('type', 'pmLevels')
+    .not('result', 'is', null)
     .order('created_at', { ascending: false })
     .limit(1);
 
