@@ -25,19 +25,14 @@ CREATE INDEX idx_evals_log_prompt_version ON public.evals_log(prompt_version);
 -- Comments
 COMMENT ON COLUMN public.evals_log.prompt_name IS 
   'Name of the prompt used (e.g., buildJobDescriptionAnalysisPrompt). Used for prompt performance analysis.';
-
 COMMENT ON COLUMN public.evals_log.prompt_version IS 
   'Optional version/hash of the prompt for A/B testing and tracking prompt changes over time.';
-
 COMMENT ON COLUMN public.evals_log.model IS 
   'LLM model used (e.g., gpt-4o, gpt-4o-mini, gpt-4-turbo). Used for cost calculation and model comparison.';
-
 COMMENT ON COLUMN public.evals_log.prompt_tokens IS 
   'Number of tokens in the prompt (input). Used for cost calculation.';
-
 COMMENT ON COLUMN public.evals_log.completion_tokens IS 
   'Number of tokens in the completion (output). Used for cost calculation.';
-
 COMMENT ON COLUMN public.evals_log.total_tokens IS 
   'Total tokens used (prompt_tokens + completion_tokens). Convenience field for sorting/filtering.';
 
@@ -180,5 +175,3 @@ COMMENT ON FUNCTION public.get_evals_cost_by_prompt IS
   'Returns cost analysis by prompt name. Shows success rate, token usage, and cost per prompt. Used by /evaluation-dashboard for prompt performance analysis and optimization.';
 
 COMMIT;
-
-
