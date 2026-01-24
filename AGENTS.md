@@ -8,7 +8,7 @@ When writing complex features or significant refactors, use an ExecPlan (as desc
 - Narrata is an AI-powered cover letter agent for PMs and other knowledge workers.
 - Core product principles: truth fidelity, human-in-the-loop control, and strategic storytelling.
 - Positioning: reusable story library + intelligent matching + fast, high-quality letters.
-- Orientation docs: `CLAUDE.md`, `NARRATA_BUSINESS_CONTEXT_COMPREHENSIVE.md`, and Notion MCP (see `CLAUDE.md` for setup and usage).
+- Orientation docs: `WORKFLOW.md`, `CLAUDE.md`, `NARRATA_BUSINESS_CONTEXT_COMPREHENSIVE.md`, and Notion MCP (see `CLAUDE.md` for setup and usage).
 
 ## Repo map (high-signal areas)
 - `src/services/` houses most business logic (notably `fileUploadService.ts` and `gapDetectionService.ts`).

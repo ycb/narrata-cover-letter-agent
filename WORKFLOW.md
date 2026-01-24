@@ -6,7 +6,9 @@ This document defines the team workflow for planning, building, testing, and dep
 
 - Planning for larger changes: `PLANS.md` (ExecPlan rules and structure).
 - Commands and tooling: `CLAUDE.md`.
+- Quality bar and release guidance: `docs/workflow/`.
 - Testing guides: `docs/testing/` and `docs/qa/`.
+- Skills playbooks: `docs/skills/`.
 - Setup and environment: `docs/setup/`.
 
 If a detail is missing here but exists elsewhere, add a short pointer here so the workflow stays discoverable.
@@ -47,6 +49,7 @@ Use the commands in `CLAUDE.md` as the default toolchain:
 - Dev server: `npm run dev` (http://localhost:8080)
 - Lint: `npm run lint`
 - Unit tests: `npm test` or `npm test -- path/to/test.test.tsx`
+- Unit tests (CI + coverage): `npm run test:ci`
 - UI tests: `npm run test:ui`
 - Build: `npm run build`
 - Preview: `npm run preview`
@@ -56,8 +59,7 @@ Suggested minimums:
 - Code changes: run targeted tests for the area you touched.
 - Structural changes (imports/moves): run `npm run lint`.
 - User-facing changes: run `npm run build` and a manual smoke check.
-
-Formal CI gates are not documented here yet. Add them once CI requirements are defined.
+- CI gates: `.github/workflows/ci.yml` runs lint, unit tests with coverage, and build on PRs and `main`.
 
 ## Data, Migrations, and Edge Functions
 
@@ -114,7 +116,6 @@ Specify exact checks and URLs once the deployment workflow is defined.
 
 ## Open Questions
 
-- What tests are CI-gated per change type?
 - What is the staging environment URL and access flow?
 
 Fill these in as decisions are made so the workflow remains actionable.

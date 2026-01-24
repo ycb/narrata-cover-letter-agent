@@ -13,8 +13,14 @@ Detailed implementation plans and technical specifications for features.
 ### [Testing Guides](./testing/)
 Testing procedures, guides, and best practices.
 
+### [Workflow](./workflow/)
+Team workflow for quality gates, testing expectations, and releases.
+
 ### [QA Documentation](./qa/)
 Quality assurance guides, testing procedures, and validation steps.
+
+### [Skills](./skills/)
+Reusable playbooks for common tasks (deploys, CI triage, migrations).
 
 ### [Evals Documentation](./evals/)
 Evaluation system documentation, including:
@@ -28,7 +34,9 @@ Evaluation system documentation, including:
 1. **New to the project?** Start with the [Setup Guides](./setup/)
 2. **Implementing features?** Check the [Implementation Plans](./implementation/)
 3. **Testing features?** Use the [Testing Guides](./testing/)
-4. **QA validation?** Follow the [QA Documentation](./qa/)
+4. **Quality bar?** Start with [Workflow](./workflow/)
+5. **QA validation?** Follow the [QA Documentation](./qa/)
+6. **Repeatable tasks?** Use the [Skills](./skills/)
 
 ## 📝 Contributing
 
