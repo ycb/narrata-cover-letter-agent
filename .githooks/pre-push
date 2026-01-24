@@ -1,0 +1,30 @@
+#!/bin/sh
+set -e
+
+requires_preflight=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main)
+      requires_preflight=1
+      ;;
+  esac
+done
+
+if [ "$requires_preflight" -eq 1 ]; then
+  if [ -n "$ALLOW_MAIN_PUSH" ]; then
+    echo "pre-push: ALLOW_MAIN_PUSH set, skipping preflight."
+    exit 0
+  fi
+  if [ -r /dev/tty ]; then
+    printf "pre-push: approve manual override (skip preflight) [y/N]? " > /dev/tty
+    read -r reply < /dev/tty
+    case "$reply" in
+      y|Y|yes|YES)
+        echo "pre-push: manual override approved, skipping preflight."
+        exit 0
+        ;;
+    esac
+  fi
+  echo "pre-push: main push detected, running preflight."
+  npm run preflight
+fi

@@ -40,6 +40,7 @@ Before opening a PR, agents should:
 - Run `npm run test:e2e` when user flows or UI behavior are touched.
 - Provide a test plan and risk level in the PR template.
 - List milestone commits in the PR when an ExecPlan is used.
+- Ensure local githooks are installed (auto via `postinstall` or run `npm run install:githooks`). Pushing to `main` runs `npm run preflight` and prompts for a manual override; `ALLOW_MAIN_PUSH=1` can be used for non-interactive automation.
 
 ## Branching and PRs
 

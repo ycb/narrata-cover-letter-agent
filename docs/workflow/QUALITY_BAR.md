@@ -9,6 +9,7 @@ This is the minimum standard for changes merged into `main`.
 - CI passes: lint, core unit tests with coverage (`npm run test:core`), and build.
 - A clear test plan in the PR (what was run and what was not).
 - Branch protection should require the CI workflow to pass before merge.
+- Local agent enforcement: a pre-push hook runs `npm run preflight` on pushes to `main` and prompts for a manual override (install via `npm run install:githooks`, use `ALLOW_MAIN_PUSH=1` for non-interactive automation).
 
 ## Definition of Done
 
