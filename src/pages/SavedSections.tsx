@@ -9,9 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, CheckCircle, X, BookOpen } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
-import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { ContentGenerationModalV3Baseline } from "@/components/hil/ContentGenerationModalV3Baseline";
-import { isHilV3Enabled } from "@/utils/featureFlags";
+import { TagSuggestionModal } from "@/components/hil/TagSuggestionModal";
 import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
 import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -89,7 +88,6 @@ export default function SavedSections() {
   // HIL Content Generation state
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
   const [selectedGap, setSelectedGap] = useState<any>(null);
-  const hilV3BaselineOn = isHilV3Enabled();
   const [hilEntityContext, setHilEntityContext] = useState<{
     entityId: string;
     savedSectionType: 'introduction' | 'closer' | 'signature' | 'custom';
@@ -1055,33 +1053,20 @@ export default function SavedSections() {
 
       {/* HIL Content Generation Modal */}
       {isContentModalOpen && selectedGap && (
-        hilV3BaselineOn ? (
-          <ContentGenerationModalV3Baseline
-            gap={selectedGap}
-            isOpen={isContentModalOpen}
-            onClose={() => {
-              setIsContentModalOpen(false);
-              setSelectedGap(null);
-              setHilEntityContext(null);
-            }}
-            onApplyContent={handleApplyContent}
-            userId={user?.id}
-            entityType="saved_section"
-            entityId={hilEntityContext?.entityId}
-            savedSectionType={hilEntityContext?.savedSectionType}
-          />
-        ) : (
-          <ContentGenerationModal
-            gap={selectedGap}
-            isOpen={isContentModalOpen}
-            onClose={() => {
-              setIsContentModalOpen(false);
-              setSelectedGap(null);
-              setHilEntityContext(null);
-            }}
-            onApplyContent={handleApplyContent}
-          />
-        )
+        <ContentGenerationModalV3Baseline
+          gap={selectedGap}
+          isOpen={isContentModalOpen}
+          onClose={() => {
+            setIsContentModalOpen(false);
+            setSelectedGap(null);
+            setHilEntityContext(null);
+          }}
+          onApplyContent={handleApplyContent}
+          userId={user?.id}
+          entityType="saved_section"
+          entityId={hilEntityContext?.entityId}
+          savedSectionType={hilEntityContext?.savedSectionType}
+        />
       )}
 
 	      {/* Add Reusable Content Modal */}
@@ -1275,8 +1260,7 @@ export default function SavedSections() {
 
       {/* Tag Suggestion Modal */}
       {isTagModalOpen && (
-        <ContentGenerationModal
-          mode="tag-suggestion"
+        <TagSuggestionModal
           content={tagContent}
           contentType="saved_section"
           entityId={tagEntityId}

@@ -517,7 +517,7 @@ export function CoverLetterDraftView({
               gapSummary={cleanGapSummary} // Agent C: Pass rubric summary for section guidance (no trailing periods)
               isGapResolved={false}
               onGenerateContent={onEnhanceSection ? () => {
-                // Always open HIL workflow - use onEnhanceSection to trigger ContentGenerationModal
+                // Always open HIL workflow - use onEnhanceSection to trigger the V3 modal
                 // Pass section attribution data to HIL for context
                 const firstGap = gapObjects[0];
 

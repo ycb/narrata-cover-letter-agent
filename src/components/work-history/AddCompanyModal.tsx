@@ -25,7 +25,7 @@ import { SoftDeleteService } from "@/services/softDeleteService";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { addUserTag, mergeUserTags, removeUserTag } from "@/lib/userTags";
 import { UserTagService } from "@/services/userTagService";
-	import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
+	import { TagSuggestionModal } from "@/components/hil/TagSuggestionModal";
 		import { TagSuggestionService, type TagSuggestion } from "@/services/tagSuggestionService";
 		import { TagService } from "@/services/tagService";
 		import type { WorkHistoryCompany } from "@/types/workHistory";
@@ -584,7 +584,7 @@ interface AddCompanyModalProps {
 	            )}
 	          </div>
 
-	          <ContentGenerationModal
+	          <TagSuggestionModal
 	            isOpen={isTagModalOpen}
 	            onClose={() => {
 	              setIsTagModalOpen(false);
@@ -593,7 +593,6 @@ interface AddCompanyModalProps {
 	              setSearchError(null);
 	              setIsSearching(false);
 	            }}
-	            mode="tag-suggestion"
 	            content={`${name || 'Company'}: ${description || 'Company information'}`}
 	            contentType="company"
 	            entityId={editingCompany?.id}

@@ -1,7 +1,7 @@
 /**
  * ContentGenerationExample
  *
- * Reference implementation showing how to integrate the ContentGenerationModal
+ * Reference implementation showing how to integrate the V3 baseline modal
  * and useContentGeneration hook into a component with content gaps.
  *
  * This example demonstrates:
@@ -17,27 +17,22 @@
  * - CoverLetterEditor.tsx (cover letter drafts)
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ContentGapBanner } from '@/components/shared/ContentGapBanner';
-import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
+import { ContentGenerationModalV3Baseline } from '@/components/hil/ContentGenerationModalV3Baseline';
 import { useContentGeneration } from '@/hooks/useContentGeneration';
 import { useContentItemsWithGaps } from '@/hooks/useContentItemsWithGaps';
 import type { Gap } from '@/services/gapDetectionService';
-import type { JobContext } from '@/prompts/contentGeneration';
 
 interface ContentGenerationExampleProps {
   workItemId: string;
   userId: string;
-
-  // Optional: Pass job context for cover letter flow
-  jobContext?: JobContext;
 }
 
 export function ContentGenerationExample({
   workItemId,
-  userId,
-  jobContext
+  userId
 }: ContentGenerationExampleProps) {
   // 1. Fetch content items with their gaps
   const { contentItems, isLoading, refetch } = useContentItemsWithGaps(userId, workItemId);
@@ -58,29 +53,54 @@ export function ContentGenerationExample({
 
   // 3. Handler to open modal for a specific gap
   const handleGenerateContent = (gap: Gap, story: any) => {
-    // Work History Context: No job context
     openModal(
       gap,                    // The gap to address
       'approved_content',     // Entity type (work_item | approved_content | saved_section)
       story.id,               // Entity ID
-      story.content,          // Existing content
-      jobContext,             // Optional: Pass for cover letter flow (creates variation)
-      undefined               // Section type (only for saved_section entities)
+      story.content           // Existing content
     );
   };
 
   // 4. Handler for saved sections (cover letter sections)
   const handleGenerateSectionContent = (gap: Gap, section: any) => {
-    // Cover Letter Context: Pass job context to auto-create variations
     openModal(
       gap,
       'saved_section',
       section.id,
-      section.content,
-      jobContext,              // This triggers variation creation
-      section.section_type     // 'introduction' | 'closer' | 'signature' | 'custom'
+      section.content
     );
   };
+
+  const modalGap = useMemo(() => {
+    const gap = modalProps.gap as Gap | undefined;
+    if (!gap) return null;
+
+    const modalType =
+      gap.gap_type === 'data_quality'
+        ? 'core-requirement'
+        : gap.gap_type === 'role_expectation'
+          ? 'preferred-requirement'
+          : 'best-practice';
+
+    const suggestionValue = Array.isArray(gap.suggestions) && gap.suggestions.length ? gap.suggestions[0] : undefined;
+    const suggestion =
+      typeof suggestionValue === 'string'
+        ? suggestionValue
+        : typeof (suggestionValue as any)?.suggestion === 'string'
+          ? (suggestionValue as any).suggestion
+          : 'Improve content quality';
+
+    return {
+      id: String(gap.id ?? `${modalProps.entityType}-${modalProps.entityId}-${gap.gap_category}`),
+      type: modalType as any,
+      severity: gap.severity,
+      description: String(gap.description || gap.gap_category || 'Content needs improvement'),
+      suggestion,
+      paragraphId: gap.entity_type === 'approved_content' ? 'story-content' : gap.entity_type === 'work_item' ? 'role' : 'saved-section',
+      origin: 'ai' as const,
+      existingContent: String((modalProps as any)?.existingContent ?? ''),
+    };
+  }, [modalProps]);
 
   if (isLoading) {
     return <div className="p-6">Loading content...</div>;
@@ -90,12 +110,7 @@ export function ContentGenerationExample({
     <div className="space-y-6 p-6">
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-2">Content Generation Integration Example</h2>
-        <p className="text-muted-foreground">
-          {jobContext
-            ? `Generating variations for ${jobContext.jobTitle} at ${jobContext.company}`
-            : 'Improving work history content'
-          }
-        </p>
+        <p className="text-muted-foreground">Improving work history content</p>
       </div>
 
       {/* 5. Render content items with gap banners */}
@@ -165,10 +180,14 @@ export function ContentGenerationExample({
 
       {/* 7. Content Generation Modal */}
       {isModalOpen && modalProps && (
-        <ContentGenerationModal
+        <ContentGenerationModalV3Baseline
           isOpen={isModalOpen}
           onClose={closeModal}
-          {...modalProps}
+          gap={modalGap}
+          userId={userId}
+          entityType={modalProps.entityType as any}
+          entityId={modalProps.entityId}
+          onApplyContent={modalProps.onApplyContent}
         />
       )}
 

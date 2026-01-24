@@ -43,13 +43,10 @@ For each:
 - [ ] Supply entity-appropriate standards list (not cover-letter standards).
 - [ ] Do not show “Reqs Met”.
 
-### Phase 4 — Cleanup & flags
+### Phase 4 — Cleanup
 - [ ] Remove legacy HIL env/debug UI.
-- [ ] Deprecate `VITE_HIL_COVER_LETTER_V2` once V3 is default.
-- [ ] Consolidate flags:
-  - Primary: `VITE_ENABLE_HIL_V3=true` (enables V3 everywhere)
-  - Rollback: `VITE_FORCE_HIL_LEGACY=true` (forces legacy HIL everywhere)
-  - Back-compat aliases (temporary): `VITE_HIL_COVER_LETTER_V3`, `VITE_ENABLE_HIL_V3_BASELINE`
+- [ ] Remove legacy HIL modal implementations (V2 + pre-V3).
+- [ ] V3 is the baseline everywhere; no HIL feature flags remain.
 
 ## Migration Checklist (per caller)
 For each place that opens HIL:

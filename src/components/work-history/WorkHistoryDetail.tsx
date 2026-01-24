@@ -33,12 +33,11 @@ import {
   AlertTriangle,
   CheckCircle
 } from "lucide-react";
-import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { ContentGenerationModalV3Baseline } from "@/components/hil/ContentGenerationModalV3Baseline";
+import { TagSuggestionModal } from "@/components/hil/TagSuggestionModal";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
 import { generateGapSummary } from "@/utils/gapSummaryGenerator";
-import { isHilV3Enabled } from "@/utils/featureFlags";
 import { LinkedInDataSource } from "./LinkedInDataSource";
 import { ResumeDataSource } from "./ResumeDataSource";
 import { useAuth } from "@/contexts/AuthContext";
@@ -147,7 +146,6 @@ export const WorkHistoryDetail = ({
     entityType: 'work_item' | 'approved_content' | 'saved_section' | 'company';
     entityId: string;
   } | null>(null);
-  const hilV3BaselineOn = isHilV3Enabled();
 
   // Tag suggestion state
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
@@ -2434,29 +2432,21 @@ export const WorkHistoryDetail = ({
             )}
         
         {/* Gap Detection Modal */}
-	        {hilV3BaselineOn && activeGapContext?.entityType !== 'company' ? (
-	          <ContentGenerationModalV3Baseline
-	            isOpen={isContentGenerationModalOpen}
-	            onClose={handleCloseContentGenerationModal}
-	            gap={contentGenerationGap as any}
-	            onApplyContent={handleApplyContent}
-	            closeOnApply={false}
-	            userId={user?.id}
-	            entityType={activeGapContext?.entityType as any}
-	            entityId={activeGapContext?.entityId}
-	          />
-	        ) : (
-          <ContentGenerationModal
+        {activeGapContext?.entityType !== 'company' ? (
+          <ContentGenerationModalV3Baseline
             isOpen={isContentGenerationModalOpen}
             onClose={handleCloseContentGenerationModal}
             gap={contentGenerationGap as any}
             onApplyContent={handleApplyContent}
-            mode="gap-detection"
+            closeOnApply={false}
+            userId={user?.id}
+            entityType={activeGapContext?.entityType as any}
+            entityId={activeGapContext?.entityId}
           />
-        )}
+        ) : null}
 
         {/* Tag Suggestion Modal - separate from gap detection */}
-        <ContentGenerationModal
+        <TagSuggestionModal
           isOpen={isTagModalOpen}
           onClose={() => {
             setIsTagModalOpen(false);
@@ -2466,19 +2456,18 @@ export const WorkHistoryDetail = ({
             setSearchError(null);
             setIsSearching(false);
           }}
-          mode="tag-suggestion"
           content={tagContent}
           contentType={tagContentType}
           entityId={tagEntityId}
-	          existingTags={
-	            tagContentType === 'company' 
-	              ? (selectedCompany?.tags || companies.find(c => c.id === tagEntityId)?.tags || [])
-	              : tagContentType === 'role'
-	              ? (selectedRole?.tags || [])
-	              : tagContentType === 'story'
-	              ? (selectedRole?.blurbs?.find((b) => b.id === tagEntityId)?.tags || [])
-	              : []
-	          }
+          existingTags={
+            tagContentType === 'company'
+              ? (selectedCompany?.tags || companies.find(c => c.id === tagEntityId)?.tags || [])
+              : tagContentType === 'role'
+              ? (selectedRole?.tags || [])
+              : tagContentType === 'story'
+              ? (selectedRole?.blurbs?.find((b) => b.id === tagEntityId)?.tags || [])
+              : []
+          }
           suggestedTags={suggestedTags}
           otherTags={otherTags}
           onApplyTags={handleApplyTags}
