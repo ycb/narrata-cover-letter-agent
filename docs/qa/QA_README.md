@@ -84,6 +84,15 @@ npx vitest run
 
 **Output:** Summary of passing/failing tests, duration, coverage
 
+### Core Test Suite (CI Gate)
+
+```bash
+cd /Users/admin/narrata
+npm run test:core
+```
+
+**Output:** Core tests + coverage thresholds (`coverage-core/`)
+
 ### Watch Mode (During Development)
 
 ```bash
@@ -263,6 +272,33 @@ beforeEach(() => {
 
 **Current Status:** YELLOW - High-value tests passing, component tests need wrapper updates
 
+### Coverage Baseline (from latest local `npm run test:ci`)
+
+Coverage is a separate metric from pass rate. These numbers come from `coverage/coverage-summary.json`.
+
+| Metric | Value |
+|--------|-------|
+| Lines | 44.85% |
+| Statements | 44.85% |
+| Functions | 31.89% |
+| Branches | 56.9% |
+
+### Coverage Triage Priorities
+
+**P0 (core, coverage gate):**
+- `src/services/`, `src/hooks/`, `src/lib/`, `src/pages/api/`, `src/utils/`
+- Core aggregate baseline: Lines 36.87%, Functions 34.2%, Branches 56.64%
+- Focus: service orchestration, readiness pipeline, gap detection, and parsing logic
+
+**P1 (user-facing behavior):**
+- `src/components/` (cover letters + HIL), `src/pages/` (non-API)
+- Baseline examples: components 52.21% lines, pages 63% lines (functions are low)
+- Focus: regression-prone UI flows and primary cover letter screens
+
+**P2 (supporting content):**
+- `src/prompts/`, low-risk UI helpers
+- Capture regressions via snapshot or smoke coverage later
+
 ---
 
 ## Common QA Tasks
@@ -416,4 +452,3 @@ beforeEach(() => {
 - [Phase 1 Completion Summary](./PHASE_1_COMPLETION_SUMMARY.md)
 - [Job Stages Reference](/docs/architecture/JOB_STAGES_REFERENCE.md)
 - [Cover Letter Templates Spec](/docs/architecture/COVER_LETTER_TEMPLATES.md)
-

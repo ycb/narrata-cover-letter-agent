@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -27,18 +29,38 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: PR metadata gate
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: npm run check:pr-body
+
       - name: Lint
         run: npm run lint
 
-      - name: Unit tests (coverage)
+      - name: Core unit tests (coverage)
+        run: npm run test:core
+
+      - name: Diff coverage (core scope)
+        run: npm run test:diff-coverage
+
+      - name: Full unit tests (non-blocking)
+        continue-on-error: true
         run: npm run test:ci
 
       - name: Build
         run: npm run build
 
-      - name: Upload coverage
+      - name: Upload core coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage
+          name: coverage-core
+          path: coverage-core/
+
+      - name: Upload full coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-full
           path: coverage/

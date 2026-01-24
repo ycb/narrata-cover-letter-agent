@@ -6,7 +6,7 @@ This is the minimum standard for changes merged into `main`.
 
 - Agent review first (use Playwright MCP when UI behavior matters).
 - Human approval after agent confirmation.
-- CI passes: lint, unit tests with coverage, and build.
+- CI passes: lint, core unit tests with coverage (`npm run test:core`), and build.
 - A clear test plan in the PR (what was run and what was not).
 - Branch protection should require the CI workflow to pass before merge.
 
@@ -17,10 +17,26 @@ This is the minimum standard for changes merged into `main`.
 - No new lint errors or TypeScript failures.
 - Build succeeds (`npm run build`).
 
-## Coverage Policy
+## Coverage Policy (Forward-Looking)
 
-- CI runs `npm run test:ci` to collect coverage on every PR and push.
-- Coverage thresholds are intentionally low at first to avoid blocking the team.
-- Raise thresholds over time (“ratchet up”) as coverage improves.
+Core scope is `src/services/`, `src/hooks/`, `src/lib/`, `src/pages/api/`, and `src/utils/`. This is the scope enforced by `npm run test:core`.
+
+Policy:
+- CI must pass `npm run test:core` (tests + coverage) and `npm run build`.
+- Coverage thresholds are enforced for core scope and will be ratcheted up on a fixed schedule.
+- New or modified core code must be exercised by at least one test in the same PR.
+- A diff-coverage gate enforces a minimum of 80% for changed core lines (`npm run test:diff-coverage`).
+- Full suite (`npm run test:ci`) remains non-blocking for visibility until UI refresh work is complete.
+- PRs must include a test plan and risk level (see PR template).
+- Agent review is required for every PR; use Playwright MCP when UI behavior changes.
+- ExecPlan work must include milestone commits listed in the PR.
+
+Ratcheting plan:
+- Raise core thresholds each sprint by a small, fixed increment until targets are met.
+- Target end state: core lines >= 80%, functions >= 70%, branches >= 60%.
+- Thresholds live in `vitest.core.config.ts`.
+
+Exceptions:
+- Only allowed with a time-boxed waiver in the PR description and a follow-up ticket.
 
 Use `docs/workflow/TEST_MATRIX.md` to decide which tests are expected for a change.

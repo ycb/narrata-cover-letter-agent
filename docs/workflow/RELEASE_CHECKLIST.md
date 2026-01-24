@@ -15,6 +15,8 @@
   - App loads and renders expected route.
   - No console errors for missing env vars.
   - Smoke test the workflows you changed.
+- Run smoke script:
+  - `SMOKE_BASE_URL=<staging-url> npm run smoke:release`
 
 ## Production Deploy
 
@@ -25,6 +27,8 @@
 - Verify:
   - Main user flow works.
   - No console errors or runtime config failures.
+- Run smoke script:
+  - `SMOKE_BASE_URL=<production-url> npm run smoke:release`
 
 ## Rollback
 

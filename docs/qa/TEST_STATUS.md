@@ -10,6 +10,8 @@
 **Total Test Files:** 51 (24 failed, 27 passed)  
 **Total Tests:** 446 (62 failed, 384 passed)  
 **Duration:** ~26s
+**Coverage (latest local `npm run test:ci`):** Lines 44.85%, Statements 44.85%, Functions 31.89%, Branches 56.9%  
+**Note:** Coverage is a separate metric from pass rate.
 
 ---
 
@@ -20,6 +22,7 @@
 **Overall Pass Rate:** 86.1% (384/446 tests passing)  
 **Improvement from Baseline:** +5.2% (from initial 80.9%)  
 **Total Effort:** ~3.25 hours (Phase 1: 2.5h + API fix: 0.3h + HIL fix: 0.25h)
+**Core Coverage Baseline (latest):** Lines 36.87%, Functions 34.2%, Branches 56.64%
 
 ### What's Fixed ✅
 
@@ -46,12 +49,12 @@
 
 ### CI Gating Recommendation
 
-**DO NOT gate CI on full test suite yet.** Gate ONLY on:
-- Backend/pipeline tests (`tests/streaming-sections.test.ts`, `tests/telemetry.readiness.test.ts`)
-- Core service tests (`src/services/__tests__/`)
-- Lib/utility tests (`src/lib/__tests__/`)
+**DO NOT gate CI on full test suite yet.** Gate ONLY on `npm run test:core` (services + hooks + lib + readiness/streaming/telemetry).
 
-HIL + API readiness tests should be fixed but not block CI until refreshed.
+**Core coverage thresholds (current gate):** Lines 30%, Statements 30%, Functions 25%, Branches 45%.  
+**Full suite (`npm run test:ci`) is non-blocking** and used to track broader failures and coverage.
+
+HIL + broader UI tests should be refreshed but do not block CI yet.
 
 ---
 
@@ -433,4 +436,3 @@ All test files have been annotated with `// TEST STATUS` comments for easy triag
 ---
 
 **Report End**
-

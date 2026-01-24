@@ -10,7 +10,9 @@ Best for:
 
 Run:
 - `npm test -- path/to/test.test.tsx` (targeted)
-- `npm run test:ci` (full run with coverage)
+- `npm run test:core` (core suite + coverage gate)
+- `npm run test:diff-coverage` (diff coverage gate for core changes)
+- `npm run test:ci` (full run with coverage, non-blocking in CI)
 
 ## Component Tests (Testing Library)
 

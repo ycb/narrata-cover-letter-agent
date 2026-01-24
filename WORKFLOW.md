@@ -32,6 +32,15 @@ For ExecPlan work, follow `PLANS.md` exactly. For smaller changes, define:
 - Acceptance: how to verify it (commands and expected outputs).
 - Tests: the minimum set to run.
 
+### Agent-Driven Quality Checklist
+
+Before opening a PR, agents should:
+- Attach an ExecPlan link for non-trivial changes.
+- Run local quality gates: `npm run lint`, `npm run test:core`, `npm run test:diff-coverage`, `npm run build`.
+- Run `npm run test:e2e` when user flows or UI behavior are touched.
+- Provide a test plan and risk level in the PR template.
+- List milestone commits in the PR when an ExecPlan is used.
+
 ## Branching and PRs
 
 - Branch from `main`.
@@ -40,6 +49,15 @@ For ExecPlan work, follow `PLANS.md` exactly. For smaller changes, define:
 
 Branch naming: keep it semantic and concise (e.g., `fix-upload-timeout`, `feat-gap-summary`, `chore-build-warnings`).
 Review policy: first pass is an agent review; use Playwright MCP for UI verification when relevant. After agent confirmation, human approval is required before merge.
+
+### Branch Protection (GitHub)
+
+For `main`, configure a branch protection rule with:
+- Require a pull request before merging.
+- Require at least 1 approval (human approval).
+- Require status checks to pass:
+  - `CI` workflow (or the `CI / quality` job).
+- Require branches to be up to date before merging.
 
 ## Build and Test Workflow
 
@@ -50,6 +68,8 @@ Use the commands in `CLAUDE.md` as the default toolchain:
 - Lint: `npm run lint`
 - Unit tests: `npm test` or `npm test -- path/to/test.test.tsx`
 - Unit tests (CI + coverage): `npm run test:ci`
+- Unit tests (core + coverage gate): `npm run test:core`
+- Diff coverage (core changes): `npm run test:diff-coverage`
 - UI tests: `npm run test:ui`
 - Build: `npm run build`
 - Preview: `npm run preview`
@@ -59,7 +79,10 @@ Suggested minimums:
 - Code changes: run targeted tests for the area you touched.
 - Structural changes (imports/moves): run `npm run lint`.
 - User-facing changes: run `npm run build` and a manual smoke check.
-- CI gates: `.github/workflows/ci.yml` runs lint, unit tests with coverage, and build on PRs and `main`.
+- CI gates: `.github/workflows/ci.yml` runs lint, core unit tests with coverage, diff coverage, and build on PRs and `main`. Full unit tests run non-blocking for visibility.
+
+Nightly coverage:
+- `.github/workflows/nightly.yml` runs full unit tests + Playwright E2E on a schedule and uploads artifacts.
 
 ## Data, Migrations, and Edge Functions
 

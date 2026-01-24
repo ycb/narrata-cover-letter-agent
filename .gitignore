@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 public/fixtures
+coverage/
+coverage-core/
 
 # Environment variables and sensitive configuration
 .env
