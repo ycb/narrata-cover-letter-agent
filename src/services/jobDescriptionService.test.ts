@@ -1,52 +1,59 @@
 /**
  * Tests for JobDescriptionService
- * 
- * Validates JD parsing integration with EvaluationEventLogger
+ *
+ * Validates JD parsing integration with Supabase persistence.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { JobDescriptionService } from './jobDescriptionService';
 import * as supabaseModule from '@/lib/supabase';
-import { EvaluationEventLogger } from './evaluationEventLogger';
-import { LLMAnalysisService } from './openaiService';
 
-// Mock dependencies
+const streamTextMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@ai-sdk/openai', () => ({
+  createOpenAI: vi.fn(() => ({
+    chat: vi.fn(() => 'mock-model'),
+  })),
+}));
+
+vi.mock('ai', () => ({
+  streamText: streamTextMock,
+}));
+
 vi.mock('@/lib/supabase', () => ({
   supabase: {
     from: vi.fn(),
   },
 }));
 
-vi.mock('./evaluationEventLogger', () => ({
-  EvaluationEventLogger: {
-    logJDParse: vi.fn(),
-  },
-}));
-
-vi.mock('./openaiService', () => ({
-  LLMAnalysisService: vi.fn(),
-}));
-
 const mockSupabase = supabaseModule.supabase;
 
 describe('JobDescriptionService', () => {
+  const baseResponse = {
+    company: 'Acme Corp',
+    role: 'Senior Product Manager',
+    differentiatorSummary: 'Seeks PM with AI/ML experience',
+    coreRequirements: ['5+ years PM', 'B2B SaaS'],
+    preferredRequirements: ['SQL proficiency'],
+  };
+
+  const buildStreamingResult = (payload: unknown) => ({
+    textStream: (async function* stream() {
+      yield { text: JSON.stringify(payload) };
+    })(),
+  });
+
   let service: JobDescriptionService;
-  let mockLLMService: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Setup LLM service mock
-    mockLLMService = {
-      analyzeJobDescription: vi.fn(),
-    };
-    vi.mocked(LLMAnalysisService).mockImplementation(() => mockLLMService as any);
-
-    service = new JobDescriptionService();
+    process.env.VITE_OPENAI_API_KEY = 'test-key';
+    streamTextMock.mockResolvedValue(buildStreamingResult(baseResponse));
+    service = new JobDescriptionService({ openAIKey: 'test-key' });
   });
 
   describe('parseAndCreate', () => {
-    it('should parse JD and create database record with success logging', async () => {
+    it('should parse JD and create database record', async () => {
       const mockJDData = {
         id: 'jd-123',
         user_id: 'user-456',
@@ -57,20 +64,9 @@ describe('JobDescriptionService', () => {
         url: 'https://example.com/job',
         created_at: '2025-01-01T00:00:00Z',
         updated_at: '2025-01-01T00:00:00Z',
+        analysis: {},
       };
 
-      // Mock LLM response
-      mockLLMService.analyzeJobDescription.mockResolvedValue({
-        success: true,
-        data: {
-          company: 'Acme Corp',
-          role: 'Senior Product Manager',
-          requirements: ['5+ years PM', 'B2B SaaS', 'SQL proficiency'],
-          differentiatorSummary: 'Seeks PM with AI/ML experience',
-        },
-      });
-
-      // Mock Supabase insert
       const mockSelect = vi.fn().mockResolvedValue({
         data: mockJDData,
         error: null,
@@ -88,78 +84,26 @@ describe('JobDescriptionService', () => {
 
       vi.mocked(mockSupabase.from).mockImplementation(mockFrom);
 
-      // Mock evaluation logger
-      vi.mocked(EvaluationEventLogger.logJDParse).mockResolvedValue({
-        success: true,
-        runId: 'run-1',
-      });
+      const content =
+        'This job description is intentionally long enough to meet the minimum character requirement for parsing.';
 
-      const result = await service.parseAndCreate({
-        userId: 'user-456',
-        content: 'Job description text...',
+      const result = await service.parseAndCreate('user-456', content, {
         url: 'https://example.com/job',
       });
 
-      expect(result).toEqual(mockJDData);
-      expect(mockLLMService.analyzeJobDescription).toHaveBeenCalledWith('Job description text...');
+      expect(result.id).toBe('jd-123');
+      expect(result.company).toBe('Acme Corp');
+      expect(streamTextMock).toHaveBeenCalledTimes(1);
       expect(mockFrom).toHaveBeenCalledWith('job_descriptions');
-      expect(EvaluationEventLogger.logJDParse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 'user-456',
-          jobDescriptionId: 'jd-123',
-          company: 'Acme Corp',
-          role: 'Senior Product Manager',
-          requirements: ['5+ years PM', 'B2B SaaS', 'SQL proficiency'],
-          differentiatorSummary: 'Seeks PM with AI/ML experience',
-          status: 'success',
-          sourceUrl: 'https://example.com/job',
-        })
+    });
+
+    it('should reject when content is too short', async () => {
+      await expect(service.parseAndCreate('user-456', 'Too short.')).rejects.toThrow(
+        'Job description content must be at least 50 characters.',
       );
     });
 
-    it('should log failure event when parsing fails', async () => {
-      // Mock LLM failure
-      mockLLMService.analyzeJobDescription.mockResolvedValue({
-        success: false,
-        error: 'LLM parsing failed',
-      });
-
-      // Mock evaluation logger
-      vi.mocked(EvaluationEventLogger.logJDParse).mockResolvedValue({
-        success: true,
-        runId: 'run-2',
-      });
-
-      await expect(
-        service.parseAndCreate({
-          userId: 'user-456',
-          content: 'Invalid JD text...',
-        })
-      ).rejects.toThrow('LLM parsing failed');
-
-      expect(EvaluationEventLogger.logJDParse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 'user-456',
-          jobDescriptionId: 'pending',
-          status: 'failed',
-          error: 'LLM parsing failed',
-        })
-      );
-    });
-
-    it('should log failure event when database insert fails', async () => {
-      // Mock LLM success
-      mockLLMService.analyzeJobDescription.mockResolvedValue({
-        success: true,
-        data: {
-          company: 'Acme Corp',
-          role: 'PM',
-          requirements: ['5+ years'],
-          differentiatorSummary: 'Test',
-        },
-      });
-
-      // Mock Supabase failure
+    it('should wrap database insert failures', async () => {
       const mockSelect = vi.fn().mockResolvedValue({
         data: null,
         error: { message: 'Database error' },
@@ -177,24 +121,11 @@ describe('JobDescriptionService', () => {
 
       vi.mocked(mockSupabase.from).mockImplementation(mockFrom);
 
-      // Mock evaluation logger
-      vi.mocked(EvaluationEventLogger.logJDParse).mockResolvedValue({
-        success: true,
-        runId: 'run-3',
-      });
+      const content =
+        'This job description content is long enough to satisfy parse length requirements for testing.';
 
-      await expect(
-        service.parseAndCreate({
-          userId: 'user-456',
-          content: 'JD text...',
-        })
-      ).rejects.toThrow('Database error');
-
-      expect(EvaluationEventLogger.logJDParse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'failed',
-          error: expect.stringContaining('Database error'),
-        })
+      await expect(service.parseAndCreate('user-456', content)).rejects.toThrow(
+        'Unable to process job description: Database error',
       );
     });
 
@@ -209,17 +140,8 @@ describe('JobDescriptionService', () => {
         url: null,
         created_at: '2025-01-01T00:00:00Z',
         updated_at: '2025-01-01T00:00:00Z',
+        analysis: {},
       };
-
-      mockLLMService.analyzeJobDescription.mockResolvedValue({
-        success: true,
-        data: {
-          company: 'Test Corp',
-          role: 'PM',
-          requirements: ['test'],
-          differentiatorSummary: 'Test',
-        },
-      });
 
       const mockSelect = vi.fn().mockResolvedValue({
         data: mockJDData,
@@ -237,23 +159,16 @@ describe('JobDescriptionService', () => {
       });
 
       vi.mocked(mockSupabase.from).mockImplementation(mockFrom);
-      vi.mocked(EvaluationEventLogger.logJDParse).mockResolvedValue({
-        success: true,
-        runId: 'run-4',
-      });
 
-      await service.parseAndCreate({
-        userId: 'user-456',
-        content: 'JD text...',
+      const content =
+        'This synthetic profile test uses a long enough job description to pass validation requirements.';
+
+      const result = await service.parseAndCreate('user-456', content, {
         syntheticProfileId: 'synthetic-123',
       });
 
-      expect(EvaluationEventLogger.logJDParse).toHaveBeenCalledWith(
-        expect.objectContaining({
-          syntheticProfileId: 'synthetic-123',
-        })
-      );
+      expect(result.id).toBe('jd-789');
+      expect(result.sessionId).toBeDefined();
     });
   });
 });
-

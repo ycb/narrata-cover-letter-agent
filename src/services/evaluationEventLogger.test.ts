@@ -269,7 +269,7 @@ describe('EvaluationEventLogger', () => {
       const callArgs = mockInsert.mock.calls[0];
       const payload = callArgs[0][0];
       expect(payload.hil_action).toBe('manual_edit');
-      expect(payload.personalization_score).toBe('⚠️ Manual');
+      expect(payload.personalization_score).toBe('⚠️ Partially Personalized');
     });
   });
 
@@ -424,5 +424,4 @@ describe('EvaluationEventLogger', () => {
     });
   });
 });
-
 

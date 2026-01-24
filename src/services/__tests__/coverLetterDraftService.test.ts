@@ -196,6 +196,14 @@ const createSupabaseMock = (): SupabaseMock => {
             eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
           })),
         };
+      case 'profiles':
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn(() => Promise.resolve({ data: { is_flagged: false }, error: null })),
+            })),
+          })),
+        };
       case 'cover_letters':
         return {
           insert: vi.fn((payload: Record<string, unknown>) => {
@@ -282,6 +290,14 @@ const createFinalizeSupabaseMock = (
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
               eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
+            })),
+          })),
+        };
+      case 'profiles':
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn(() => Promise.resolve({ data: { is_flagged: false }, error: null })),
             })),
           })),
         };

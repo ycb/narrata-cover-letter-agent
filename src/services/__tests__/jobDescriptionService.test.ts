@@ -26,6 +26,9 @@ const BASE_RESPONSE = {
   company: 'Narrata',
   role: 'Senior Product Manager',
   summary: 'Drive experimentation to grow enterprise adoption.',
+  differentiatorSummary: 'Drive experimentation to grow enterprise adoption.',
+  coreRequirements: ['Stakeholder alignment'],
+  preferredRequirements: ['Experience with data products'],
   standardRequirements: [
     {
       id: 'std-1',
@@ -42,15 +45,6 @@ const BASE_RESPONSE = {
       priority: 'critical',
       keywords: ['launch', '0-to-1'],
       signals: ['market expansion'],
-    },
-  ],
-  preferredRequirements: [
-    {
-      id: 'pref-1',
-      label: 'Experience with data products',
-      priority: 'medium',
-      keywords: ['data science'],
-      signals: [],
     },
   ],
   boilerplateSignals: ['roadmapping', 'stakeholder alignment'],
@@ -157,14 +151,19 @@ describe('JobDescriptionService', () => {
     expect(streamTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'mock-model',
-        system: expect.stringContaining('expert product hiring strategist'),
+        messages: [
+          expect.objectContaining({
+            role: 'user',
+            content: expect.stringContaining('expert at parsing job descriptions'),
+          }),
+        ],
       }),
     );
 
     expect(raw).toEqual(BASE_RESPONSE);
     expect(parsed.company).toBe('Narrata');
     expect(parsed.standardRequirements[0].category).toBe('standard');
-    expect(parsed.differentiatorSignals).toContain('0-to-1 launches');
+    expect(parsed.differentiatorSignals).toEqual([]);
   });
 
   it('creates job description records in Supabase', async () => {

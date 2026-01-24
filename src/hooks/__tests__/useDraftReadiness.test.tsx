@@ -9,6 +9,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useDraftReadiness } from '../useDraftReadiness';
 import { isDraftReadinessEnabled } from '@/lib/flags';
 
+const invokeMock = vi.hoisted(() => vi.fn());
+
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
     session: {
@@ -21,8 +23,13 @@ vi.mock('@/lib/flags', () => ({
   isDraftReadinessEnabled: vi.fn(() => true),
 }));
 
-const mockFetch = vi.fn();
-global.fetch = mockFetch as unknown as typeof global.fetch;
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    functions: {
+      invoke: invokeMock,
+    },
+  },
+}));
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -38,12 +45,6 @@ const createWrapper = () => {
   );
 };
 
-const mockResponse = (status: number, jsonBody?: any) => ({
-  status,
-  ok: status >= 200 && status < 300,
-  json: vi.fn().mockResolvedValue(jsonBody),
-});
-
 describe('useDraftReadiness', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -51,20 +52,21 @@ describe('useDraftReadiness', () => {
   });
 
   afterEach(() => {
-    mockFetch.mockReset();
+    invokeMock.mockReset();
   });
 
   it('returns readiness data on success', async () => {
-    mockFetch.mockResolvedValue(
-      mockResponse(200, {
+    invokeMock.mockResolvedValue({
+      data: {
         rating: 'strong',
         scoreBreakdown: { opening: 'strong' },
         feedback: { summary: 'Good', improvements: [] },
         evaluatedAt: '2024-01-01T00:00:00.000Z',
         ttlExpiresAt: '2024-01-01T00:10:00.000Z',
         fromCache: false,
-      }),
-    );
+      },
+      error: null,
+    });
 
     const { result } = renderHook(
       () => useDraftReadiness({ draftId: 'draft-1', enabled: true }),
@@ -77,11 +79,7 @@ describe('useDraftReadiness', () => {
   });
 
   it('handles 204 responses as no readiness', async () => {
-    mockFetch.mockResolvedValue({
-      status: 204,
-      ok: false,
-      json: vi.fn(),
-    });
+    invokeMock.mockResolvedValue({ data: null, error: null });
 
     const { result } = renderHook(
       () => useDraftReadiness({ draftId: 'draft-1', enabled: true }),
@@ -94,7 +92,14 @@ describe('useDraftReadiness', () => {
   });
 
   it('flags featureDisabled on 503 responses', async () => {
-    mockFetch.mockResolvedValue(mockResponse(503, { error: 'disabled' }));
+    const contextJson = vi.fn().mockResolvedValue({ error: 'FEATURE_DISABLED' });
+    invokeMock.mockResolvedValue({
+      data: null,
+      error: {
+        message: 'FEATURE_DISABLED',
+        context: { json: contextJson },
+      },
+    });
 
     const { result } = renderHook(
       () => useDraftReadiness({ draftId: 'draft-1', enabled: true }),
@@ -105,5 +110,3 @@ describe('useDraftReadiness', () => {
     expect(result.current.data).toBeNull();
   });
 });
-
-

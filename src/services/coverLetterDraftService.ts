@@ -583,6 +583,9 @@ export class CoverLetterDraftService {
         return this.sanitizeReadinessPayload(data);
       }
     } catch (invokeErr) {
+      if (invokeErr instanceof DraftReadinessFeatureDisabledError) {
+        throw invokeErr;
+      }
       if (isFeatureDisabledFunctionsError(invokeErr)) {
         throw new DraftReadinessFeatureDisabledError();
       }
@@ -3298,18 +3301,24 @@ export class CoverLetterDraftService {
   }
 
   private normaliseTemplateSections(sections: TemplateRow['sections']): CoverLetterSection[] {
-    if (Array.isArray(sections)) {
-      return sections as CoverLetterSection[];
-    }
+    let normalized: CoverLetterSection[] = [];
 
-    if (sections && typeof sections === 'object' && 'data' in (sections as any)) {
+    if (Array.isArray(sections)) {
+      normalized = sections as CoverLetterSection[];
+    } else if (sections && typeof sections === 'object' && 'data' in (sections as any)) {
       const maybeData = (sections as any).data;
       if (Array.isArray(maybeData)) {
-        return maybeData as CoverLetterSection[];
+        normalized = maybeData as CoverLetterSection[];
       }
     }
 
-    return [];
+    if (!normalized.length) return [];
+
+    return normalized.map(section => {
+      if (section.contentType) return section;
+      const inferredContentType = section.savedSectionId ? 'saved' : 'work-history';
+      return { ...section, contentType: inferredContentType };
+    });
   }
 
   private normaliseDraftSections(sections: CoverLetterRow['sections']): CoverLetterDraftSection[] {
@@ -3928,10 +3937,25 @@ export class CoverLetterDraftService {
   ): SavedSectionRow | null {
     if (!savedSections.length) return null;
 
+    const wantsDynamic = !section.isStatic;
+    const typeMap: Record<CoverLetterSection['type'], string[]> = {
+      intro: ['intro', 'introduction'],
+      paragraph: ['body', 'paragraph'],
+      closer: ['closer', 'closing'],
+      signature: ['signature'],
+    };
+    const allowedTypes = typeMap[section.type] ?? [];
+    const dynamicCandidates = savedSections.filter(saved => !wantsDynamic || saved.is_dynamic !== false);
+    const typedCandidates = allowedTypes.length
+      ? dynamicCandidates.filter(saved => allowedTypes.includes(String(saved.type)))
+      : dynamicCandidates;
+    const candidates = typedCandidates.length ? typedCandidates : dynamicCandidates;
+    if (!candidates.length) return null;
+
     let bestSection: SavedSectionRow | null = null;
     let bestScore = -Infinity;
 
-    for (const saved of savedSections) {
+    for (const saved of candidates) {
       const content = saved.content || '';
       const requirementsMatched = this.matchRequirements(content, jobDescription);
       let score = requirementsMatched.length * 8;

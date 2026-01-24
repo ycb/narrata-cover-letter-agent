@@ -88,17 +88,18 @@ describe('FileUploadService', () => {
     });
 
     it('should reject invalid file types', () => {
-      const txtFile = new File(['test'], 'test.txt', { type: 'text/plain' });
-      const result = fileUploadService.validateFile(txtFile, 'resume');
+      const pngFile = new File(['test'], 'test.png', { type: 'image/png' });
+      const result = fileUploadService.validateFile(pngFile, 'resume');
       
       expect(result.valid).toBe(false);
-      expect(result.error).toBe('Please upload a PDF or DOCX file.');
+      expect(result.error).toBe('Please upload a supported file type (PDF, DOCX, TXT, or MD).');
     });
   });
 
   describe('generateChecksum', () => {
     it('should generate consistent checksums for the same file', async () => {
       const file = new File(['test content'], 'test.pdf', { type: 'application/pdf' });
+      (file as any).arrayBuffer = vi.fn().mockResolvedValue(new TextEncoder().encode('test content').buffer);
       
       // Access private method for testing
       const checksum1 = await (fileUploadService as any).generateChecksum(file);
@@ -120,7 +121,7 @@ describe('FileUploadService', () => {
       
       expect(path).toContain(userId);
       expect(path).toContain('test-resume.pdf');
-      expect(path).toMatch(/^\w+\/\d{4}\/\d{2}\/\d{2}\/\d+_test-resume\.pdf$/);
+      expect(path).toMatch(/^[\w-]+\/\d{4}\/\d{2}\/\d{2}\/\d+_test-resume\.pdf$/);
     });
   });
 });

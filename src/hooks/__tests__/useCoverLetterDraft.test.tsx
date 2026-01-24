@@ -115,6 +115,7 @@ describe('useCoverLetterDraft', () => {
     getDraft: ReturnType<typeof vi.fn>;
     updateDraftSection: ReturnType<typeof vi.fn>;
     calculateMatchMetrics: ReturnType<typeof vi.fn>;
+    calculateMetricsForDraft: ReturnType<typeof vi.fn>;
     finalizeDraft: ReturnType<typeof vi.fn>;
   };
 
@@ -153,6 +154,7 @@ describe('useCoverLetterDraft', () => {
         ],
       })),
       calculateMatchMetrics: vi.fn(async () => metrics),
+      calculateMetricsForDraft: vi.fn(async () => undefined),
       finalizeDraft: vi.fn(async () => ({
         draft: finalizedDraft,
         workpad: { ...workpad, lastPhase: 'finalized' as const },
@@ -285,7 +287,7 @@ describe('useCoverLetterDraft', () => {
     let pollCount = 0;
     service.getDraft = vi.fn(async () => {
       pollCount += 1;
-      return pollCount < 2 ? phaseAEnhancedOnly : phaseBGapsArrived;
+      return pollCount < 3 ? phaseAEnhancedOnly : phaseBGapsArrived;
     });
 
     const { result } = renderHook(() =>

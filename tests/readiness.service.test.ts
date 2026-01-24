@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
-import type { DraftReadinessEvaluation } from '@/types/coverLetters';
+import * as flags from '@/lib/flags';
+
+vi.mock('@/lib/flags', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/flags')>('@/lib/flags');
+  return {
+    ...actual,
+    isDraftReadinessEnabled: vi.fn(),
+  };
+});
+
+const mockIsDraftReadinessEnabled = vi.mocked(flags.isDraftReadinessEnabled);
 
 // Minimal stub of Supabase client pieces we touch
 function createSupabaseStub({
@@ -57,17 +67,16 @@ function createSupabaseStub({
 
 // Helper to force flag on/off
 function withFlag(enabled: boolean, cb: () => Promise<void>) {
-  const prev = process.env.ENABLE_DRAFT_READINESS;
-  process.env.ENABLE_DRAFT_READINESS = enabled ? 'true' : 'false';
+  mockIsDraftReadinessEnabled.mockReturnValue(enabled);
   return cb().finally(() => {
-    if (prev === undefined) delete process.env.ENABLE_DRAFT_READINESS;
-    else process.env.ENABLE_DRAFT_READINESS = prev;
+    mockIsDraftReadinessEnabled.mockReset();
   });
 }
 
 describe('CoverLetterDraftService.getReadinessEvaluation', () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    mockIsDraftReadinessEnabled.mockReturnValue(true);
   });
 
   it('throws feature disabled error when flag disabled (no DB or function calls)', async () => {

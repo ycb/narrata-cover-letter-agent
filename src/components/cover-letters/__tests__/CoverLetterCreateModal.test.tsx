@@ -20,18 +20,45 @@ vi.mock('@/contexts/AuthContext', () => ({
   }),
 }));
 
+vi.mock('@/contexts/UserGoalsContext', () => ({
+  useUserGoals: () => ({
+    goals: null,
+    setGoals: vi.fn(),
+    hasGoals: false,
+    isLoading: false,
+  }),
+}));
+
+vi.mock('@/contexts/UserVoiceContext', () => ({
+  useUserVoice: () => ({
+    voice: null,
+    setVoice: vi.fn(),
+    hasVoice: false,
+    isLoading: false,
+  }),
+}));
+
 vi.mock('@/lib/supabase', () => {
   const createQueryBuilder = (data: unknown) => {
     const builder: any = {
       eq: vi.fn(() => builder),
       order: vi.fn(() => builder),
       limit: vi.fn(() => Promise.resolve({ data, error: null })),
+      single: vi.fn(() =>
+        Promise.resolve({
+          data: Array.isArray(data) ? data[0] : data,
+          error: null,
+        }),
+      ),
     };
     return builder;
   };
 
   return {
     supabase: {
+      functions: {
+        invoke: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      },
       from: vi.fn(() => ({
         select: vi.fn(() =>
           createQueryBuilder([
@@ -47,6 +74,7 @@ vi.mock('@/lib/supabase', () => {
 vi.mock('@/services/jobDescriptionService', () => ({
   JobDescriptionService: vi.fn(() => ({
     parseAndCreate: parseAndCreateMock,
+    findOrCreateJobDescription: parseAndCreateMock,
   })),
 }));
 
@@ -103,8 +131,7 @@ describe('CoverLetterCreateModal', () => {
     );
 
     expect(screen.getByRole('heading', { name: /job description/i })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Paste the full job description here...')).toBeInTheDocument();
-    expect(screen.getByText('Primary Template')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Paste job description here...')).toBeInTheDocument();
   });
 
   it('parses job description and generates draft when form is submitted', async () => {
@@ -158,7 +185,7 @@ describe('CoverLetterCreateModal', () => {
 
     await waitFor(() => expect(setTemplateIdMock).toHaveBeenCalled());
 
-    const textarea = screen.getByPlaceholderText('Paste the full job description here...');
+    const textarea = screen.getByPlaceholderText('Paste job description here...');
     fireEvent.change(textarea, { target: { value: 'This is a sufficiently long job description containing more than fifty characters.' } });
 
     const generateButton = screen.getByRole('button', { name: /generate cover letter/i });
@@ -352,8 +379,8 @@ describe('CoverLetterCreateModal', () => {
       expect(screen.getByDisplayValue('Opening paragraph content.')).toBeInTheDocument(),
     );
 
-    const finalizeButton = screen.getByRole('button', { name: /finalize letter/i });
-    fireEvent.click(finalizeButton);
+    const previewButton = screen.getByRole('button', { name: /preview/i });
+    fireEvent.click(previewButton);
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /finalize & save/i })).toBeInTheDocument(),
@@ -366,4 +393,3 @@ describe('CoverLetterCreateModal', () => {
     expect(onCoverLetterCreated).toHaveBeenCalled();
   });
 });
-

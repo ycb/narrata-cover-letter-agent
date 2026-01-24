@@ -1,12 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CoverLetterFinalization } from '../CoverLetterFinalization';
-import type {
-  CoverLetterDraftSection,
-  CoverLetterMatchMetric,
-  DifferentiatorInsight,
-  CoverLetterAnalytics,
-} from '@/types/coverLetters';
+import type { CoverLetterDraftSection } from '@/types/coverLetters';
 
 const sections: CoverLetterDraftSection[] = [
   {
@@ -55,66 +50,6 @@ const sections: CoverLetterDraftSection[] = [
   },
 ];
 
-const metrics: CoverLetterMatchMetric[] = [
-  {
-    key: 'ats',
-    label: 'ATS Score',
-    type: 'score',
-    value: 92,
-    summary: 'Great keyword match',
-    tooltip: '',
-  },
-  {
-    key: 'rating',
-    label: 'Cover Letter Rating',
-    type: 'strength',
-    strength: 'strong',
-    summary: 'Overall excellent',
-    tooltip: '',
-  },
-  {
-    key: 'coreRequirements',
-    label: 'Core Requirements',
-    type: 'requirement',
-    met: 4,
-    total: 5,
-    summary: 'Most core requirements covered',
-    tooltip: '',
-  },
-  {
-    key: 'preferredRequirements',
-    label: 'Preferred Requirements',
-    type: 'requirement',
-    met: 3,
-    total: 4,
-    summary: 'Preferred requirements mostly covered',
-    tooltip: '',
-  },
-];
-
-const differentiators: DifferentiatorInsight[] = [
-  {
-    requirementId: 'diff-1',
-    label: '0-to-1 Launches',
-    status: 'addressed',
-    summary: 'Highlighted in primary body paragraph.',
-  },
-  {
-    requirementId: 'diff-2',
-    label: 'Cross-functional leadership',
-    status: 'missing',
-    summary: 'Consider adding collaboration examples.',
-  },
-];
-
-const analytics: CoverLetterAnalytics = {
-  atsScore: 92,
-  finalizedAt: undefined,
-  wordCount: 14,
-  sections: 2,
-  differentiatorCoverage: { addressed: 1, missing: 1, total: 2 },
-};
-
 describe('CoverLetterFinalization', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -129,26 +64,24 @@ describe('CoverLetterFinalization', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders dynamic metrics and differentiators', () => {
+  it('renders cover letter content and actions', () => {
     render(
       <CoverLetterFinalization
         isOpen
         onClose={vi.fn()}
         onBackToDraft={vi.fn()}
         sections={sections}
-        metrics={metrics}
-        differentiators={differentiators}
-        analytics={analytics}
       />,
     );
 
-    expect(screen.getByText('ATS Score')).toBeInTheDocument();
-    expect(screen.getByText('92%')).toBeInTheDocument();
-    expect(screen.getByText('Core Reqs Met')).toBeInTheDocument();
-    expect(screen.getByText('4/5')).toBeInTheDocument();
-    expect(screen.getByText('0-to-1 Launches')).toBeInTheDocument();
-    expect(screen.getByText('Cross-functional leadership')).toBeInTheDocument();
+    expect(screen.getByText('Cover letter preview')).toBeInTheDocument();
+    expect(screen.getByText('Edit')).toBeInTheDocument();
     expect(screen.getByText(/Dear Hiring Manager/)).toBeInTheDocument();
+    expect(screen.getByText('12 words')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /share/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /download as text/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /download as pdf/i })).toBeInTheDocument();
   });
 
   it('fires finalize callback when confirmed', () => {
@@ -160,9 +93,6 @@ describe('CoverLetterFinalization', () => {
         onClose={vi.fn()}
         onBackToDraft={vi.fn()}
         sections={sections}
-        metrics={metrics}
-        differentiators={differentiators}
-        analytics={analytics}
         onFinalizeConfirm={onFinalizeConfirm}
       />,
     );
@@ -180,15 +110,12 @@ describe('CoverLetterFinalization', () => {
         onClose={vi.fn()}
         onBackToDraft={vi.fn()}
         sections={sections}
-        metrics={metrics}
-        differentiators={differentiators}
-        analytics={analytics}
         onFinalizeConfirm={vi.fn()}
         isFinalizing
       />,
     );
 
-    const finalizeButton = screen.getByRole('button', { name: /finalizing/i });
+    const finalizeButton = screen.getByRole('button', { name: /saving/i });
     expect(finalizeButton).toBeDisabled();
   });
 
@@ -199,9 +126,6 @@ describe('CoverLetterFinalization', () => {
         onClose={vi.fn()}
         onBackToDraft={vi.fn()}
         sections={sections}
-        metrics={metrics}
-        differentiators={differentiators}
-        analytics={analytics}
         errorMessage="Something went wrong"
       />,
     );
