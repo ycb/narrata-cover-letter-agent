@@ -3543,19 +3543,33 @@ source_type: dbSourceType,
         try {
           // Try Node.js fs first (for scripts), fallback to fetch (for browser)
           let loaded = false;
-          try {
-            const fs = await import('fs');
-            const path = await import('path');
-            // Try fixtures directory path first (where files actually are)
-            const filePath = path.join(process.cwd(), 'fixtures', 'synthetic', 'v1', 'raw_uploads', `${activeProfileId}_linkedin.json`);
-            
-            if (fs.existsSync(filePath)) {
-              appifyRawData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-              console.log(`✅ Loaded LinkedIn fixture for ${activeProfileId} (Node.js)`);
-              loaded = true;
+          const isNodeRuntime =
+            typeof process !== 'undefined' && typeof process.versions?.node === 'string';
+
+          if (isNodeRuntime) {
+            try {
+              const fsModule = ['node', 'fs'].join(':');
+              const pathModule = ['node', 'path'].join(':');
+              const fs = await import(fsModule);
+              const path = await import(pathModule);
+              // Try fixtures directory path first (where files actually are)
+              const filePath = path.join(
+                process.cwd(),
+                'fixtures',
+                'synthetic',
+                'v1',
+                'raw_uploads',
+                `${activeProfileId}_linkedin.json`,
+              );
+
+              if (fs.existsSync(filePath)) {
+                appifyRawData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                console.log(`✅ Loaded LinkedIn fixture for ${activeProfileId} (Node.js)`);
+                loaded = true;
+              }
+            } catch (fsError) {
+              // fs not available, will try fetch
             }
-          } catch (fsError) {
-            // fs not available, will try fetch
           }
           
           if (!loaded) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
+import { GrammarTextarea } from '@/components/ui/grammar-textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sparkles, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
@@ -704,7 +704,7 @@ export function ContentGenerationModal({
                   {/* Show textarea once content starts streaming or is complete */}
                   {(generatedContent || !isGenerating) && (
                     <>
-                      <Textarea
+                      <GrammarTextarea
                         value={generatedContent}
                         onChange={(e) => setGeneratedContent(e.target.value)}
                         placeholder="Generated content will appear here..."

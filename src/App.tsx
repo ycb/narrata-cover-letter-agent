@@ -24,6 +24,8 @@ import { useUiZoom } from "@/hooks/useUiZoom";
 import { FloatingZoomControls } from "@/components/shared/FloatingZoomControls";
 import { initializePendo } from "@/lib/pendo";
 import { initializeMixpanel } from "@/lib/mixpanel";
+import { LogRocket } from "@/lib/logrocket";
+import { captureAcquisition, getAcquisitionContext } from "@/lib/acquisition";
 
 // Environment-based feedback system initialization
 const shouldShowFeedbackSystem = (): boolean => {
@@ -86,7 +88,7 @@ const queryClient = new QueryClient();
 
 function AppLayout() {
   const signupEnabled = isSignupEnabled();
-  const { isDemo, user, getOAuthData, newSignupRedirect, clearNewSignupRedirect } = useAuth();
+  const { isDemo, user, profile, getOAuthData, newSignupRedirect, clearNewSignupRedirect } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const allowAlphaSignup = new URLSearchParams(location.search).has('alpha');
@@ -141,6 +143,10 @@ function AppLayout() {
   }, [newSignupRedirect, user, location.pathname, navigate, clearNewSignupRedirect]);
 
   useEffect(() => {
+    captureAcquisition();
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
     if (!user || isDemo) return;
     const oauth = getOAuthData();
     initializePendo({
@@ -159,6 +165,41 @@ function AppLayout() {
       console.warn('Pendo initialization failed:', error);
     });
   }, [user?.id, user?.email, isDemo, getOAuthData, accountType]);
+
+  useEffect(() => {
+    if (!user || isDemo) return;
+    const acquisition = getAcquisitionContext();
+    const traits = {
+      email: user.email ?? undefined,
+      name: profile?.full_name ?? undefined,
+      account_type: accountType,
+      utm_source: acquisition?.utm?.utm_source,
+      utm_medium: acquisition?.utm?.utm_medium,
+      utm_campaign: acquisition?.utm?.utm_campaign,
+      utm_term: acquisition?.utm?.utm_term,
+      utm_content: acquisition?.utm?.utm_content,
+      referrer: acquisition?.referrer ?? undefined,
+      landing_url: acquisition?.landing_url ?? undefined,
+    };
+
+    try {
+      LogRocket.identify(user.id, traits);
+    } catch (error) {
+      console.warn('LogRocket identify failed:', error);
+    }
+
+    try {
+      const mixpanel = (window as any).mixpanel;
+      if (typeof mixpanel?.identify === 'function') {
+        mixpanel.identify(user.id);
+      }
+      if (typeof mixpanel?.people?.set === 'function') {
+        mixpanel.people.set(traits);
+      }
+    } catch (error) {
+      console.warn('Mixpanel identify failed:', error);
+    }
+  }, [user?.id, user?.email, profile?.full_name, accountType, isDemo]);
 
   useEffect(() => {
     if (!shouldInitPendoPublic) return;

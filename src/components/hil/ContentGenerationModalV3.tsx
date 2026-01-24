@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
+import { GrammarTextarea } from '@/components/ui/grammar-textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -742,7 +742,7 @@ export function ContentGenerationModalV3({
 	              <p className="text-xs text-muted-foreground">
 	                Edit freely then Click “Get Feedback” for targeted suggestions.
 	              </p>
-              <Textarea
+              <GrammarTextarea
                 value={generatedContent}
                 onChange={(e) => setGeneratedContent(e.target.value)}
                 className="flex-1 min-h-[280px]"

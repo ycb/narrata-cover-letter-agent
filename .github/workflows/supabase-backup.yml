@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   backup:
+    if: ${{ vars.ENABLE_GITHUB_SUPABASE_BACKUP == 'true' }}
     runs-on: ubuntu-latest
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}

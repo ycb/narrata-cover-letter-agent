@@ -80,6 +80,24 @@ export function isLinkedInScrapingEnabled(): boolean {
 }
 
 /**
+ * Feature flags helper for Product Tour.
+ * We also accept VITE_ENABLE_PRODUCT_TOUR for Vite builds, but canonical wins.
+ *
+ * Default: OFF (prevents onboarding confusion).
+ */
+export function isProductTourEnabled(): boolean {
+  const viteExposed =
+    (typeof import.meta !== 'undefined' &&
+      (import.meta as any).env &&
+      (import.meta as any).env.VITE_ENABLE_PRODUCT_TOUR === 'true') ||
+    (typeof process !== 'undefined' &&
+      process.env &&
+      process.env.VITE_ENABLE_PRODUCT_TOUR === 'true');
+
+  return Boolean(viteExposed);
+}
+
+/**
  * Feature flags helper for Background Generic Gap Judge.
  * Canonical name: ENABLE_BACKGROUND_GENERIC_GAP_JUDGE
  * We also accept VITE_ENABLE_BACKGROUND_GENERIC_GAP_JUDGE for Vite builds, but canonical wins.

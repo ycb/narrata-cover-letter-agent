@@ -138,6 +138,36 @@ function buildWorkHistoryHilSummary(workHistory: WorkHistoryCompany[]): string {
   return lines.join('\n').trim();
 }
 
+function buildFocusedWorkHistoryHilSummary(
+  workHistory: WorkHistoryCompany[],
+  storyId: string
+): string {
+  if (!storyId) return '';
+  for (const company of workHistory || []) {
+    for (const role of company.roles || []) {
+      const blurb = (role.blurbs || []).find((item) => item.id === storyId);
+      if (!blurb) continue;
+      const lines: string[] = [];
+      lines.push(`Company: ${company.name}`);
+      const roleTags = (role.tags || []).slice(0, 8);
+      const roleMetrics = (role.outcomeMetrics || []).slice(0, 6);
+      lines.push(`- Role: ${role.title}${roleTags.length ? ` (tags: ${roleTags.join(', ')})` : ''}`);
+      if (role.description) lines.push(`  - Role scope: ${truncateHilText(role.description, 220)}`);
+      if (roleMetrics.length) lines.push(`  - Role metrics: ${roleMetrics.join('; ')}`);
+
+      const blurbTags = (blurb.tags || []).slice(0, 8);
+      const blurbMetrics = (blurb.outcomeMetrics || []).slice(0, 6);
+      const content = truncateHilText(blurb.content || '', 320);
+      const status = blurb.status ? ` [${blurb.status}]` : '';
+      lines.push(`  - Story: ${blurb.title}${status}${blurbTags.length ? ` (tags: ${blurbTags.join(', ')})` : ''}`);
+      if (blurbMetrics.length) lines.push(`    - Story metrics: ${blurbMetrics.join('; ')}`);
+      if (content) lines.push(`    ${content}`);
+      return lines.join('\n').trim();
+    }
+  }
+  return '';
+}
+
 function buildDraftCoverageHilSummary(params: {
   enhancedMatchData: any;
   goals?: any;
@@ -475,12 +505,6 @@ export const CoverLetterModal = ({
     }
   })();
   const preParseRequestIdRef = useRef(0);
-
-  const workHistoryHilSummary = useMemo(() => {
-    const summary = buildWorkHistoryHilSummary(workHistoryLibrary);
-    // Keep this bounded for prompt/token cost.
-    return truncateHilText(summary, 2200);
-  }, [workHistoryLibrary]);
 
   // Load work history and saved sections for library modal
   useEffect(() => {
@@ -869,6 +893,23 @@ export const CoverLetterModal = ({
 
   // In create mode, use the hook. In edit mode, use local state.
   const draft = mode === 'create' ? createModeHook.draft : localDraft;
+
+  const workHistoryHilSummary = useMemo(() => {
+    const summary = buildWorkHistoryHilSummary(workHistoryLibrary);
+    // Keep this bounded for prompt/token cost.
+    return truncateHilText(summary, 2200);
+  }, [workHistoryLibrary]);
+
+  const focusedWorkHistoryHilSummary = useMemo(() => {
+    if (!selectedGap?.section_id || !draft) return '';
+    const section = draft.sections.find((sec) => sec.id === selectedGap.section_id);
+    const source = (section as any)?.source as { kind?: string; entityId?: string | null } | null;
+    if (source?.kind !== 'work_story' || !source.entityId) return '';
+    const summary = buildFocusedWorkHistoryHilSummary(workHistoryLibrary, source.entityId);
+    return summary ? truncateHilText(summary, 1800) : '';
+  }, [draft, selectedGap?.section_id, workHistoryLibrary]);
+
+  const effectiveWorkHistoryHilSummary = focusedWorkHistoryHilSummary || workHistoryHilSummary;
 
   const isRefreshDisabled = useMemo(() => {
     if (!draft?.id) return true;
@@ -2782,6 +2823,24 @@ export const CoverLetterModal = ({
     return { kind: 'work_story' as const, entityId: source.itemId };
   };
 
+  const refreshDraftInsightsAfterLibraryChange = async (draftId: string) => {
+    const jobDescriptionId = draft?.jobDescriptionId ?? jobDescriptionRecord?.id;
+    if (!user?.id || !jobDescriptionId) return;
+    try {
+      await coverLetterDraftService.calculateSectionGapsForDraft(
+        draftId,
+        user.id,
+        jobDescriptionId,
+      );
+      const refreshed = await coverLetterDraftService.getDraft(draftId);
+      if (refreshed) {
+        setDraft(refreshed);
+      }
+    } catch (error) {
+      console.warn('[CoverLetterModal] Failed to refresh section gaps after library change:', error);
+    }
+  };
+
   const handleInsertSection = async (
     insertIndex: number,
     content: string,
@@ -2826,6 +2885,8 @@ export const CoverLetterModal = ({
         title: "Section added",
         description: "Content from library has been inserted",
       });
+
+      void refreshDraftInsightsAfterLibraryChange(draft.id);
 
       setShowLibraryModal(false);
     } catch (error) {
@@ -2911,6 +2972,8 @@ export const CoverLetterModal = ({
         title: "Section replaced",
         description: "Content from library has been inserted",
       });
+
+      void refreshDraftInsightsAfterLibraryChange(draft.id);
 
       setShowLibraryModal(false);
     } catch (error) {
@@ -3044,6 +3107,8 @@ export const CoverLetterModal = ({
         title: "Section added",
         description: "Content from library has been inserted below",
       });
+
+      void refreshDraftInsightsAfterLibraryChange(draft.id);
 
       setShowLibraryModal(false);
     } catch (error) {
@@ -3926,7 +3991,7 @@ export const CoverLetterModal = ({
 		              (jobDescriptionRecord as any)?.analysis?.llm?.rawText ||
 		              undefined,
 		          }}
-		          workHistorySummary={workHistoryHilSummary}
+	          workHistorySummary={effectiveWorkHistoryHilSummary}
 		          draftCoverageSummary={draftCoverageHilSummary}
 		          gap={
 		            selectedGap

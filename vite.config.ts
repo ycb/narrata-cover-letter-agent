@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      fs: path.resolve(__dirname, "./src/lib/shims/fs.ts"),
     },
   },
   server: {

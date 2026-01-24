@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import type { BlurbVariation, WorkHistoryBlurb, WorkHistoryCompany } from "@/types/workHistory";
 import type { SavedSection } from "@/services/coverLetterTemplateService";
 import { highlightWordDiff } from "@/lib/textDiff";
+import { cn } from "@/lib/utils";
 
 export type InvocationType =
   | { type: "replace_or_insert_below"; sectionId: string; sectionType: "intro" | "body" | "closing"; sectionIndex: number }
@@ -267,7 +268,12 @@ export function AddSectionFromLibraryModal({
                       </div>
                       <Badge variant="secondary">Main Story</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground whitespace-pre-line max-h-24 overflow-hidden">
+                    <p
+                      className={cn(
+                        "text-sm text-muted-foreground whitespace-pre-line",
+                        selectedVariationId ? "max-h-24 overflow-hidden" : "max-h-none"
+                      )}
+                    >
                       {storyContent?.content || 'No story content captured yet.'}
                     </p>
                   </div>
@@ -292,7 +298,12 @@ export function AddSectionFromLibraryModal({
                             <Badge variant="outline">Variation</Badge>
                           </div>
                           {variation.content ? (
-                            <div className="text-sm text-muted-foreground whitespace-pre-line max-h-24 overflow-hidden">
+                            <div
+                              className={cn(
+                                "text-sm text-muted-foreground whitespace-pre-line",
+                                isSelected ? "max-h-none" : "max-h-24 overflow-hidden"
+                              )}
+                            >
                               {hasDiff ? (
                                 highlightWordDiff(storyContent?.content ?? '', variation.content)
                               ) : (

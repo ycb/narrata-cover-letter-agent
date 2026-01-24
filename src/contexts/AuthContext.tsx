@@ -4,6 +4,7 @@ import { supabase, supabaseConfigError, getUserProfile, upsertUserProfile, getCu
 import { setPreferredDashboardCache } from '@/lib/dashboardPreference'
 import type { Database } from '@/types/supabase'
 import { PersonalDataService } from '@/services/personalDataService'
+import { getAcquisitionContext } from '@/lib/acquisition'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -214,6 +215,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setOnboardingStatusLoading(false);
     }
   }, [user?.id]);
+
+  const captureSignupAttribution = useCallback(async (session: Session | null) => {
+    if (!session?.user) return;
+    try {
+      const acquisition = getAcquisitionContext();
+      const { error } = await supabase.functions.invoke('capture-signup', {
+        body: {
+          utm: acquisition?.utm ?? null,
+          referrer: acquisition?.referrer ?? null,
+          landing_url: acquisition?.landing_url ?? null,
+        },
+      });
+      if (error) {
+        console.warn('[acquisition] capture-signup failed:', error);
+      }
+    } catch (err) {
+      console.warn('[acquisition] capture-signup error:', err);
+    }
+  }, []);
 
   useEffect(() => {
     if (!user?.id || isDemoRef.current) {
@@ -476,6 +496,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setPreferredDashboardCache('onboarding');
           setNewSignupRedirect(true);
         }
+        captureSignupAttribution(session);
       }
       
       if (session?.user) {
@@ -499,7 +520,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeout)
       subscription.unsubscribe()
     }
-  }, [clearDemoMode, isSigningOut, loadDemoProfile])
+  }, [clearDemoMode, isSigningOut, loadDemoProfile, captureSignupAttribution])
 
   // Separate effect to load profile when user changes
   useEffect(() => {
@@ -519,15 +540,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ) => {
     try {
       setError(null)
+      const acquisition = getAcquisitionContext();
+      const userMetadata: Record<string, unknown> = {
+        full_name: fullName,
+        account_type: accountType ?? 'beta',
+      };
+      if (acquisition) {
+        userMetadata.acquisition = acquisition;
+      }
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/new-user`,
-          data: {
-            full_name: fullName,
-            account_type: accountType ?? 'beta',
-          },
+          data: userMetadata,
         },
       })
       

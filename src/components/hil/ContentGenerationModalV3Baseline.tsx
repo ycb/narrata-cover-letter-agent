@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
+import { GrammarTextarea } from '@/components/ui/grammar-textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RefreshCw, ChevronDown, Sparkles } from 'lucide-react';
@@ -637,7 +637,7 @@ export function ContentGenerationModalV3Baseline({
             <CardContent className="space-y-3">
               <p className="text-sm text-muted-foreground">Edit freely then click “Get Feedback” for targeted suggestions.</p>
 
-              <Textarea
+              <GrammarTextarea
                 value={generatedContent}
                 onChange={(e) => setGeneratedContent(e.target.value)}
                 rows={10}

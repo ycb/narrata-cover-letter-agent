@@ -1,4 +1,5 @@
 import { Progress } from "@/components/ui/progress";
+import { isProductTourEnabled } from "@/lib/flags";
 import { 
   Upload, 
   Eye, 
@@ -19,7 +20,7 @@ interface OnboardingHeaderProps {
   totalSteps?: number;
 }
 
-const steps: OnboardingStep[] = [
+const baseSteps: OnboardingStep[] = [
   {
     id: 'upload',
     label: 'Upload Content',
@@ -46,9 +47,13 @@ const steps: OnboardingStep[] = [
   }
 ];
 
-export function OnboardingHeader({ currentStep, totalSteps = steps.length }: OnboardingHeaderProps) {
+export function OnboardingHeader({ currentStep, totalSteps }: OnboardingHeaderProps) {
+  const steps = isProductTourEnabled()
+    ? baseSteps
+    : baseSteps.filter(step => step.id !== 'tour');
+  const effectiveTotalSteps = totalSteps ?? steps.length;
   const currentStepIndex = steps.findIndex(step => step.id === currentStep);
-  const progress = ((currentStepIndex + 1) / totalSteps) * 100;
+  const progress = ((currentStepIndex + 1) / effectiveTotalSteps) * 100;
   
   const currentStepData = steps.find(step => step.id === currentStep);
   const CurrentIcon = currentStepData?.icon || Upload;

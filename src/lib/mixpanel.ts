@@ -42,7 +42,7 @@ const installSnippet = (token: string): void => {
             d.push([a].concat(Array.prototype.slice.call(arguments, 0)));
           };
         }
-        const b = c;
+        let b = c;
         if (typeof f !== 'undefined') {
           b = c[f] = [];
         } else {

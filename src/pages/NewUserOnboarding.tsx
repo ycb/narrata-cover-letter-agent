@@ -28,7 +28,7 @@ import { useOnboardingJobStream } from "@/hooks/useJobStream";
 import { StageStepper } from "@/components/streaming/StageStepper";
 import { isValidLinkedInUrl, normalizeLinkedInUrl } from "@/utils/linkedinUtils";
 import { Progress } from "@/components/ui/progress";
-import { isLinkedInScrapingEnabled } from "@/lib/flags";
+import { isLinkedInScrapingEnabled, isProductTourEnabled } from "@/lib/flags";
 import { PersonalDataService } from "@/services/personalDataService";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
@@ -319,6 +319,10 @@ export default function NewUserOnboarding() {
         }
         break;
       case 'review':
+        if (!isProductTourEnabled()) {
+          navigate('/dashboard', { replace: true });
+          return;
+        }
         try {
           startTour();
         } catch (error) {

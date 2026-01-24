@@ -3103,8 +3103,19 @@ export class CoverLetterDraftService {
       if (!content) continue;
 
       const gapTags = Array.isArray((variation as any).gap_tags) ? (variation as any).gap_tags : [];
+      const targetJobTitle = typeof (variation as any).target_job_title === 'string'
+        ? (variation as any).target_job_title.trim()
+        : '';
+      const targetCompany = typeof (variation as any).target_company === 'string'
+        ? (variation as any).target_company.trim()
+        : '';
       const parentTags = Array.isArray((parent as any).tags) ? (parent as any).tags : [];
-      const tags = [...parentTags, ...gapTags];
+      const tags = Array.from(new Set([
+        ...parentTags,
+        ...gapTags,
+        ...(targetJobTitle ? [targetJobTitle] : []),
+        ...(targetCompany ? [targetCompany] : []),
+      ]));
 
       // Create a synthetic StoryRow candidate:
       // - Keep `id` as the parent story id so downstream "source.entityId" remains a story id.

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CheckCircle2, Building2, Briefcase, FileText, Linkedin, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { isLinkedInScrapingEnabled } from '@/lib/flags';
+import { isLinkedInScrapingEnabled, isProductTourEnabled } from '@/lib/flags';
 
 interface ImportSummaryStepProps {
   onNext: () => void;
@@ -21,6 +21,7 @@ interface ImportStats {
 
 export function ImportSummaryStep({ onNext, onBackToUploads }: ImportSummaryStepProps) {
   const { user } = useAuth();
+  const productTourEnabled = isProductTourEnabled();
   const [stats, setStats] = useState<ImportStats>({
     companies: 0,
     roles: 0,
@@ -290,7 +291,7 @@ export function ImportSummaryStep({ onNext, onBackToUploads }: ImportSummaryStep
             size="lg"
             className="gap-2 w-full max-w-md"
           >
-            Start Product Tour
+            {productTourEnabled ? 'Start Product Tour' : 'Go to Dashboard'}
             <ArrowRight className="h-4 w-4" />
           </Button>
         )}

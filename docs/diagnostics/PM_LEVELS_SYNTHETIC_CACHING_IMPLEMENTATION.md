@@ -239,6 +239,5 @@ queryFn: async () => {
 
 - `src/services/pmLevelsService.ts` - Save/read synthetic user data
 - `src/hooks/usePMLevel.ts` - Use cache-first strategy
-- `supabase/migrations/20251208_cleanup_synthetic_pm_levels.sql` - Cleanup script
+- `supabase/migrations/20251208000000_cleanup_synthetic_pm_levels.sql` - Cleanup script
 - `docs/diagnostics/PM_LEVELS_TRIGGERS_AND_CACHING.md` - Original analysis
-

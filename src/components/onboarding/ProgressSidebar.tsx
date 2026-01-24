@@ -13,6 +13,7 @@ import {
   Users,
   Lightbulb
 } from "lucide-react";
+import { isProductTourEnabled } from "@/lib/flags";
 
 interface ProgressSidebarProps {
   currentStep: 'welcome' | 'upload' | 'review' | 'integrate' | 'tour';
@@ -20,7 +21,7 @@ interface ProgressSidebarProps {
   onAddStory?: () => void;
 }
 
-const steps = [
+const baseSteps = [
   { id: 'welcome', label: 'Welcome', icon: Lightbulb },
   { id: 'upload', label: 'Upload Content', icon: Upload },
   { id: 'review', label: 'Review Content', icon: FileText },
@@ -29,6 +30,10 @@ const steps = [
 ];
 
 export function ProgressSidebar({ currentStep, onboardingData, onAddStory }: ProgressSidebarProps) {
+  const steps = isProductTourEnabled()
+    ? baseSteps
+    : baseSteps.filter(step => step.id !== 'tour');
+
   const getStepIcon = (stepId: string) => {
     const step = steps.find(s => s.id === stepId);
     if (!step) return Circle;

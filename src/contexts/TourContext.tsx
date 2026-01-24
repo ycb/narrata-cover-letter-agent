@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isProductTourEnabled } from '@/lib/flags';
 
 interface TourStep {
   id: string;
@@ -56,6 +57,13 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
   const startTour = useCallback(() => {
     try {
+      if (!isProductTourEnabled()) {
+        console.log('[Tour] Product tour disabled by feature flag; routing to dashboard.');
+        setIsActive(false);
+        setCurrentStep(0);
+        navigate('/dashboard', { replace: true });
+        return;
+      }
       console.log('Starting tour, navigating to:', tourSteps[0].path);
       setIsActive(true);
       setCurrentStep(0);

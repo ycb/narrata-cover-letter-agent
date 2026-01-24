@@ -24,6 +24,12 @@ export type Database = {
           organization_id: string | null
           created_at: string
           updated_at: string
+          acquisition_utm: Json | null
+          acquisition_referrer: string | null
+          acquisition_first_landing_url: string | null
+          signup_ip: string | null
+          signup_user_agent: string | null
+          signup_alert_sent_at: string | null
         }
         Insert: {
           id: string
@@ -39,6 +45,12 @@ export type Database = {
           organization_id?: string | null
           created_at?: string
           updated_at?: string
+          acquisition_utm?: Json | null
+          acquisition_referrer?: string | null
+          acquisition_first_landing_url?: string | null
+          signup_ip?: string | null
+          signup_user_agent?: string | null
+          signup_alert_sent_at?: string | null
         }
         Update: {
           id?: string
@@ -54,6 +66,12 @@ export type Database = {
           organization_id?: string | null
           created_at?: string
           updated_at?: string
+          acquisition_utm?: Json | null
+          acquisition_referrer?: string | null
+          acquisition_first_landing_url?: string | null
+          signup_ip?: string | null
+          signup_user_agent?: string | null
+          signup_alert_sent_at?: string | null
         }
       }
       organizations: {

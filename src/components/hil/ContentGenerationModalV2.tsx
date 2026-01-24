@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
+import { GrammarTextarea } from '@/components/ui/grammar-textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -416,7 +416,7 @@ export function ContentGenerationModalV2({
               <p className="text-xs text-muted-foreground">
                 You can edit the text directly. Use “Polish my edits” for a minimal rewrite, or “Suggest improvements” for feedback only.
               </p>
-              <Textarea
+              <GrammarTextarea
                 value={generatedContent}
                 onChange={(e) => setGeneratedContent(e.target.value)}
                 rows={8}

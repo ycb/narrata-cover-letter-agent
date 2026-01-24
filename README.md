@@ -27,6 +27,12 @@ AI cover letter agent that helps PMs land more interviews via intelligent feedba
 3. Set up environment variables (see `.env.example`)
 4. Run the development server: `npm run dev`
 
+## Backups
+
+Database backup workflow details live in `backups/supabase/README.md`. The
+workflow is disabled by default and can be enabled by setting the repository
+variable `ENABLE_GITHUB_SUPABASE_BACKUP` to `true`.
+
 ## Contributing
 
 We welcome contributions! Please feel free to submit a Pull Request.

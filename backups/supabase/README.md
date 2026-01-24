@@ -5,6 +5,8 @@ Nightly database dumps are committed here by GitHub Actions.
 ## Schedule
 - Runs nightly at 00:00 America/Los_Angeles (cron `0 8 * * *` UTC).
 - Manual runs are supported via `workflow_dispatch`.
+- The workflow is gated by `ENABLE_GITHUB_SUPABASE_BACKUP`. Set the repository
+  variable to `true` to enable runs.
 
 ## Folder layout
 Each run creates a date-stamped folder:
