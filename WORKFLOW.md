@@ -95,13 +95,22 @@ Define the exact migration/deploy commands and environments here once finalized.
 
 ## Deployment
 
-Staging and production deploys use FTP and are automated via GitHub Actions.
+- Staging deploys automatically whenever code lands on `main`; the Deploy (FTP) workflow
+  runs on every push to `main` and streams the build up the staging FTP account so no
+  additional manual trigger is needed.
+- Production deploys remain manual via the workflow dispatch and are gated by GitHub Environment approvals.
+
+### Public signup
+
+- Public signup is enabled (waitlist is off) via the `ENABLE_SIGNUP` / `VITE_ENABLE_SIGNUP` flags.
+- Keep those env variables set to `true` in both staging and production; flip them to `false`
+  if we ever need to re-enable the waitlist temporarily.
 
 ### GitHub Actions (FTP)
 
 Workflow: `.github/workflows/deploy.yml`
 
-- Staging deploys on push to `main` and can also be triggered manually.
+- Staging deploys run automatically on each push to `main`; the workflow is the gatekeeper for the staging environment.
 - Production deploys are manual via workflow dispatch and should be gated by a GitHub Environment approval.
 
 Required GitHub Secrets:
