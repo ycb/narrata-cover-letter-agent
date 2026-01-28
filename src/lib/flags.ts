@@ -152,8 +152,12 @@ export function isSignupEnabled(): boolean {
   const explicit = readBooleanEnv('ENABLE_SIGNUP') ?? readBooleanEnv('VITE_ENABLE_SIGNUP');
   if (explicit !== undefined) return explicit;
 
-  // Fallback default (matching legacy dev behavior)
-  return true;
+  const isProd =
+    typeof import.meta !== 'undefined' &&
+    (import.meta as any).env &&
+    Boolean((import.meta as any).env.PROD);
+
+  return !isProd;
 }
 
 export function isWaitlistModeEnabled(): boolean {
