@@ -298,6 +298,7 @@ export class GapDetectionService {
       title: string;
       description?: string;
       metrics?: any[];
+      achievements?: string[];
       startDate?: string;
       endDate?: string | null;
       tags?: string[];
@@ -332,15 +333,22 @@ export class GapDetectionService {
       userId,
       workItemId,
       workItemData.description || '',
-      workItemData.title
+      workItemData.title,
+      workItemData.metrics || [],
+      workItemData.achievements || [],
+      stories
     );
     gaps.push(...roleDescriptionGaps);
 
     // 2. Detect role-level metrics gaps
+    const combinedMetrics = [
+      ...(workItemData.metrics || []),
+      ...(workItemData.achievements || []),
+    ];
     const outcomeMetricsGaps = this.detectRoleMetricsGaps(
       userId,
       workItemId,
-      workItemData.metrics || [],
+      combinedMetrics,
       workItemData.startDate,
       workItemData.endDate,
       stories?.length || 0
@@ -1021,7 +1029,10 @@ export class GapDetectionService {
     userId: string,
     workItemId: string,
     description: string,
-    roleTitle: string
+    roleTitle: string,
+    outcomeMetrics: unknown[] = [],
+    achievements: string[] = [],
+    stories?: Array<{ id: string; title?: string; content: string; metrics?: unknown[] }>
   ): Promise<Gap[]> {
     const gaps: Gap[] = [];
 
@@ -1048,18 +1059,31 @@ export class GapDetectionService {
     // 2. Content standards check (MVP heuristic)
     const standards = this.checkContentStandards(description);
     if (standards.needsSpecifics) {
+      const metricCount = countNonEmptyMetrics(outcomeMetrics || []);
+      const hasOutcomeMetrics = metricCount > 0;
+      const hasStoryMetrics = (stories || []).some((story) =>
+        storyHasMetrics(story.content, story.metrics || [])
+      );
+      const hasAchievementMetrics = (achievements || []).some((text) => hasQuantifiedMetricInText(text));
+      const hasRelatedMetrics = hasOutcomeMetrics || hasStoryMetrics || hasAchievementMetrics;
+      const baseSeverity = standards.confidence && standards.confidence > 0.8 ? 'high' : 'medium';
+      const severity = hasRelatedMetrics ? 'low' : baseSeverity;
       gaps.push({
         user_id: userId,
         entity_type: 'work_item',
         entity_id: workItemId,
         gap_type: 'best_practice',
         gap_category: 'role_description_needs_specifics',
-        severity: standards.confidence && standards.confidence > 0.8 ? 'high' : 'medium',
-        description: 'Needs more specific details and impact',
+        severity,
+        description: hasRelatedMetrics
+          ? 'Role description could better mirror the outcomes and measurements you already captured elsewhere.'
+          : 'Needs more specific details and impact',
         suggestions: [
           {
             type: 'add_specifics',
-            description: 'Add specific projects, technologies, or measurable outcomes'
+            description: hasRelatedMetrics
+              ? 'Tie the description to the metrics or stories already listed so the impact is easier to scan'
+              : 'Add specific projects, technologies, or measurable outcomes'
           }
         ]
       });
@@ -1225,13 +1249,18 @@ export class GapDetectionService {
       title: string;
       content: string;
       metrics?: any[];
+      source_type?: string | null;
+      source?: string | null;
+      source_id?: string | null;
     },
     workItemId?: string
   ): Promise<Gap[]> {
     const gaps: Gap[] = [];
+    const storySourceType = story.source_type || story.source || null;
+    const relaxNarrative = storySourceType === 'resume';
 
     // 1. Story Completeness Gap - create separate gaps for each missing component
-    const completenessGap = this.checkStoryCompleteness(story);
+    const completenessGap = this.checkStoryCompleteness(story, { relaxNarrative });
     if (completenessGap) {
       // Create separate gap for missing narrative structure
       if (completenessGap.missingComponents.includes('narrative structure (STAR format or Accomplished format)')) {
@@ -1241,7 +1270,7 @@ export class GapDetectionService {
           entity_id: story.id,
           gap_type: 'data_quality',
           gap_category: 'incomplete_story',
-          severity: 'high',
+          severity: relaxNarrative ? 'medium' : 'high',
           description: 'Missing narrative structure (STAR)',
           suggestions: this.generateCompletenessSuggestions(completenessGap)
         });
@@ -1315,21 +1344,25 @@ export class GapDetectionService {
   /**
    * Check story completeness (STAR format or "Accomplished [X] as measured by [Y], by doing [Z]")
    */
-  private static checkStoryCompleteness(story: {
-    id?: string;
-    title: string;
-    content: string;
-    metrics?: any[];
-  }): StoryCompletenessGap | null {
-    const content = story.content.toLowerCase();
-    const hasMetrics = storyHasMetrics(story.content, story.metrics || []);
+  private static checkStoryCompleteness(
+    story: {
+      id?: string;
+      title: string;
+      content: string;
+      metrics?: any[];
+    },
+    options?: { relaxNarrative?: boolean },
+  ): StoryCompletenessGap | null {
+    const content = story.content || '';
+    const hasMetrics = storyHasMetrics(content, story.metrics || []);
 
-    // Check for STAR format indicators
+    // Check for STAR format indicators (lightweight heuristic)
     const hasSituation = /(situation|context|challenge|problem|opportunity)/i.test(content);
     const hasTask = /(task|goal|objective|mission|purpose)/i.test(content);
-    const hasAction = /(action|implemented|developed|created|built|designed|launched)/i.test(content);
-    const hasResult = /(result|outcome|impact|improved|increased|decreased|achieved)/i.test(content);
-    
+    const actionVerbPattern = /\b(launched|built|scaled|drove|designed|led|created|managed|developed|implemented|increased|reduced|improved|established|introduced|shipped|delivered|architected|executed|optimized|transformed|spearheaded|pioneered|founded|grew|expanded|owned|partnered)\b/i;
+    const hasAction = actionVerbPattern.test(content);
+    const hasOutcomeCue = /(result|outcome|impact|improved|increased|decreased|achieved|grew|reduced|doubled|tripled|saved|accelerated|boosted)/i.test(content);
+    const hasResult = hasOutcomeCue;
     const hasSTAR = hasSituation && hasTask && hasAction && hasResult;
 
     // Check for "Accomplished [X] as measured by [Y], by doing [Z]" format
@@ -1343,7 +1376,11 @@ export class GapDetectionService {
       missingComponents.push('metric');
     }
 
-    if (!hasSTAR && !hasAccomplishedFormat) {
+    const hasNarrativeSignals = options?.relaxNarrative
+      ? hasSTAR || hasAccomplishedFormat || (hasAction && (hasOutcomeCue || hasMetrics))
+      : hasSTAR || hasAccomplishedFormat;
+
+    if (!hasNarrativeSignals) {
       missingComponents.push('narrative structure (STAR format or Accomplished format)');
     }
 

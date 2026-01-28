@@ -69,8 +69,9 @@ export function NameCaptureModal({
       }
 
       onComplete();
-    } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }

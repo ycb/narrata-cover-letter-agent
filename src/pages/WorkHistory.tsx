@@ -21,8 +21,9 @@ import { supabase } from "@/lib/supabase";
 import { FileUploadService } from "@/services/fileUploadService";
 import type { FileType } from "@/types/fileUpload";
 import { toast } from "sonner";
-import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
+import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb, ExternalLink, StoryFragment } from "@/types/workHistory";
 import { getMergedWorkHistory, type MergedRoleCluster } from "@/services/workHistoryMergeService";
+import { StoryFragmentService } from "@/services/storyFragmentService";
 
 const formatMetricDisplay = (metric: any): string => {
   if (typeof metric === 'string') return metric.trim();
@@ -61,7 +62,8 @@ function transformClustersToWorkHistory(
     storyGapMap: Map<string, number>;
     storyGapsMap: Map<string, Array<{ id: string; description: string }>>;
   },
-  variationsByParent: Map<string, any[]> = new Map()
+  variationsByParent: Map<string, any[]> = new Map(),
+  fragmentsByWorkItem: Map<string, StoryFragment[]> = new Map()
 ): WorkHistoryCompany[] {
   // Group clusters by company
   const companyMap = new Map<string, MergedRoleCluster[]>();
@@ -113,6 +115,17 @@ function transformClustersToWorkHistory(
         ...cluster.linkedinItems.flatMap(i => i.tags || []),
         ...cluster.otherItems.flatMap(i => i.tags || []),
       ]));
+
+      const fragmentMap = new Map<string, StoryFragment>();
+      for (const itemId of allItemIds) {
+        const fragments = fragmentsByWorkItem.get(itemId) || [];
+        fragments.forEach(fragment => {
+          if (!fragmentMap.has(fragment.id)) {
+            fragmentMap.set(fragment.id, fragment);
+          }
+        });
+      }
+      const roleFragments = Array.from(fragmentMap.values());
 
       const blurbs: WorkHistoryBlurb[] = cluster.stories.map(story => {
         const storyGapCount = gapData.storyGapMap.get(story.id) || 0;
@@ -187,6 +200,8 @@ function transformClustersToWorkHistory(
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         workItemIds: allItemIds,
+        fragments: roleFragments,
+        fragmentCount: roleFragments.length,
       };
     });
     
@@ -504,7 +519,7 @@ export default function WorkHistory() {
         const { GapDetectionService } = await import('../services/gapDetectionService');
         const userGaps = await GapDetectionService.getUserGaps(user.id, currentProfileId);
         
-        // Build gap maps
+      // Build gap maps
         const workItemGapMap = new Map<string, number>();
         const workItemGapsMap = new Map<string, Array<{ id: string; description: string; gap_category?: string }>>();
         const storyGapMap = new Map<string, number>();
@@ -529,7 +544,41 @@ export default function WorkHistory() {
           }
         });
         
-        // Transform clusters to WorkHistoryCompany format
+      // Load fragments (used for story fragments tab + counts)
+      let fragmentsByWorkItem = new Map<string, StoryFragment[]>();
+      const { data: fragmentRows, error: fragmentsError } = await supabase
+        .from('story_fragments')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (fragmentsError) {
+        console.warn('[WorkHistory] Failed to load story fragments:', fragmentsError);
+      }
+      const normalizedFragments: StoryFragment[] = (fragmentRows || [])
+        .filter((fragment: any) => fragment.status === 'pending' || fragment.status === 'in_progress')
+        .map((fragment: any) => ({
+          id: fragment.id,
+          workItemId: fragment.work_item_id,
+          title: fragment.title,
+          content: fragment.content,
+          sourceType: fragment.source_type,
+          sourceId: fragment.source_id,
+          narrativeHints: Array.isArray(fragment.narrative_hints) ? fragment.narrative_hints : [],
+          metrics: fragment.metrics || '[]',
+          tags: Array.isArray(fragment.tags) ? fragment.tags : [],
+          status: fragment.status,
+          convertedStoryId: fragment.converted_story_id,
+          convertedAt: fragment.converted_at,
+          createdAt: fragment.created_at,
+          updatedAt: fragment.updated_at,
+        }));
+      normalizedFragments.forEach((fragment) => {
+        if (!fragment.workItemId) return;
+        const current = fragmentsByWorkItem.get(fragment.workItemId) || [];
+        fragmentsByWorkItem.set(fragment.workItemId, [...current, fragment]);
+      });
+
+      // Transform clusters to WorkHistoryCompany format
       const storyIds = clusters
         .flatMap((cluster) => cluster.stories.map((story) => story.id))
         .filter(Boolean);
@@ -557,12 +606,17 @@ export default function WorkHistory() {
         }
       }
 
-      const mergedWorkHistory = transformClustersToWorkHistory(clusters, {
-        workItemGapMap,
-        workItemGapsMap,
-        storyGapMap,
-        storyGapsMap,
-        }, variationsByParent);
+      const mergedWorkHistory = transformClustersToWorkHistory(
+        clusters,
+        {
+          workItemGapMap,
+          workItemGapsMap,
+          storyGapMap,
+          storyGapsMap,
+        },
+        variationsByParent,
+        fragmentsByWorkItem
+      );
 
         const hydratedWorkHistory = mergedWorkHistory.map((company) => {
           const companyMeta = companyById.get(company.id);
@@ -622,10 +676,6 @@ export default function WorkHistory() {
             console.warn(`[WorkHistory] Recent sources for user:`, allUserSources?.map(s => s.file_name));
           }
         }
-      } else {
-        console.log('[WorkHistory] Synthetic testing not enabled or no active profile - showing all data');
-      }
-
       // Fetch companies with their work items
       // If in synthetic testing mode, only get companies from work_items linked to profile sources
       let companiesQuery = supabase
@@ -994,6 +1044,8 @@ export default function WorkHistory() {
             roleDescription = residual.join(' | ').trim();
           }
 
+          const roleFragments = fragmentsByWorkItem.get(item.id) || [];
+
           return {
             id: item.id,
             companyId: company.id,
@@ -1010,6 +1062,8 @@ export default function WorkHistory() {
             externalLinks: transformedLinks,
             hasGaps: contentItemsWithGaps > 0,
             gapCount: contentItemsWithGaps,
+            fragments: roleFragments,
+            fragmentCount: roleFragments.length,
             createdAt: item.created_at,
             updatedAt: item.updated_at
           };
@@ -1029,7 +1083,9 @@ export default function WorkHistory() {
 
       console.log('Fetched work history:', transformedData);
       setWorkHistory(transformedData);
-    } catch (err) {
+      return;
+    }
+  } catch (err) {
       console.error('Error fetching work history:', err);
       setError(err instanceof Error ? err.message : 'Failed to load work history');
       setWorkHistory([]);
@@ -1150,7 +1206,7 @@ export default function WorkHistory() {
   }, [findMostRecentRole, selectedRole?.id, workHistory]);
 
   // Active tab (default: Role). Persisted in-memory across data refreshes.
-  const [activeTab, setActiveTab] = useState<'role' | 'stories' | 'links'>('role');
+  const [activeTab, setActiveTab] = useState<'role' | 'stories' | 'links' | 'fragments'>('role');
   
   // Gap resolution state - tracks which gaps have been resolved
   const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
@@ -1232,6 +1288,19 @@ export default function WorkHistory() {
         }, 350);
       }
     }
+    if (tabParam === 'fragments' && workHistory.length > 0) {
+      setActiveTab('fragments');
+
+      if (!selectedRole && !roleIdParam) {
+        const firstCompany = workHistory[0];
+        const firstRole = firstCompany.roles[0];
+        if (firstRole) {
+          setSelectedCompany(firstCompany);
+          setSelectedRole(firstRole);
+          setExpandedCompanyId(firstCompany.id);
+        }
+      }
+    }
   }, [selectedRole, workHistory]);
 
   // Deep link: select role and company based on roleId param
@@ -1260,8 +1329,8 @@ export default function WorkHistory() {
       setExpandedCompanyId(foundCompany.id);
       setSelectedDataSource('work-history');
       // Only set tab when explicitly provided in URL; otherwise preserve current selection.
-      if (tabParam === 'role' || tabParam === 'stories' || tabParam === 'links') {
-        setActiveTab(tabParam as 'role' | 'stories' | 'links');
+      if (tabParam === 'role' || tabParam === 'stories' || tabParam === 'links' || tabParam === 'fragments') {
+        setActiveTab(tabParam as 'role' | 'stories' | 'links' | 'fragments');
       }
 
       // After selecting role, optionally scroll to a section (e.g., metrics)
@@ -1367,6 +1436,36 @@ export default function WorkHistory() {
     fetchWorkHistory();
     setIsAddStoryModalOpen(false);
     setEditingStory(null);
+  };
+
+  const handleDeleteFragment = async (fragment: StoryFragment) => {
+    if (!user) return;
+    try {
+      await StoryFragmentService.deleteFragments(user.id, [fragment.id]);
+      fetchWorkHistory();
+    } catch (error) {
+      console.error('Failed to delete fragment:', error);
+      toast({
+        title: 'Could not delete fragment',
+        description: error instanceof Error ? error.message : 'Try again later',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteFragments = async (fragmentIds: string[]) => {
+    if (!user || fragmentIds.length === 0) return;
+    try {
+      await StoryFragmentService.deleteFragments(user.id, fragmentIds);
+      fetchWorkHistory();
+    } catch (error) {
+      console.error('Failed to delete fragments:', error);
+      toast({
+        title: 'Could not delete fragments',
+        description: error instanceof Error ? error.message : 'Try again later',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleAddLink = () => {
@@ -1601,6 +1700,8 @@ export default function WorkHistory() {
                 onEditLink={isDemo ? undefined : handleEditLink}
                 onEditCompany={isDemo ? undefined : handleEditCompany}
                 onDeleteStory={isDemo ? undefined : handleStoryDeleted}
+                onDeleteFragment={isDemo ? undefined : handleDeleteFragment}
+                onDeleteFragments={isDemo ? undefined : handleDeleteFragments}
                 selectedDataSource={selectedDataSource}
                 onRefresh={fetchWorkHistory}
                 onUploadResume={isDemo ? undefined : handleUploadResume}

@@ -38,11 +38,12 @@ export function AuthTestPanel() {
         message: 'Passed',
         duration: Date.now() - startTime
       };
-    } catch (err: any) {
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed';
       return {
         name: testName,
         status: 'error',
-        message: err.message || 'Failed',
+        message: errorMessage,
         duration: Date.now() - startTime
       };
     }

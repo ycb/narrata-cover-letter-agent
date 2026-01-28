@@ -8,14 +8,56 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CheckCircle, XCircle, AlertCircle, Database, Shield, Eye, EyeOff } from 'lucide-react'
 
+interface Company {
+  id: string
+  user_id: string
+}
+
+interface WorkItem {
+  id: string
+  user_id: string
+}
+
+interface DataIsolationResult {
+  success: boolean
+  message: string
+  ownCompaniesCount: number
+  allCompaniesCount: number
+}
+
+interface DirectAccessResult {
+  success: boolean
+  message: string
+  testCompanyId: string | null
+}
+
+interface CRUDResult {
+  success: boolean
+  message: string
+  operations: string[]
+}
+
+interface RLSTestResults {
+  dataIsolation?: DataIsolationResult
+  directAccess?: DirectAccessResult
+  crudOperations?: CRUDResult
+  timestamp: string
+  error?: string
+}
+
+interface UserData {
+  companies: Company[]
+  workItems: WorkItem[]
+}
+
 // Only show in development
 const isDevelopment = import.meta.env.DEV
 
 export function RLSTestPanel() {
   const { user } = useAuth()
-  const [testResults, setTestResults] = useState<any>(null)
+  const [testResults, setTestResults] = useState<RLSTestResults | null>(null)
   const [isRunning, setIsRunning] = useState(false)
-  const [userData, setUserData] = useState<any>(null)
+  const [userData, setUserData] = useState<UserData | null>(null)
 
   // Hide completely in production
   if (!isDevelopment) {
@@ -23,8 +65,15 @@ export function RLSTestPanel() {
   }
 
   // Test 1: Verify user can only see their own data
-  const testDataIsolation = async () => {
-    if (!user) return false
+  const testDataIsolation = async (): Promise<DataIsolationResult> => {
+    if (!user) {
+      return {
+        success: false,
+        message: 'User not authenticated',
+        ownCompaniesCount: 0,
+        allCompaniesCount: 0
+      }
+    }
 
     try {
       // Fetch user's own companies
@@ -53,10 +102,11 @@ export function RLSTestPanel() {
         ownCompaniesCount: ownCompanies?.length || 0,
         allCompaniesCount: allCompanies?.length || 0
       }
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unexpected error during data isolation test'
       return {
         success: false,
-        message: `Error: ${error.message}`,
+        message: `Error: ${message}`,
         ownCompaniesCount: 0,
         allCompaniesCount: 0
       }
@@ -64,8 +114,14 @@ export function RLSTestPanel() {
   }
 
   // Test 2: Verify user cannot access data by ID without ownership
-  const testDirectAccess = async () => {
-    if (!user) return false
+  const testDirectAccess = async (): Promise<DirectAccessResult> => {
+    if (!user) {
+      return {
+        success: false,
+        message: 'User not authenticated',
+        testCompanyId: null
+      }
+    }
 
     try {
       // First, create a test company for this user
@@ -106,18 +162,25 @@ export function RLSTestPanel() {
         message: 'RLS Policy Working: User can access their own data by ID',
         testCompanyId: testCompany.id
       }
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unexpected error during direct access test'
       return {
         success: false,
-        message: `Error: ${error.message}`,
+        message: `Error: ${message}`,
         testCompanyId: null
       }
     }
   }
 
   // Test 3: Verify CRUD operations respect user ownership
-  const testCRUDOperations = async () => {
-    if (!user) return false
+  const testCRUDOperations = async (): Promise<CRUDResult> => {
+    if (!user) {
+      return {
+        success: false,
+        message: 'User not authenticated',
+        operations: []
+      }
+    }
 
     try {
       // Create
@@ -173,10 +236,11 @@ export function RLSTestPanel() {
         message: 'CRUD Operations Working: All operations respect user ownership',
         operations: ['Create', 'Read', 'Update', 'Delete']
       }
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unexpected error during CRUD test'
       return {
         success: false,
-        message: `CRUD Test Failed: ${error.message}`,
+        message: `CRUD Test Failed: ${message}`,
         operations: []
       }
     }
@@ -185,7 +249,10 @@ export function RLSTestPanel() {
   // Run all tests
   const runAllTests = async () => {
     if (!user) {
-      setTestResults({ error: 'User not authenticated' })
+      setTestResults({
+        error: 'User not authenticated',
+        timestamp: new Date().toISOString()
+      })
       return
     }
 
@@ -201,8 +268,12 @@ export function RLSTestPanel() {
       }
 
       setTestResults(results)
-    } catch (error: any) {
-      setTestResults({ error: error.message })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unexpected error running tests'
+      setTestResults({
+        error: message,
+        timestamp: new Date().toISOString()
+      })
     } finally {
       setIsRunning(false)
     }
@@ -231,7 +302,7 @@ export function RLSTestPanel() {
         companies: companies || [],
         workItems: workItems || []
       })
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching user data:', error)
     }
   }

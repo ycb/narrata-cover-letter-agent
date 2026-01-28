@@ -11,7 +11,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { StoryCard } from "@/components/work-history/StoryCard";
 import { LinkCard } from "@/components/work-history/LinkCard";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
+import { StoryFragmentCard } from "@/components/work-history/StoryFragmentCard";
 import { cn } from "@/lib/utils";
+import { formatMetricText } from "@/lib/metricUtils";
 import { addUserTag, removeUserTag } from "@/lib/userTags";
 import { 
   Building2, 
@@ -25,6 +27,7 @@ import {
   Edit,
   Copy,
   Files,
+  Layers,
   Trash2,
   Link as LinkIcon,
   ChevronRight,
@@ -46,6 +49,7 @@ import { GapDetectionService, type Gap } from "@/services/gapDetectionService";
 import { TagSuggestionService, type TagSuggestion } from "@/services/tagSuggestionService";
 import { TagService } from "@/services/tagService";
 import { isExternalLinksEnabled, isLinkedInScrapingEnabled } from "@/lib/flags";
+import { schedulePMLevelBackgroundRun } from "@/services/pmLevelsEdgeClient";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,19 +67,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
+import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb, StoryFragment } from "@/types/workHistory";
 import { useContentGeneration } from "@/hooks/useContentGeneration";
 import { supabase } from "@/lib/supabase";
 import { SoftDeleteService } from "@/services/softDeleteService";
 import type { ContentVariationInsert } from "@/types/variations";
+import { StoryFragmentService } from "@/services/storyFragmentService";
 
 interface WorkHistoryDetailProps {
   selectedCompany: WorkHistoryCompany | null;
   selectedRole: WorkHistoryRole | null;
   companies: WorkHistoryCompany[]; // Add companies to find role's company
-  initialTab?: 'role' | 'stories' | 'links'; // uncontrolled fallback
-  activeTab?: 'role' | 'stories' | 'links'; // controlled
-  onTabChange?: (tab: 'role' | 'stories' | 'links') => void;
+  initialTab?: 'role' | 'stories' | 'links' | 'fragments'; // uncontrolled fallback
+  activeTab?: 'role' | 'stories' | 'links' | 'fragments'; // controlled
+  onTabChange?: (tab: 'role' | 'stories' | 'links' | 'fragments') => void;
   resolvedGaps: Set<string>;
   onResolvedGapsChange: (gaps: Set<string>) => void;
   onRoleSelect?: (role: WorkHistoryRole) => void;
@@ -89,11 +94,47 @@ interface WorkHistoryDetailProps {
   onDuplicateStory?: (story: WorkHistoryBlurb) => void;
   selectedDataSource?: 'work-history' | 'linkedin' | 'resume';
   onDeleteStory?: (story: WorkHistoryBlurb) => void;
+  onDeleteFragment?: (fragment: StoryFragment) => void;
+  onDeleteFragments?: (fragmentIds: string[]) => void;
   onRefresh?: () => void; // Callback to refresh parent data after gap resolution
   onUploadResume?: () => void; // Callback for resume upload
 }
 
-type DetailView = 'role' | 'stories' | 'links';
+const ensureUniqueNormalizedStrings = (items?: string[] | null): string[] => {
+  if (!items || items.length === 0) return [];
+  const normalized = items
+    .map((item) => (typeof item === 'string' ? item.trim() : String(item ?? '').trim()))
+    .filter(Boolean);
+  return Array.from(new Set(normalized));
+};
+
+const parseMetricArray = (value: unknown): unknown[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const getFragmentMetricStrings = (fragment: StoryFragment | null): string[] => {
+  if (!fragment) return [];
+  const rawMetrics = parseMetricArray(fragment.metrics);
+  const formatted = rawMetrics.map((metric) => formatMetricText(metric)).filter(Boolean);
+  return ensureUniqueNormalizedStrings(formatted);
+};
+
+const getFragmentTags = (fragment: StoryFragment | null): string[] => {
+  if (!fragment) return [];
+  return ensureUniqueNormalizedStrings(fragment.tags);
+};
+
+type DetailView = 'role' | 'stories' | 'links' | 'fragments';
 
 export const WorkHistoryDetail = ({ 
   selectedCompany, 
@@ -114,6 +155,8 @@ export const WorkHistoryDetail = ({
   onEditLink,
   onDuplicateStory,
   onDeleteStory,
+  onDeleteFragment,
+  onDeleteFragments,
   selectedDataSource = 'work-history',
   onRefresh,
   onUploadResume,
@@ -136,6 +179,10 @@ export const WorkHistoryDetail = ({
   const [isDeleteStoryDialogOpen, setIsDeleteStoryDialogOpen] = useState(false);
   const [deleteStoryTarget, setDeleteStoryTarget] = useState<WorkHistoryBlurb | null>(null);
   const [isDeletingStory, setIsDeletingStory] = useState(false);
+  const [activeFragment, setActiveFragment] = useState<StoryFragment | null>(null);
+  const [activeFragmentMetrics, setActiveFragmentMetrics] = useState<string[]>([]);
+  const [activeFragmentTags, setActiveFragmentTags] = useState<string[]>([]);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
@@ -164,6 +211,25 @@ export const WorkHistoryDetail = ({
     openModal: openContentGenerationModal,
     closeModal: closeContentGenerationModal,
   } = useContentGeneration();
+
+  useEffect(() => {
+    if (!activeFragment) {
+      setActiveFragmentMetrics([]);
+      setActiveFragmentTags([]);
+      return;
+    }
+    setActiveFragmentMetrics(getFragmentMetricStrings(activeFragment));
+    setActiveFragmentTags(getFragmentTags(activeFragment));
+  }, [activeFragment]);
+
+  const getActiveSyntheticProfileId = useCallback(() => {
+    if (typeof window === 'undefined') return undefined;
+    try {
+      return window.localStorage.getItem('synthetic_active_profile_id') || undefined;
+    } catch {
+      return undefined;
+    }
+  }, []);
 
   const contentGenerationGap = useMemo(() => {
     const gap = activeGapContext?.gap;
@@ -349,6 +415,44 @@ export const WorkHistoryDetail = ({
     [getGapsForEntity, pickTopGap, openGapModal, user?.id],
   );
 
+  const handleFragmentGenerate = useCallback(
+    (fragment: StoryFragment) => {
+      if (!fragment) return;
+      setActiveFragment(fragment);
+      const syntheticGap: Gap = {
+        id: `fragment-${fragment.id}-enhancement`,
+        user_id: user?.id || '',
+        entity_type: 'approved_content',
+        entity_id: fragment.id,
+        gap_type: 'best_practice',
+        gap_category: 'fragment-enhancement',
+        severity: 'medium',
+        description: 'Refine this fragment into a complete STAR story with measurable outcomes',
+        suggestions: ['Add structure, context, and quantified impact'],
+        resolved: false,
+      };
+      setActiveGapContext({ gap: syntheticGap, entityType: 'approved_content', entityId: fragment.id });
+      openGapModal(syntheticGap, 'approved_content', fragment.id, fragment.content);
+    },
+    [openGapModal, user?.id],
+  );
+
+  const handleFragmentDelete = useCallback(
+    (fragment: StoryFragment) => {
+      onDeleteFragment?.(fragment);
+    },
+    [onDeleteFragment],
+  );
+
+  const handleConfirmBulkDeleteFragments = useCallback(() => {
+    if (!selectedRole) return;
+    const fragmentIds = (selectedRole.fragments || []).map((fragment) => fragment.id);
+    if (fragmentIds.length > 0) {
+      onDeleteFragments?.(fragmentIds);
+    }
+    setIsBulkDeleteDialogOpen(false);
+  }, [onDeleteFragments, selectedRole, setIsBulkDeleteDialogOpen]);
+
   const handleGenerateCompanyContent = useCallback(() => {
     if (!user || !selectedRole) return;
     const roleGaps = getGapsForEntity(selectedRole.id);
@@ -436,7 +540,10 @@ export const WorkHistoryDetail = ({
     }
   }, [selectedRole?.companyId, companies]);
 
-	  const handleApplyContent = async (content: string) => {
+	  const handleApplyContent = async (
+	    content: string,
+	    metadata?: { metrics?: string[]; tags?: string[] }
+	  ) => {
 	    if (!user || !activeGapContext) return;
 	    
 	    const entityType = activeGapContext.entityType;
@@ -446,6 +553,14 @@ export const WorkHistoryDetail = ({
 	    const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 	    const entityIdIsUuid = isUuid(entityId);
 	    const gapIdIsUuid = isUuid(gapId);
+	    const isFragmentPromotion = Boolean(activeFragment);
+	    const resolveList = (incoming?: string[], fallback?: string[]) => {
+	      const normalized = ensureUniqueNormalizedStrings(incoming);
+	      if (normalized.length > 0) return normalized;
+	      return ensureUniqueNormalizedStrings(fallback);
+	    };
+	    const selectedMetrics = resolveList(metadata?.metrics, activeFragmentMetrics);
+	    const selectedTags = resolveList(metadata?.tags, activeFragmentTags);
 
 	    if (!trimmedContent) {
 	      toast({
@@ -458,7 +573,64 @@ export const WorkHistoryDetail = ({
 
 	    // Persist the updated content first. Do not show success UI unless save succeeds.
 	    try {
-	      if (entityType === 'approved_content') {
+	      if (isFragmentPromotion && activeFragment) {
+	        const fragmentWorkItemId = activeFragment.workItemId || selectedRole?.id;
+	        const storyTitle = activeFragment.title?.trim() || trimmedContent.slice(0, 120) || 'Fragment story';
+	        const metricsForStory = selectedMetrics;
+	        const { data: insertedStory, error: storyInsertError } = await supabase
+	          .from('stories')
+	          .insert({
+	            user_id: user.id,
+	            work_item_id: fragmentWorkItemId || undefined,
+	            company_id: selectedRole?.companyId || undefined,
+	            title: storyTitle,
+	            content: trimmedContent,
+	            tags: selectedTags,
+	            metrics: metricsForStory,
+	            source_id: activeFragment.sourceId || undefined,
+	            source_type: 'manual',
+	            source: 'fragment',
+	            updated_at: new Date().toISOString(),
+	          })
+	          .select('id')
+	          .single();
+
+	        if (storyInsertError || !insertedStory?.id) {
+	          throw storyInsertError || new Error('Failed to promote fragment');
+	        }
+
+	        await StoryFragmentService.markPromoted(user.id, activeFragment.id, insertedStory.id);
+
+	        try {
+          const storyGaps = await GapDetectionService.detectStoryGaps(
+            user.id,
+            {
+              id: insertedStory.id,
+              title: storyTitle,
+              content: trimmedContent,
+              metrics: metricsForStory,
+              source_type: 'manual',
+            },
+	            fragmentWorkItemId || undefined,
+	          );
+	          if (storyGaps.length > 0) {
+	            await GapDetectionService.saveGaps(storyGaps);
+	          }
+	        } catch (gapError) {
+	          console.error('[WorkHistoryDetail] Gap detection failed for promoted fragment:', gapError);
+	        }
+
+        void schedulePMLevelBackgroundRun({
+          userId: user.id,
+          syntheticProfileId: getActiveSyntheticProfileId(),
+          delayMs: 2500,
+          reason: 'Fragment promoted to story',
+          triggerReason: 'fragment-promotion',
+        });
+        setActiveFragment(null);
+        setActiveFragmentMetrics([]);
+        setActiveFragmentTags([]);
+      } else if (entityType === 'approved_content') {
 	        if (!entityIdIsUuid) {
 	          toast({
 	            title: 'Save failed',
@@ -582,6 +754,10 @@ export const WorkHistoryDetail = ({
 	        variant: 'destructive',
 	      });
 	      return;
+	    } finally {
+	      if (isFragmentPromotion) {
+	        setActiveFragment(null);
+	      }
 	    }
 
 	    // Resolve gap in database with 'content_added' reason (not 'user_override')
@@ -590,7 +766,9 @@ export const WorkHistoryDetail = ({
 	    const isDatabaseId = gapIdIsUuid;
 	    let didResolveGap = false;
 
-    if (isDatabaseId) {
+    if (isFragmentPromotion) {
+      didResolveGap = true;
+    } else if (isDatabaseId) {
       try {
         if (entityType === 'approved_content' && gapCategory === 'missing_metrics') {
           const shouldResolve = GapDetectionService.storyHasMetrics({ content: trimmedContent, metrics: [] });
@@ -698,6 +876,7 @@ export const WorkHistoryDetail = ({
 
   const handleCloseContentGenerationModal = () => {
     setActiveGapContext(null);
+    setActiveFragment(null);
     closeContentGenerationModal();
   };
 
@@ -2086,6 +2265,18 @@ export const WorkHistoryDetail = ({
                 <FileText className="h-4 w-4" />
                 Stories ({selectedRole.blurbs.length})
               </button>
+              <button
+                className={cn(
+                  "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
+                  detailView === 'fragments'
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
+                )}
+                onClick={() => setTab('fragments')}
+              >
+                <Layers className="h-4 w-4" />
+                Fragments ({selectedRole.fragmentCount ?? selectedRole.fragments?.length ?? 0})
+              </button>
               {ENABLE_EXTERNAL_LINKS && (
               <button
                 className={cn(
@@ -2116,6 +2307,15 @@ export const WorkHistoryDetail = ({
                   Add Story
                 </Button>
               )}
+              {detailView === 'fragments' && selectedRole?.fragments?.length ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsBulkDeleteDialogOpen(true)}
+                >
+                  Discard all fragments ({selectedRole.fragments.length})
+                </Button>
+              ) : null}
               {ENABLE_EXTERNAL_LINKS && detailView === 'links' && onAddLink && (
                 <Button onClick={onAddLink} size="sm">
                   <Plus className="h-4 w-4 mr-2" />
@@ -2396,6 +2596,34 @@ export const WorkHistoryDetail = ({
               </div>
         )}
 
+        {/* Fragments View */}
+        {detailView === 'fragments' && selectedRole && (
+          <div>
+            {!(selectedRole.fragments && selectedRole.fragments.length > 0) ? (
+              <div className="text-center py-8">
+                <Layers className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">No fragments yet</h3>
+                <p className="text-sm text-muted-foreground">
+                  Resume fragments will appear here for you to polish into full stories.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div className="space-y-4">
+                  {selectedRole.fragments.map((fragment) => (
+                    <StoryFragmentCard
+                      key={fragment.id}
+                      fragment={fragment}
+                      onGenerate={handleFragmentGenerate}
+                      onDelete={handleFragmentDelete}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Links View */}
         {ENABLE_EXTERNAL_LINKS && detailView === 'links' && selectedRole && (
               <div>
@@ -2433,16 +2661,21 @@ export const WorkHistoryDetail = ({
         
         {/* Gap Detection Modal */}
         {activeGapContext?.entityType !== 'company' ? (
-          <ContentGenerationModalV3Baseline
-            isOpen={isContentGenerationModalOpen}
-            onClose={handleCloseContentGenerationModal}
-            gap={contentGenerationGap as any}
-            onApplyContent={handleApplyContent}
-            closeOnApply={false}
-            userId={user?.id}
-            entityType={activeGapContext?.entityType as any}
-            entityId={activeGapContext?.entityId}
-          />
+        <ContentGenerationModalV3Baseline
+          isOpen={isContentGenerationModalOpen}
+          onClose={handleCloseContentGenerationModal}
+          gap={contentGenerationGap as any}
+          onApplyContent={handleApplyContent}
+          closeOnApply={Boolean(activeFragment)}
+          userId={user?.id}
+          entityType={activeGapContext?.entityType as any}
+          entityId={activeGapContext?.entityId}
+          isFragmentPromotion={Boolean(activeFragment)}
+          roleMetrics={selectedRole?.outcomeMetrics}
+          roleTags={selectedRole?.tags}
+          initialFragmentMetrics={activeFragmentMetrics}
+          initialFragmentTags={activeFragmentTags}
+        />
         ) : null}
 
         {/* Tag Suggestion Modal - separate from gap detection */}
@@ -2499,6 +2732,28 @@ export const WorkHistoryDetail = ({
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {isDeletingRole ? 'Deleting...' : 'Delete Role'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Bulk fragment discard dialog */}
+        <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Discard Fragments</AlertDialogTitle>
+              <AlertDialogDescription>
+                Remove {selectedRole?.fragments?.length || 0} fragment{(selectedRole?.fragments?.length || 0) === 1 ? '' : 's'} for this role.
+                This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={handleConfirmBulkDeleteFragments}
+              >
+                Discard fragments
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

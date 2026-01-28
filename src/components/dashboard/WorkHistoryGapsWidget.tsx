@@ -7,6 +7,8 @@ import { Users, AlertTriangle, Target, Circle, ChevronRight, ArrowRight } from '
 import { ContentItemWithGaps } from '@/services/gapDetectionService';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { StoryFragmentsCountWidget } from '@/components/dashboard/StoryFragmentsCountWidget';
+import { useStoryFragmentsCount } from '@/hooks/useStoryFragmentsCount';
 
 interface WorkHistoryGapsWidgetProps {
   items: ContentItemWithGaps[];
@@ -37,6 +39,7 @@ const SEVERITY_CONFIG = {
 export function WorkHistoryGapsWidget({ items, isLoading }: WorkHistoryGapsWidgetProps) {
   const navigate = useNavigate();
   const [selectedSeverity, setSelectedSeverity] = useState<'high' | 'medium' | 'low' | 'all'>('all');
+  const { count: fragmentCount, isLoading: fragmentsLoading } = useStoryFragmentsCount();
 
   if (isLoading) {
     return (
@@ -169,10 +172,15 @@ export function WorkHistoryGapsWidget({ items, isLoading }: WorkHistoryGapsWidge
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         )}
+
+        <div className="pt-4 border-t">
+          <StoryFragmentsCountWidget
+            count={fragmentCount}
+            isLoading={fragmentsLoading}
+            onClick={() => navigate('/work-history?tab=fragments')}
+          />
+        </div>
       </CardContent>
     </Card>
   );
 }
-
-
-

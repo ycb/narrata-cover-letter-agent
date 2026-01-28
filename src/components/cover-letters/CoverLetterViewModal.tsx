@@ -5,10 +5,23 @@ import { Copy, Download, Share2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { normalizeFinalContent } from '@/services/coverLetterParser';
 
+interface CoverLetterSection {
+  content?: string | null;
+}
+
+interface CoverLetterContent {
+  sections: CoverLetterSection[];
+}
+
+interface CoverLetterViewData {
+  title: string;
+  content: CoverLetterContent;
+}
+
 interface CoverLetterViewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  coverLetter: any;
+  coverLetter: CoverLetterViewData | null;
   onEditGoals?: () => void; // Agent C: goals CTA handler (for consistency)
   onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
   onEnhanceSection?: (sectionId: string, requirement?: string) => void; // Agent C: enhance section CTA
@@ -22,7 +35,7 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
     if (!coverLetter?.content?.sections) return "";
 
     return coverLetter.content.sections
-      .map((section: any) => normalizeFinalContent(section.content || ''))
+      .map((section) => normalizeFinalContent(section.content || ''))
       .filter(Boolean)
       .join("\n\n");
   };
@@ -33,7 +46,8 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy: ', err);
+      const message = err instanceof Error ? err.message : 'Clipboard write failed';
+      console.error('Failed to copy: ', message);
     }
   };
 
@@ -65,7 +79,8 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
         });
         console.log('Share successful');
       } catch (err) {
-        console.error('Error sharing:', err);
+        const message = err instanceof Error ? err.message : 'Share failed';
+        console.error('Error sharing:', message);
         // Fallback to copy
         console.log('Falling back to copy');
         handleCopy();

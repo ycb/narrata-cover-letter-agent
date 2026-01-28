@@ -30,6 +30,7 @@ import { isValidLinkedInUrl, normalizeLinkedInUrl } from "@/utils/linkedinUtils"
 import { Progress } from "@/components/ui/progress";
 import { isLinkedInScrapingEnabled, isProductTourEnabled } from "@/lib/flags";
 import { PersonalDataService } from "@/services/personalDataService";
+import { logUserEvent } from "@/services/userEventsService";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
 
@@ -92,6 +93,8 @@ export default function NewUserOnboarding() {
   const [liStartMs, setLiStartMs] = useState<number | null>(null);
   const linkedinRef = useRef<HTMLDivElement>(null);
   const coverLetterRef = useRef<HTMLDivElement>(null);
+  const onboardingStartedLoggedRef = useRef(false);
+  const onboardingCompletedLoggedRef = useRef(false);
 
 
   const [autoPopulatingLinkedIn, setAutoPopulatingLinkedIn] = useState(false);
@@ -99,7 +102,7 @@ export default function NewUserOnboarding() {
   const [linkedinPrefetchAttempted, setLinkedinPrefetchAttempted] = useState(false);
   const [linkedinPrefetchSuccess, setLinkedinPrefetchSuccess] = useState(false);
   const { startTour } = useTour();
-  const { user, profile, refreshOnboardingStatus } = useAuth();
+  const { user, profile, refreshOnboardingStatus, isDemo } = useAuth();
   const linkedInUpload = useLinkedInUpload();
   const [prefillComplete, setPrefillComplete] = useState(false);
 
@@ -109,6 +112,14 @@ export default function NewUserOnboarding() {
       navigate('/dashboard', { replace: true });
     }
   }, [profile, navigate]);
+  
+  useEffect(() => {
+    if (!user?.id || isDemo) return;
+    if (onboardingStartedLoggedRef.current) return;
+    
+    onboardingStartedLoggedRef.current = true;
+    void logUserEvent('onboarding_started', undefined, { userId: user.id, unique: true });
+  }, [user?.id, isDemo]);
 
   useEffect(() => {
     setPrefillComplete(false);
@@ -720,9 +731,14 @@ export default function NewUserOnboarding() {
           }
         } catch {}
       })();
+      if (!isDemo && user?.id && !onboardingCompletedLoggedRef.current) {
+        onboardingCompletedLoggedRef.current = true;
+        void logUserEvent('onboarding_completed', undefined, { userId: user.id, unique: true });
+        void logUserEvent('checklist_completed', undefined, { userId: user.id, unique: true });
+      }
       setCurrentStep('review');
     }
-  }, [resumeCompleted, linkedinCompleted, coverLetterCompleted, user?.id]);
+  }, [resumeCompleted, linkedinCompleted, coverLetterCompleted, user?.id, isDemo]);
 
   // Auto-complete LinkedIn task when flag is off (immediately, no URL needed)
   useEffect(() => {

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { GrammarTextarea } from '@/components/ui/grammar-textarea';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RefreshCw, ChevronDown, Sparkles } from 'lucide-react';
@@ -18,6 +19,7 @@ import {
   type ReviewSuggestion,
   type ReviewContentKind,
 } from '@/services/hilReviewNotesStreamingService';
+import { cn } from '@/lib/utils';
 
 interface GapAnalysisLite {
   id: string;
@@ -40,7 +42,7 @@ export interface ContentGenerationModalV3BaselineProps {
   isOpen: boolean;
   onClose: () => void;
   gap?: GapAnalysisLite | null;
-  onApplyContent?: (content: string) => void | Promise<void>;
+  onApplyContent?: (content: string, metadata?: { metrics?: string[]; tags?: string[] }) => void | Promise<void>;
   /**
    * Defaults to true. Set to false when the caller needs to persist content
    * asynchronously and wants to keep the modal open until the save succeeds.
@@ -51,6 +53,11 @@ export interface ContentGenerationModalV3BaselineProps {
   entityType?: EntityType;
   entityId?: string;
   savedSectionType?: SavedSectionType;
+  isFragmentPromotion?: boolean;
+  roleMetrics?: string[];
+  roleTags?: string[];
+  initialFragmentMetrics?: string[];
+  initialFragmentTags?: string[];
 }
 
 function extractJsonObject(text: string): string | null {
@@ -133,6 +140,14 @@ function kindFromEntityType(entityType?: EntityType): ReviewContentKind {
   return 'saved_section';
 }
 
+const normalizeStringList = (items?: string[] | null): string[] => {
+  if (!items || items.length === 0) return [];
+  const normalized = items
+    .map((item) => (typeof item === 'string' ? item.trim() : String(item ?? '').trim()))
+    .filter(Boolean);
+  return Array.from(new Set(normalized));
+};
+
 export function ContentGenerationModalV3Baseline({
   isOpen,
   onClose,
@@ -143,6 +158,11 @@ export function ContentGenerationModalV3Baseline({
   entityType,
   entityId,
   savedSectionType = 'custom',
+  isFragmentPromotion = false,
+  roleMetrics,
+  roleTags,
+  initialFragmentMetrics,
+  initialFragmentTags,
 }: ContentGenerationModalV3BaselineProps) {
   const { toast } = useToast();
   const { voice } = useUserVoice();
@@ -161,6 +181,12 @@ export function ContentGenerationModalV3Baseline({
   const [regeneratingSuggestionId, setRegeneratingSuggestionId] = useState<string | null>(null);
 
   const [workHistorySummary, setWorkHistorySummary] = useState<string>('');
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [availableMetrics, setAvailableMetrics] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [metricInput, setMetricInput] = useState('');
+  const [tagInput, setTagInput] = useState('');
 
   const latestGeneratedContentRef = React.useRef('');
   const latestReviewRawRef = React.useRef('');
@@ -168,6 +194,16 @@ export function ContentGenerationModalV3Baseline({
   const latestReviewFilterRef = React.useRef<ReviewFilter>('P0');
   const latestReviewTabRef = React.useRef<ReviewTab>('priority');
   const latestReviewNotesRef = React.useRef<ReviewNotes | null>(null);
+  const normalizedRoleMetrics = useMemo(() => normalizeStringList(roleMetrics), [roleMetrics]);
+  const normalizedRoleTags = useMemo(() => normalizeStringList(roleTags), [roleTags]);
+  const normalizedInitialFragmentMetrics = useMemo(
+    () => normalizeStringList(initialFragmentMetrics),
+    [initialFragmentMetrics],
+  );
+  const normalizedInitialFragmentTags = useMemo(
+    () => normalizeStringList(initialFragmentTags),
+    [initialFragmentTags],
+  );
 
   useEffect(() => {
     latestGeneratedContentRef.current = generatedContent;
@@ -197,6 +233,18 @@ export function ContentGenerationModalV3Baseline({
     // Keeping the key stable makes restores reliable even if the page refreshes mid-session.
     return `draft:hil:v3:${entity}:${savedSectionType}`;
   }, [entityId, entityType, gap?.id, savedSectionType, userId]);
+
+  useEffect(() => {
+    const mergedMetrics = Array.from(new Set([...normalizedRoleMetrics, ...normalizedInitialFragmentMetrics]));
+    setAvailableMetrics(mergedMetrics);
+    setSelectedMetrics(normalizedInitialFragmentMetrics);
+  }, [normalizedRoleMetrics, normalizedInitialFragmentMetrics]);
+
+  useEffect(() => {
+    const mergedTags = Array.from(new Set([...normalizedRoleTags, ...normalizedInitialFragmentTags]));
+    setAvailableTags(mergedTags);
+    setSelectedTags(normalizedInitialFragmentTags);
+  }, [normalizedRoleTags, normalizedInitialFragmentTags]);
 
   const persistDraft = (opts?: { clearIfEmpty?: boolean }) => {
     if (!draftKey) return;
@@ -302,6 +350,12 @@ export function ContentGenerationModalV3Baseline({
       setRegeneratingSuggestionId(null);
       setWorkHistorySummary('');
       setRestoredDraft(false);
+      setSelectedMetrics([]);
+      setSelectedTags([]);
+      setAvailableMetrics([]);
+      setAvailableTags([]);
+      setMetricInput('');
+      setTagInput('');
 
       latestGeneratedContentRef.current = '';
       latestReviewRawRef.current = '';
@@ -320,6 +374,40 @@ export function ContentGenerationModalV3Baseline({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  const toggleSelection = (value: string, setter: (next: string[]) => void) => {
+    setter((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value],
+    );
+  };
+
+  const handleToggleMetric = (metric: string) => {
+    toggleSelection(metric, setSelectedMetrics);
+  };
+
+  const handleToggleTag = (tag: string) => {
+    toggleSelection(tag, setSelectedTags);
+  };
+
+  const handleAddMetric = () => {
+    const normalized = metricInput.trim();
+    if (!normalized) return;
+    setMetricInput('');
+    setAvailableMetrics((prev) => Array.from(new Set([...prev, normalized])));
+    setSelectedMetrics((prev) =>
+      prev.includes(normalized) ? prev : [...prev, normalized],
+    );
+  };
+
+  const handleAddTag = () => {
+    const normalized = tagInput.trim();
+    if (!normalized) return;
+    setTagInput('');
+    setAvailableTags((prev) => Array.from(new Set([...prev, normalized])));
+    setSelectedTags((prev) =>
+      prev.includes(normalized) ? prev : [...prev, normalized],
+    );
+  };
 
   const reviewCounts = useMemo(() => {
     const suggestions = reviewNotes?.suggestions ?? [];
@@ -843,32 +931,175 @@ export function ContentGenerationModalV3Baseline({
               </TabsContent>
             </Tabs>
           </div>
+        )}        {isFragmentPromotion && (
+          <Card className="border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Story metadata</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Confirm which metrics and tags you'd like to carry into the promoted story.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-0">
+              <div className="space-y-3">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold">Role metrics</p>
+                      <span className="text-xs text-muted-foreground">Selected metrics listed first</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1 min-w-[180px]"
+                      placeholder="Add metric"
+                      value={metricInput}
+                      onChange={(event) => setMetricInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          handleAddMetric();
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleAddMetric}
+                      disabled={!metricInput.trim()}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedMetrics.map((metric) => (
+                    <button
+                      key={`metric-selected-${metric}`}
+                      type="button"
+                      className="flex items-center gap-1 rounded-full border border-primary bg-primary/10 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/20"
+                      onClick={() => handleToggleMetric(metric)}
+                    >
+                      <span>{metric}</span>
+                      <span aria-hidden="true">×</span>
+                    </button>
+                  ))}
+                  {availableMetrics
+                    .filter((metric) => !selectedMetrics.includes(metric))
+                    .map((metric) => (
+                      <button
+                        key={`metric-${metric}`}
+                        type="button"
+                        className="rounded-full border border-muted/60 px-3 py-1 text-xs font-semibold text-muted-foreground hover:border-primary hover:text-primary"
+                        onClick={() => handleToggleMetric(metric)}
+                      >
+                        {metric}
+                      </button>
+                    ))}
+                  {!availableMetrics.length && !selectedMetrics.length && (
+                    <p className="text-xs text-muted-foreground">
+                      No role-level metrics available yet.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold">Role tags</p>
+                      <span className="text-xs text-muted-foreground">Selected tags first</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      className="flex-1 min-w-[180px]"
+                      placeholder="Add tag"
+                      value={tagInput}
+                      onChange={(event) => setTagInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          handleAddTag();
+                        }
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleAddTag}
+                      disabled={!tagInput.trim()}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedTags.map((tag) => (
+                    <button
+                      key={`tag-selected-${tag}`}
+                      type="button"
+                      className="flex items-center gap-1 rounded-full border border-primary bg-primary/10 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/20"
+                      onClick={() => handleToggleTag(tag)}
+                    >
+                      <span>{tag}</span>
+                      <span aria-hidden="true">×</span>
+                    </button>
+                  ))}
+                  {availableTags
+                    .filter((tag) => !selectedTags.includes(tag))
+                    .map((tag) => (
+                      <button
+                        key={`tag-${tag}`}
+                        type="button"
+                        className="rounded-full border border-muted/60 px-3 py-1 text-xs font-semibold text-muted-foreground hover:border-primary hover:text-primary"
+                        onClick={() => handleToggleTag(tag)}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  {!availableTags.length && !selectedTags.length && (
+                    <p className="text-xs text-muted-foreground">
+                      No role tags available yet.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
+
+
 
         <div className="-mx-6 -mb-6 border-t bg-background">
           <div className="p-6 flex items-center justify-end gap-3 w-full">
-	            <Button
-	              onClick={async () => {
-	                if (!generatedContent.trim()) return;
-	                try {
-	                  await onApplyContent?.(generatedContent);
-	                  if (draftKey) clearDraft(draftKey);
-	                  if (closeOnApply) onClose();
-	                } catch (error) {
-	                  console.error('Error applying generated content:', error);
-	                  toast({
-                    title: 'Save failed',
-                    description: 'Unable to apply content. Please try again.',
-                    variant: 'destructive',
-                  });
-                }
-              }}
-              disabled={isGenerating || isReviewing || !generatedContent.trim()}
-            >
-              Apply Content
-            </Button>
-          </div>
-        </div>
+                <Button
+                  onClick={async () => {
+                    if (!generatedContent.trim()) return;
+                    try {
+                      await onApplyContent?.(
+                        generatedContent,
+                        isFragmentPromotion
+                          ? {
+                              metrics: selectedMetrics,
+                              tags: selectedTags,
+                            }
+                          : undefined,
+                      );
+                      if (draftKey) clearDraft(draftKey);
+                      if (closeOnApply) onClose();
+                    } catch (error) {
+                      console.error('Error applying generated content:', error);
+                      toast({
+                        title: 'Save failed',
+                        description: 'Unable to apply content. Please try again.',
+                        variant: 'destructive',
+                      });
+                    }
+                  }}
+                  disabled={isGenerating || isReviewing || !generatedContent.trim()}
+                >
+                  {isFragmentPromotion ? 'Save as Story' : 'Apply Content'}
+                </Button>
+              </div>
+            </div>
       </DialogContent>
     </Dialog>
   );

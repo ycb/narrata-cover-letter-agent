@@ -1,4 +1,5 @@
 import type { CoverLetterOutcomeStatus } from './coverLetters';
+import type { Json } from './supabase';
 
 export interface Story {
   id: string;
@@ -41,11 +42,30 @@ export interface WorkHistoryRole {
   tags: string[];
   outcomeMetrics: string[]; // Changed from achievements to outcomeMetrics
   blurbs: WorkHistoryBlurb[];
+  fragments?: StoryFragment[];
+  fragmentCount?: number;
   externalLinks: ExternalLink[];
   createdAt: string;
   updatedAt: string;
   // For merged clusters: the underlying work_item UUIDs
   workItemIds?: string[];
+}
+
+export interface StoryFragment {
+  id: string;
+  workItemId: string | null;
+  title: string;
+  content: string;
+  sourceType: 'resume' | 'linkedin' | 'cover_letter' | 'manual' | 'other';
+  sourceId: string | null;
+  narrativeHints: string[];
+  metrics: Json;
+  tags: string[];
+  status: 'pending' | 'in_progress' | 'promoted' | 'archived';
+  convertedStoryId?: string | null;
+  convertedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ExternalLink {

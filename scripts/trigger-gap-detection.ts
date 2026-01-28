@@ -4,10 +4,11 @@
  * Trigger gap detection for a user's work history, stories, and saved sections.
  * 
  * Usage:
- *   tsx scripts/trigger-gap-detection.ts <user_id>
+ *   tsx scripts/trigger-gap-detection.ts <user_id> [--reset]
  * 
  * Example:
  *   tsx scripts/trigger-gap-detection.ts d3937780-28ec-4221-8bfb-2bb0f670fd52
+ *   tsx scripts/trigger-gap-detection.ts d3937780-28ec-4221-8bfb-2bb0f670fd52 --reset
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -52,6 +53,20 @@ async function detectGaps(userId: string) {
   const { GapDetectionService } = await import('../src/services/gapDetectionService.js');
   const allGaps: any[] = [];
 
+  if (shouldResetGaps) {
+    console.log('♻️  Step 0: Clearing existing gaps...');
+    const { error: resetError } = await supabase
+      .from('gaps')
+      .delete()
+      .eq('user_id', userId);
+    if (resetError) {
+      console.error('❌ Error clearing gaps:', resetError);
+      throw resetError;
+    }
+    console.log('   ✓ Existing gaps cleared');
+    console.log('');
+  }
+
   // Step 1: Detect gaps for work items
   console.log('📋 Step 1: Detecting work item gaps...');
   const { data: workItems, error: workItemsError } = await supabase
@@ -74,6 +89,7 @@ async function detectGaps(userId: string) {
             title: item.title,
             description: item.description || '',
             metrics: item.metrics || [],
+            achievements: item.achievements || [],
             startDate: item.start_date,
             endDate: item.end_date,
             tags: item.tags || []
@@ -96,7 +112,7 @@ async function detectGaps(userId: string) {
   console.log('📖 Step 2: Detecting story gaps...');
   const { data: stories, error: storiesError } = await supabase
     .from('stories')
-    .select('id, title, content, metrics, work_item_id')
+    .select('id, title, content, metrics, work_item_id, source_type, source')
     .eq('user_id', userId);
 
   if (storiesError) {
@@ -113,7 +129,9 @@ async function detectGaps(userId: string) {
             id: story.id,
             title: story.title,
             content: story.content,
-            metrics: story.metrics || []
+            metrics: story.metrics || [],
+            source_type: story.source_type || null,
+            source: story.source || null,
           },
           story.work_item_id || undefined
         );
@@ -209,15 +227,17 @@ async function detectGaps(userId: string) {
 // Run the script
 const args = process.argv.slice(2);
 
-if (args.length < 1) {
+const shouldResetGaps = args.includes('--reset');
+const userId = args.find(arg => !arg.startsWith('--'));
+
+if (!userId) {
   console.error('Usage: tsx scripts/trigger-gap-detection.ts <user_id>');
   console.error('');
   console.error('Example:');
   console.error('  tsx scripts/trigger-gap-detection.ts d3937780-28ec-4221-8bfb-2bb0f670fd52');
+  console.error('  tsx scripts/trigger-gap-detection.ts d3937780-28ec-4221-8bfb-2bb0f670fd52 --reset');
   process.exit(1);
 }
-
-const [userId] = args;
 
 detectGaps(userId)
   .then(() => {

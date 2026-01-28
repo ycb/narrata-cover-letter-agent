@@ -88,11 +88,13 @@ export function buildStoryGenerationPrompt(
 5. Keep content concise (2-4 sentences)
 6. If a required fact (especially a metric) is missing, do not fabricate; use a short placeholder like: [NEEDS-INPUT: metric / outcome / scope]
 7. Output format: a single narrative paragraph (no headings, no bullets, no "Situation/Task/Action/Result" labels)
-8. REQUIRED OPENER: The story MUST start with the exact phrase: "${requiredOpener}" (no intro clause before it).
+8. REQUIRED OPENER: When the role and company are known, begin the story with "${requiredOpener}" and integrate the available context rather than prompting the user to restate it; only use a [NEEDS-INPUT: ...] tag if one of those facts is missing.
 9. Preserve specificity: carry forward concrete domain/product/customer/tech details from the Existing Content (do not replace them with generic leadership summaries).
-10. Avoid buzzwords the user likely wouldn’t use (e.g. "spearheaded"); prefer plain verbs unless the Voice Guide uses them.
+10. Demonstrate a Situation-Task-Action-Result flow by naturally including context/goal/action/outcome cues (e.g., "Facing ..., My goal ..., I led ..., As a result ...") so that the story clearly signals STAR without being robotic.
+11. Avoid buzzwords the user likely wouldn’t use (e.g. "spearheaded"); prefer plain verbs unless the Voice Guide uses them.
 11. Minimal-diff: preserve sentence structure and phrasing where possible; prefer surgical edits over rewrites.
 12. Proof point: select exactly ONE concrete proof point (metric, project, or scope) from the provided context and build the paragraph around it.
+13. If a required fact (especially a metric) is missing, do not fabricate; use a short placeholder like: [NEEDS-INPUT: metric / outcome / scope]
 
 **User Context**:
 ${workHistoryContext.currentRole ? `Current Role: ${workHistoryContext.currentRole.title} at ${workHistoryContext.currentRole.company}

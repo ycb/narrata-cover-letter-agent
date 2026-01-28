@@ -388,6 +388,24 @@ export class ContentGenerationService {
             endDate: workItem.end_date || undefined
           };
           workItemId = workItem.id;
+        } else {
+          const { data: fragment } = await supabase
+            .from('story_fragments')
+            .select('work_items(id,title,start_date,end_date,companies(name))')
+            .eq('id', entityId)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          const workItem = fragment?.work_items as any;
+          if (workItem) {
+            currentRole = {
+              title: workItem.title,
+              company: workItem.companies?.name || '',
+              startDate: workItem.start_date,
+              endDate: workItem.end_date || undefined
+            };
+            workItemId = workItem.id;
+          }
         }
       }
       // For saved_section, we don't have a specific role context

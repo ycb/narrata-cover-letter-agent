@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isProductTourEnabled } from '@/lib/flags';
+import { logUserEvent } from '@/services/userEventsService';
 
 interface TourStep {
   id: string;
@@ -67,6 +68,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
       console.log('Starting tour, navigating to:', tourSteps[0].path);
       setIsActive(true);
       setCurrentStep(0);
+      void logUserEvent('product_tour_started', undefined, { unique: true });
       // Navigate to first tour step
       navigate(tourSteps[0].path);
     } catch (error) {
@@ -109,6 +111,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const completeTour = useCallback(() => {
     setIsActive(false);
     setCurrentStep(0);
+    void logUserEvent('product_tour_completed', undefined, { unique: true });
     // Navigate to onboarding dashboard (user will review/complete tasks)
     navigate('/dashboard/onboarding');
   }, [navigate]);

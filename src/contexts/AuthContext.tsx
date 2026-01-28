@@ -4,6 +4,7 @@ import { supabase, supabaseConfigError, getUserProfile, upsertUserProfile, getCu
 import { setPreferredDashboardCache } from '@/lib/dashboardPreference'
 import type { Database } from '@/types/supabase'
 import { PersonalDataService } from '@/services/personalDataService'
+import { logUserEvent } from '@/services/userEventsService'
 import { getAcquisitionContext } from '@/lib/acquisition'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -471,7 +472,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isDemoRef.current && !session?.user) {
         return
       }
-      
+
       // Don't process auth state changes during logout
       if (isSigningOut) {
         return
@@ -560,6 +561,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         setError(error.message)
         return { error }
+      }
+
+      if (data.user) {
+        void logUserEvent('account_created', undefined, { userId: data.user.id, unique: true });
       }
 
       // If user is created and session exists, they're automatically signed in

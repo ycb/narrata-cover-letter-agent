@@ -1,7 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { useMatchMetricsDetails, type MatchMetricsData, type MatchJobDescription } from './useMatchMetricsDetails';
+import {
+  useMatchMetricsDetails,
+  type MatchMetricsData,
+  type MatchJobDescription,
+  type GoalMatchDisplay,
+  type RequirementDisplayItem,
+} from './useMatchMetricsDetails';
 import type { EnhancedMatchData } from '@/types/coverLetters';
 import type { APhaseInsights } from '@/types/jobs';
 
@@ -14,6 +20,46 @@ interface GoNoGoMetricsBarProps {
   aPhaseInsights?: APhaseInsights | null;
   isLoading?: boolean;
 }
+
+interface MatchSummaryItem {
+  id: string;
+  label: string;
+  requirement?: string;
+  demonstrated?: boolean;
+}
+
+interface MatchMetricsSummary {
+  label: string;
+  met: number;
+  total: number;
+  items: MatchSummaryItem[];
+}
+
+type MwsDetail = APhaseInsights['mws']['details'][number];
+
+const toSummaryItemFromGoalMatch = (match: GoalMatchDisplay, index: number): MatchSummaryItem => {
+  const baseLabel = match.goalType || match.criterion || match.id;
+  return {
+    id: match.id || `goal-${index}`,
+    label: baseLabel,
+    requirement: baseLabel,
+    demonstrated: match.met,
+  };
+};
+
+const toSummaryItemFromRequirement = (requirement: RequirementDisplayItem): MatchSummaryItem => ({
+  id: requirement.id,
+  label: requirement.requirement,
+  requirement: requirement.requirement,
+  demonstrated: requirement.demonstrated,
+});
+
+const toSummaryItemFromMwsDetail = (detail: MwsDetail, index: number): MatchSummaryItem => ({
+  id: detail.label || `mws-${index}`,
+  label: detail.label || 'Strength',
+  requirement: detail.label || 'Strength',
+  demonstrated: detail.strengthLevel === 'strong' || detail.strengthLevel === 'moderate',
+});
 
 export function GoNoGoMetricsBar({
   metrics,
@@ -33,11 +79,12 @@ export function GoNoGoMetricsBar({
   const mws = aPhaseInsights?.mws;
   const derivedMwsScore = useMemo(() => {
     if (!mws) return 0;
-    if (Array.isArray(mws.details) && mws.details.length) {
+    const details = Array.isArray(mws.details) ? mws.details : [];
+    if (details.length) {
       return Math.min(
         3,
-        mws.details.reduce(
-          (count: number, detail: any) =>
+        details.reduce(
+          (count: number, detail: MwsDetail) =>
             count + (detail.strengthLevel === 'strong' || detail.strengthLevel === 'moderate' ? 1 : 0),
           0,
         ),
@@ -46,35 +93,36 @@ export function GoNoGoMetricsBar({
     return mws.summaryScore ?? 0;
   }, [mws]);
 
-  const summary = useMemo(() => {
+  const summary: Record<MetricKey, MatchMetricsSummary> = useMemo(() => {
+    const goalItems = (goalMatches || []).map((match, idx) => toSummaryItemFromGoalMatch(match, idx));
+    const strengthItems = (mws?.details || []).map((detail, idx) => toSummaryItemFromMwsDetail(detail, idx));
+    const coreItems = (coreRequirements?.list || []).map(toSummaryItemFromRequirement);
+    const preferredItems = (preferredRequirements?.list || []).map(toSummaryItemFromRequirement);
+
     return {
       goals: {
         label: 'Match w/ Goals',
         met: goalsSummary?.met ?? 0,
         total: goalsSummary?.total ?? 0,
-        items: goalMatches || [],
+        items: goalItems,
       },
       strengths: {
         label: 'Match w/ Strengths',
         met: derivedMwsScore,
         total: 3,
-        items: (mws?.details || []).map((detail: any, idx: number) => ({
-          id: detail.label || `mws-${idx}`,
-          requirement: detail.label || 'Strength',
-          demonstrated: detail.strengthLevel === 'strong' || detail.strengthLevel === 'moderate',
-        })),
+        items: strengthItems,
       },
       core: {
         label: 'Core Req',
         met: coreRequirements?.summary.met ?? 0,
         total: coreRequirements?.summary.total ?? 0,
-        items: coreRequirements?.list || [],
+        items: coreItems,
       },
       preferred: {
         label: 'Pref Req',
         met: preferredRequirements?.summary.met ?? 0,
         total: preferredRequirements?.summary.total ?? 0,
-        items: preferredRequirements?.list || [],
+        items: preferredItems,
       },
     };
   }, [goalMatches, goalsSummary, coreRequirements, preferredRequirements, mws, derivedMwsScore]);
@@ -120,7 +168,7 @@ export function GoNoGoMetricsBar({
               </button>
               {!showSkeleton && isOpen && data.items.length > 0 && (
                 <div className="mt-2 rounded-lg border border-border/40 bg-background">
-                  {data.items.map((item: any, idx: number) => (
+                  {data.items.map((item, idx) => (
                     <div
                       key={item.id || `${key}-${idx}`}
                       className={cn(

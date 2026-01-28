@@ -20,13 +20,17 @@ import type { CoverLetterDraft } from '@/types/coverLetters';
 interface CoverLetterEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  coverLetter: any;
+  coverLetter: CoverLetterDraft;
   startInPreview?: boolean;
-  onSave?: () => void; // Callback to refetch data after save
-  onEditGoals?: () => void; // Agent C: goals CTA handler
-  onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
-  onEnhanceSection?: (sectionId: string, requirement?: string, gapData?: { gaps?: Array<{ id: string; title?: string; description: string }>; gapSummary?: string | null }) => void; // Agent C: enhance section CTA
-  onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
+  onSave?: () => void;
+  onEditGoals?: () => void;
+  onAddStory?: (requirement?: string, severity?: string) => void;
+  onEnhanceSection?: (
+    sectionId: string,
+    requirement?: string,
+    gapData?: { gaps?: Array<{ id: string; title?: string; description: string }>; gapSummary?: string | null }
+  ) => void;
+  onAddMetrics?: (sectionId?: string) => void;
 }
 
 export const CoverLetterEditModal = ({

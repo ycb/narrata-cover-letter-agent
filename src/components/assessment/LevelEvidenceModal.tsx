@@ -162,7 +162,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
 
   const uniqueMetrics = Array.from(
     new Set(
-      combinedMetrics.filter((metric) => metric.trim().length > 0 && !/^[%+\-]?$/.test(metric.trim()))
+      combinedMetrics.filter((metric) => metric.trim().length > 0 && !/^[-+%]?$/.test(metric.trim()))
     )
   );
   const scopeSignals = buildScopeSignals(uniqueMetrics).slice(0, 8);

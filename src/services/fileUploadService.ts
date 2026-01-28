@@ -1336,7 +1336,12 @@ source_type: dbSourceType,
       if (type === 'resume' || (type === 'coverLetter' && structuredData.workHistory && Array.isArray(structuredData.workHistory) && structuredData.workHistory.length > 0)) {
         console.log('⏱️  [TIMING] Processing structured data (company/work_items/stories inserts)...');
         const processDataStart = performance.now();
-        await this.processStructuredData(structuredData, sourceId, accessToken);
+        await this.processStructuredData(
+          structuredData,
+          sourceId,
+          type === 'coverLetter' ? 'cover_letter' : 'resume',
+          accessToken
+        );
         console.log(`⏱️  [TIMING] ✅ processStructuredData complete: ${(performance.now() - processDataStart).toFixed(2)}ms`);
       }
       // Nudge progress forward once DB writes are done
@@ -1607,7 +1612,8 @@ source_type: dbSourceType,
 
   private async processStructuredData(
     structuredData: any, 
-    sourceId: string, 
+    sourceId: string,
+    sourceType: 'resume' | 'cover_letter' | 'linkedin',
     accessToken?: string
   ): Promise<void> {
     const processStructuredStart = performance.now();
@@ -1659,6 +1665,7 @@ source_type: dbSourceType,
       }
       
       const userId = sourceData.user_id;
+      const isFragmentSource = sourceType === 'resume' || sourceType === 'linkedin';
 
       // Determine active synthetic profile for this user (if any)
       const activeProfileId = await this.getActiveSyntheticProfileId(dbClient, userId);
@@ -1668,8 +1675,8 @@ source_type: dbSourceType,
       let companiesUpdated = 0;
       let workItemsCreated = 0;
       let workItemsUpdated = 0;
-      let storiesCreated = 0;
-      const storiesFailed = 0;
+      let contentCreated = 0;
+      const contentFailed = 0;
       let companyUpsertMs = 0;
       let workItemUpsertMs = 0;
       let storyInsertMs = 0;
@@ -1944,29 +1951,62 @@ source_type: dbSourceType,
             title: storyTitle,
             content: story.content || '',
             tags: story.tags || [],
+            narrative_hints: story.narrativeHints || story.narrative_hints || [],
             metrics: storyMetrics,
             source_id: sourceId,
+            source_type: sourceType,
+            source: sourceType,
           });
         }
       }
 
       if (storyPayloads.length > 0) {
         const start = performance.now();
-        const { data: insertedStories, error: storiesErr } = await dbClient
-          .from('stories')
-          .insert(storyPayloads)
-          .select('id, work_item_id, title');
-        storyInsertMs = performance.now() - start;
-        if (storiesErr) {
-          console.error('❌ Error inserting stories batch:', storiesErr);
-        }
-        storiesCreated = insertedStories?.length || 0;
+        let insertedRecords: any[] = [];
+        let insertError: any = null;
 
-        // Run gap detection for inserted stories (non-blocking loop)
-        if (!isGapDetectionDisabled()) {
+        if (isFragmentSource) {
+          const fragmentPayloads = storyPayloads.map((payload) => ({
+            user_id: payload.user_id,
+            work_item_id: payload.work_item_id,
+            source_id: payload.source_id,
+            source_type: sourceType,
+            title: payload.title,
+            content: payload.content,
+            narrative_hints: payload.narrative_hints || [],
+            metrics: payload.metrics || [],
+            tags: payload.tags || [],
+            status: 'pending',
+          }));
+          const result = await dbClient
+            .from('story_fragments')
+            .insert(fragmentPayloads)
+            .select('id');
+          insertError = result.error;
+          insertedRecords = result.data || [];
+          if (insertError) {
+            console.error('❌ Error inserting story fragments batch:', insertError);
+          }
+        } else {
+          const result = await dbClient
+            .from('stories')
+            .insert(storyPayloads)
+            .select('id, work_item_id, title');
+          insertError = result.error;
+          insertedRecords = result.data || [];
+          if (insertError) {
+            console.error('❌ Error inserting stories batch:', insertError);
+          }
+        }
+
+        storyInsertMs = performance.now() - start;
+        contentCreated = insertedRecords.length;
+
+        // Run gap detection for inserted stories only (non-fragment sources)
+        if (!isFragmentSource && !isGapDetectionDisabled()) {
           try {
             const { GapDetectionService } = await import('./gapDetectionService');
-            for (const story of insertedStories || []) {
+            for (const story of insertedRecords) {
               const payload = storyPayloads.find((p) => p.work_item_id === story.work_item_id && p.title === story.title);
               if (!payload) continue;
               const gaps = await GapDetectionService.detectStoryGaps(
@@ -1975,7 +2015,8 @@ source_type: dbSourceType,
                   id: story.id,
                   title: payload.title,
                   content: payload.content,
-                  metrics: payload.metrics || []
+                  metrics: payload.metrics || [],
+                  source_type: payload.source_type,
                 },
                 story.work_item_id
               );
@@ -2003,6 +2044,7 @@ source_type: dbSourceType,
                 title: payload.title,
                 description: payload.description || '',
                 metrics: Array.isArray(payload.metrics) ? payload.metrics : [],
+                achievements: Array.isArray(payload.achievements) ? payload.achievements : [],
                 startDate: payload.start_date,
                 endDate: payload.end_date
               },
@@ -2032,7 +2074,7 @@ source_type: dbSourceType,
       console.log('═══════════════════════════════════════════════════════════');
       console.log(`⏱️  [TIMING] ├─ Company Upserts              ${companyUpsertMs.toFixed(2).padStart(10)}ms (${companiesCreated} created, ${companiesUpdated} updated)`);
       console.log(`⏱️  [TIMING] ├─ Work Item Upserts            ${workItemUpsertMs.toFixed(2).padStart(10)}ms (${workItemsCreated} created, ${workItemsUpdated} updated)`);
-      console.log(`⏱️  [TIMING] ├─ Story Inserts                ${storyInsertMs.toFixed(2).padStart(10)}ms (${storiesCreated} created, ${storiesFailed} failed)`);
+      console.log(`⏱️  [TIMING] ├─ Story Inserts                ${storyInsertMs.toFixed(2).padStart(10)}ms (${contentCreated} created, ${contentFailed} failed)`);
       console.log(`⏱️  [TIMING] ├─ Gap Detection                ${gapDetectionMs.toFixed(2).padStart(10)}ms`);
       console.log(`⏱️  [TIMING] ├─────────────────────────────────────────────`);
       console.log(`⏱️  [TIMING] └─ 🎯 TOTAL processStructuredData: ${totalProcessStructuredMs.toFixed(2).padStart(10)}ms (${(totalProcessStructuredMs / 1000).toFixed(1)}s)`);
@@ -2042,8 +2084,8 @@ source_type: dbSourceType,
         companiesUpdated,
         workItemsCreated,
         workItemsUpdated,
-        storiesCreated,
-        storiesFailed,
+        contentCreated,
+        contentFailed,
         totalWorkHistory: structuredData.workHistory.length
       });
 
@@ -2212,7 +2254,9 @@ source_type: dbSourceType,
                 content: story.content || '',
                 tags: storySkills,  // Store skills in tags column
                 metrics: storyMetrics,
-                source_id: sourceId
+                source_id: sourceId,
+                source_type: 'cover_letter',
+                source: 'cover_letter',
               })
               .select('id')
               .single();
@@ -2240,7 +2284,8 @@ source_type: dbSourceType,
                       id: insertedStory.id,
                       title: storyTitle,
                       content: story.content || '',
-                      metrics: storyMetrics
+                      metrics: storyMetrics,
+                      source_type: 'cover_letter',
                     },
                     workItemMatch.workItemId
                   );
@@ -3028,7 +3073,12 @@ source_type: dbSourceType,
         }));
         
         // Auto-save extracted data to database (resume)
-        await this.processStructuredData(combinedResult.resume.data, this.pendingResume.sourceId, accessToken);
+        await this.processStructuredData(
+          combinedResult.resume.data,
+          this.pendingResume.sourceId,
+          'resume',
+          accessToken
+        );
         
         // Log for evaluation tracking
         await this.logLLMGeneration({
@@ -3062,7 +3112,12 @@ source_type: dbSourceType,
         // Auto-save extracted data to database (cover letter - may contain workHistory)
         // Cover letters can include work history entries that should be processed
         if (combinedResult.coverLetter.data?.workHistory && Array.isArray(combinedResult.coverLetter.data.workHistory) && combinedResult.coverLetter.data.workHistory.length > 0) {
-          await this.processStructuredData(combinedResult.coverLetter.data, this.pendingCoverLetter.sourceId, accessToken);
+          await this.processStructuredData(
+            combinedResult.coverLetter.data,
+            this.pendingCoverLetter.sourceId,
+            'cover_letter',
+            accessToken
+          );
         }
         
         // Cover letter stories will be processed after LinkedIn (in processCombinedAnalysis)
@@ -3695,7 +3750,12 @@ source_type: dbSourceType,
           
           // Process LinkedIn structured data into work_items
         if (linkedinStructuredData.workHistory && Array.isArray(linkedinStructuredData.workHistory)) {
-          await this.processStructuredData(linkedinStructuredData, linkedinSource.id, accessToken);
+          await this.processStructuredData(
+            linkedinStructuredData,
+            linkedinSource.id,
+            'linkedin',
+            accessToken
+          );
         }
         // Ensure evaluation logging sees the LinkedIn source id
         this.pendingLinkedIn = {

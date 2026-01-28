@@ -236,7 +236,60 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
-      }
+      },
+      story_fragments: {
+        Row: {
+          id: string
+          user_id: string
+          work_item_id: string | null
+          source_id: string | null
+          source_type: 'resume' | 'linkedin' | 'cover_letter' | 'manual' | 'other'
+          title: string
+          content: string
+          narrative_hints: string[]
+          metrics: Json
+          tags: string[]
+          status: 'pending' | 'in_progress' | 'promoted' | 'archived'
+          converted_story_id: string | null
+          converted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          work_item_id?: string | null
+          source_id?: string | null
+          source_type?: 'resume' | 'linkedin' | 'cover_letter' | 'manual' | 'other'
+          title: string
+          content: string
+          narrative_hints?: string[]
+          metrics?: Json
+          tags?: string[]
+          status?: 'pending' | 'in_progress' | 'promoted' | 'archived'
+          converted_story_id?: string | null
+          converted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          work_item_id?: string | null
+          source_id?: string | null
+          source_type?: 'resume' | 'linkedin' | 'cover_letter' | 'manual' | 'other'
+          title?: string
+          content?: string
+          narrative_hints?: string[]
+          metrics?: Json
+          tags?: string[]
+          status?: 'pending' | 'in_progress' | 'promoted' | 'archived'
+          converted_story_id?: string | null
+          converted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      },
       public_demo_profiles: {
         Row: {
           slug: string

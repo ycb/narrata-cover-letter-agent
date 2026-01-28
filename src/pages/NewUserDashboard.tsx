@@ -32,11 +32,13 @@ import { TotalGapsWidget } from "@/components/dashboard/TotalGapsWidget";
 import { WorkHistoryGapsCountWidget } from "@/components/dashboard/WorkHistoryGapsCountWidget";
 import { SavedSectionsGapsCountWidget } from "@/components/dashboard/SavedSectionsGapsCountWidget";
 import { CoverLettersGapsCountWidget } from "@/components/dashboard/CoverLettersGapsCountWidget";
+import { StoryFragmentsCountWidget } from "@/components/dashboard/StoryFragmentsCountWidget";
 import { HighSeverityGapsWidget } from "@/components/dashboard/HighSeverityGapsWidget";
 import { MediumSeverityGapsWidget } from "@/components/dashboard/MediumSeverityGapsWidget";
 import { LowSeverityGapsWidget } from "@/components/dashboard/LowSeverityGapsWidget";
 import { useGapSummary } from "@/hooks/useGapSummary";
 import { useContentItemsWithGaps } from "@/hooks/useContentItemsWithGaps";
+import { useStoryFragmentsCount } from "@/hooks/useStoryFragmentsCount";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserGoals } from "@/contexts/UserGoalsContext";
 
@@ -57,6 +59,7 @@ export default function NewUserDashboard() {
   const gapSummary = useGapSummary();
   const contentItemsWithGaps = useContentItemsWithGaps();
   const contentQualityWidgetRef = React.useRef<ContentQualityWidgetRef>(null);
+  const fragmentsStats = useStoryFragmentsCount();
   
   // Modal states for Personalize Narrata
   const [showGoalsModal, setShowGoalsModal] = useState(false);
@@ -177,6 +180,10 @@ export default function NewUserDashboard() {
     setTimeout(() => {
       scrollTabsWhenReady(20, 75, getTabsScrollOffset());
     }, 100);
+  };
+
+  const goToFragments = () => {
+    navigate('/work-history?tab=fragments');
   };
 
   // Handle deep links: /new-user-dashboard?contentType=all&severity=all&scrollTo=tabs
@@ -537,10 +544,18 @@ export default function NewUserDashboard() {
                 isLoading={summaryForUI ? false : gapSummary.isLoading}
                 onClick={() => handleWidgetClick('all', 'low')}
               />
-            </div>
           </div>
+        </div>
 
-          {/* Content Quality Widget - Mega Gaps Tabber */}
+        <div className="grid grid-cols-1 gap-4 mb-4">
+          <StoryFragmentsCountWidget
+            count={fragmentsStats.count}
+            isLoading={fragmentsStats.isLoading}
+            onClick={goToFragments}
+          />
+        </div>
+
+        {/* Content Quality Widget - Mega Gaps Tabber */}
           <ContentQualityWidget 
             ref={contentQualityWidgetRef}
             gapSummary={summaryForUI}

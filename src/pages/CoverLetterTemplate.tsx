@@ -321,6 +321,24 @@ export default function CoverLetterTemplate() {
     }
   };
 
+  const getDynamicContentType = (section: CoverLetterSection): NonNullable<CoverLetterSection['contentType']> => {
+    if (section.contentType) return section.contentType;
+    if (section.savedSectionId) return 'saved';
+    return 'work-history';
+  };
+
+  const getDynamicSectionLabel = (section: CoverLetterSection) => {
+    const contentType = getDynamicContentType(section);
+    return contentType === 'saved' ? 'Dynamic saved section matching' : 'Dynamic story matching';
+  };
+
+  const getDynamicSectionDescription = (section: CoverLetterSection) => {
+    const contentType = getDynamicContentType(section);
+    return contentType === 'saved'
+      ? 'Use best matching saved section based on job description and goals'
+      : 'Use best matching story from work history based on job description and goals';
+  };
+
   const updateTemplateState = (updater: (prev: CoverLetterTemplate) => CoverLetterTemplate) => {
     setTemplate((prev) => {
       const next = updater(prev);
@@ -916,13 +934,15 @@ export default function CoverLetterTemplate() {
         const goals = section.blurbCriteria?.goals;
         const goalsText = goals && goals.length > 0 ? ` focused on ${goals.join(', ')}` : '';
 
-        if (section.contentType === 'work-history') {
-          content = `[Dynamic ${typeLabel} story will be selected from your work history${goalsText}.]`;
-        } else if (section.contentType === 'saved') {
-          content = `[Dynamic ${typeLabel} from your saved sections will be inserted${goalsText}.]`;
-        } else {
-          content = `[Dynamic ${typeLabel} content will be generated when drafting the cover letter.]`;
-        }
+      const contentType = getDynamicContentType(section);
+
+      if (contentType === 'work-history') {
+        content = `[Dynamic ${typeLabel} story will be selected from your work history${goalsText}.]`;
+      } else if (contentType === 'saved') {
+        content = `[Dynamic ${typeLabel} from your saved sections will be inserted${goalsText}.]`;
+      } else {
+        content = `[Dynamic ${typeLabel} content will be generated when drafting the cover letter.]`;
+      }
       }
 
       if (!content.trim()) {
@@ -1217,7 +1237,7 @@ const handleDone = async () => {
                                     {getSectionTypeLabel(section.type)} {section.type === 'paragraph' ? `${index}` : ''}
                                   </CardTitle>
                                   <CardDescription>
-                                    {section.isStatic ? 'Static content' : 'Dynamic story matching'}
+                                    {section.isStatic ? 'Static content' : getDynamicSectionLabel(section)}
                                   </CardDescription>
                                 </div>
                               </div>
@@ -1325,7 +1345,7 @@ const handleDone = async () => {
                               </div>
                             ) : (
                               <div className="text-sm text-muted-foreground">
-                                Use best matching body paragraph story based on job description and goals
+                                {getDynamicSectionDescription(section)}
                               </div>
                             )}
                           </CardContent>
