@@ -108,21 +108,20 @@ BEGIN
     WHERE created_at >= since_date
       AND event_type != 'admin_spoofed_user' -- Exclude admin actions
     GROUP BY event_type
-  ),
-  baseline AS (
-    SELECT COALESCE(
-      (SELECT users_reached FROM stage_counts sc WHERE sc.stage = 'account_created'),
-      1
-    ) as total_users
   )
   SELECT 
     fs.stage,
     fs.stage_order,
     COALESCE(sc.users_reached, 0)::INTEGER as users_reached,
-    (COALESCE(sc.users_reached, 0)::NUMERIC / baseline.total_users * 100)::NUMERIC(5,2) as conversion_rate,
+    CASE
+      WHEN baseline_row.total_users = 0 THEN 0
+      ELSE (COALESCE(sc.users_reached, 0)::NUMERIC / baseline_row.total_users * 100)
+    END::NUMERIC(5,2) as conversion_rate,
     NULL::NUMERIC(10,2) as avg_time_to_next_stage_hours -- TODO: Calculate time deltas
   FROM funnel_stages fs
-  CROSS JOIN baseline
+  CROSS JOIN LATERAL (
+    SELECT COALESCE((SELECT users_reached FROM stage_counts sc WHERE sc.stage = 'account_created'), 1) AS total_users
+  ) AS baseline_row
   LEFT JOIN stage_counts sc ON fs.stage = sc.stage
   ORDER BY fs.stage_order;
 END;
