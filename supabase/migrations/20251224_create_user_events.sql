@@ -111,7 +111,7 @@ BEGIN
   ),
   baseline AS (
     SELECT COALESCE(
-      (SELECT users_reached FROM stage_counts WHERE stage = 'account_created'),
+      (SELECT users_reached FROM stage_counts sc WHERE sc.stage = 'account_created'),
       1
     ) as total_users
   )
@@ -230,4 +230,3 @@ COMMENT ON TABLE user_events IS 'Tracks user progression through onboarding funn
 COMMENT ON FUNCTION log_user_event IS 'Helper function to log a user event (callable from Edge Functions).';
 COMMENT ON FUNCTION get_funnel_stats IS 'Returns funnel conversion rates for each stage since a given date.';
 COMMENT ON FUNCTION get_user_activity_leaderboard IS 'Returns top N users ranked by activity score (weighted sum of actions).';
-
