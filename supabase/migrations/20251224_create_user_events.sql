@@ -91,7 +91,7 @@ RETURNS TABLE(
 BEGIN
   RETURN QUERY
   WITH funnel_stages AS (
-    SELECT 'account_created' as stage, 1 as stage_order
+    SELECT 'account_created' as stage_name, 1 as stage_order
     UNION ALL SELECT 'email_verified', 2
     UNION ALL SELECT 'first_login', 3
     UNION ALL SELECT 'onboarding_started', 4
@@ -102,27 +102,30 @@ BEGIN
   ),
   stage_counts AS (
     SELECT 
-      event_type as stage,
-      COUNT(DISTINCT user_id) as users_reached
+      event_type as stage_name,
+      COUNT(DISTINCT user_id) as stage_users
     FROM user_events
     WHERE created_at >= since_date
       AND event_type != 'admin_spoofed_user' -- Exclude admin actions
     GROUP BY event_type
   )
   SELECT 
-    fs.stage,
+    fs.stage_name as stage,
     fs.stage_order,
-    COALESCE(sc.users_reached, 0)::INTEGER as users_reached,
+    COALESCE(sc.stage_users, 0)::INTEGER as users_reached,
     CASE
       WHEN baseline_row.total_users = 0 THEN 0
-      ELSE (COALESCE(sc.users_reached, 0)::NUMERIC / baseline_row.total_users * 100)
+      ELSE (COALESCE(sc.stage_users, 0)::NUMERIC / baseline_row.total_users * 100)
     END::NUMERIC(5,2) as conversion_rate,
     NULL::NUMERIC(10,2) as avg_time_to_next_stage_hours -- TODO: Calculate time deltas
   FROM funnel_stages fs
   CROSS JOIN LATERAL (
-    SELECT COALESCE((SELECT users_reached FROM stage_counts sc WHERE sc.stage = 'account_created'), 1) AS total_users
+    SELECT COALESCE(
+      (SELECT stage_users FROM stage_counts sc WHERE sc.stage_name = 'account_created'),
+      1
+    ) AS total_users
   ) AS baseline_row
-  LEFT JOIN stage_counts sc ON fs.stage = sc.stage
+  LEFT JOIN stage_counts sc ON fs.stage_name = sc.stage_name
   ORDER BY fs.stage_order;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
