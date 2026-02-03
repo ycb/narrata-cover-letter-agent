@@ -24,15 +24,14 @@ export interface UserRoleData {
 
 export type UserEventType =
   | 'account_created'
-  | 'email_verified'
-  | 'first_login'
-  | 'onboarding_started'
   | 'onboarding_completed'
-  | 'product_tour_started'
-  | 'product_tour_completed'
+  | 'dashboard_viewed'
+  | 'work_history_edited'
+  | 'saved_section_edited'
+  | 'template_edited'
+  | 'cover_letter_created'
+  | 'cover_letter_saved'
   | 'checklist_completed'
-  | 'first_cl_created'
-  | 'first_cl_saved'
   | 'admin_spoofed_user';
 
 export interface UserEvent {
@@ -59,6 +58,41 @@ export interface FunnelStatsResponse {
   data: FunnelStage[];
   since: string;
   generated_at: string;
+}
+
+export interface FunnelStageUser {
+  user_id: string;
+  email: string;
+  acquisition_source: string | null;
+  geo: Record<string, unknown> | null;
+  signup_ip: string | null;
+  geo_city: string | null;
+  geo_region: string | null;
+  geo_country: string | null;
+  first_visit_at: string | null;
+  stage_name: string;
+  stage_timestamp: string | null;
+  previous_stage: string | null;
+  previous_stage_timestamp: string | null;
+  latest_stage: string | null;
+  latest_stage_at: string | null;
+}
+
+export interface FunnelDropoffUser {
+  user_id: string;
+  email: string;
+  acquisition_source: string | null;
+  geo: Record<string, unknown> | null;
+  signup_ip: string | null;
+  geo_city: string | null;
+  geo_region: string | null;
+  geo_country: string | null;
+  first_visit_at: string | null;
+  previous_stage: string | null;
+  previous_stage_timestamp: string | null;
+  missing_stage: string;
+  latest_stage: string | null;
+  latest_stage_at: string | null;
 }
 
 // ============================================================================

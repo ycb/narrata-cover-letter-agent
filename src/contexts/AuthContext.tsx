@@ -236,6 +236,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const captureLoginAttribution = useCallback(async (session: Session | null) => {
+    if (!session?.user) return;
+    try {
+      const { error } = await supabase.functions.invoke('capture-login');
+      if (error) {
+        console.warn('[acquisition] capture-login failed:', error);
+      }
+    } catch (err) {
+      console.warn('[acquisition] capture-login error:', err);
+    }
+  }, []);
+
   useEffect(() => {
     if (!user?.id || isDemoRef.current) {
       setIsOnboardingComplete(null);
@@ -498,6 +510,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setNewSignupRedirect(true);
         }
         captureSignupAttribution(session);
+        captureLoginAttribution(session);
       }
       
       if (session?.user) {

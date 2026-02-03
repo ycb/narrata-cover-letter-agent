@@ -27,6 +27,7 @@ import { usePMLevel } from "@/hooks/usePMLevel";
 import { useNavigate } from "react-router-dom";
 import { useGapSummary } from "@/hooks/useGapSummary";
 import { TotalGapsWidget } from "@/components/dashboard/TotalGapsWidget";
+import { logUserEvent } from "@/services/userEventsService";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -37,6 +38,11 @@ const Dashboard = () => {
   const { user, profile, getOAuthData, needsProfileCompletion, updateProfile, isDemo } = useAuth();
   const gapSummary = useGapSummary();
   const interactiveRowBase = "w-full text-left rounded-lg p-3 transition-colors hover:bg-muted/50";
+
+  useEffect(() => {
+    if (!user) return;
+    void logUserEvent('dashboard_viewed', undefined, { unique: true });
+  }, [user?.id]);
 
   // Check if user needs profile completion (e.g., magic link users)
   useEffect(() => {

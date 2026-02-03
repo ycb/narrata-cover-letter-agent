@@ -9,6 +9,8 @@ import { adminService } from '../services/adminService';
 import type {
   AdminEvalsFilters,
   AdminEvaluationRunsFilters,
+  FunnelDropoffUser,
+  FunnelStageUser,
   FunnelStatsResponse,
   LeaderboardResponse,
 } from '../types/admin';
@@ -95,6 +97,58 @@ export function useFunnelStats(since: '7d' | '30d' | '90d' = '30d') {
   return { data, loading, error, refetch: fetchData };
 }
 
+export function useFunnelStageUsers(stage: string, limit: number = 100) {
+  const [data, setData] = useState<FunnelStageUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchData();
+  }, [stage, limit]);
+
+  async function fetchData() {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await adminService.getFunnelStageUsers(stage, limit);
+      setData(result.data || []);
+    } catch (err) {
+      console.error('Failed to fetch funnel stage users:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return { data, loading, error, refetch: fetchData };
+}
+
+export function useFunnelStageDropoff(stage: string, limit: number = 100) {
+  const [data, setData] = useState<FunnelDropoffUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchData();
+  }, [stage, limit]);
+
+  async function fetchData() {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await adminService.getFunnelStageDropoff(stage, limit);
+      setData(result.data || []);
+    } catch (err) {
+      console.error('Failed to fetch funnel stage dropoff:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return { data, loading, error, refetch: fetchData };
+}
+
 export function useLeaderboard(since: '7d' | '30d' | '90d' = '30d', limit: number = 100) {
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,4 +174,3 @@ export function useLeaderboard(since: '7d' | '30d' | '90d' = '30d', limit: numbe
   
   return { data, loading, error, refetch: fetchData };
 }
-

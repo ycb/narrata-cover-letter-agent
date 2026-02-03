@@ -159,6 +159,64 @@ class AdminService {
     
     return response.json();
   }
+
+  async getFunnelStageUsers(
+    stage: string,
+    limit: number = 100
+  ): Promise<{ data: any[]; stage: string; limit: number }> {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-funnel-stage-users`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ stage, limit }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch funnel stage users');
+    }
+
+    return response.json();
+  }
+
+  async getFunnelStageDropoff(
+    stage: string,
+    limit: number = 100
+  ): Promise<{ data: any[]; stage: string; limit: number }> {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-funnel-stage-dropoff`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ stage, limit }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch funnel stage dropoff');
+    }
+
+    return response.json();
+  }
   
   /**
    * Get user activity leaderboard (admin-only)

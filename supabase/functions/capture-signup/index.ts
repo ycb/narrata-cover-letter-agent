@@ -35,10 +35,21 @@ interface CaptureSignupPayload {
   account_type?: string | null;
 }
 
+type GeoLookupResult = {
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+};
+
 const normalizeString = (value: unknown): string | null => {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+};
+
+const isBlockedReferrer = (value: string | null): boolean => {
+  if (!value) return false;
+  return value.toLowerCase().includes('linkedin.com');
 };
 
 const normalizeUtm = (value: unknown): Record<string, string> | null => {
@@ -62,6 +73,35 @@ const extractIp = (headers: Headers): string | null => {
   const realIp = headers.get('x-real-ip');
   return realIp && realIp.trim() ? realIp.trim() : null;
 };
+
+async function lookupGeo(ip: string): Promise<GeoLookupResult | null> {
+  const apiKey = Deno.env.get('IPGEO_API_KEY') ?? Deno.env.get('VITE_IPGEO');
+  if (!apiKey) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+
+  try {
+    const url = new URL('https://api.ipgeolocation.io/ipgeo');
+    url.searchParams.set('apiKey', apiKey);
+    url.searchParams.set('ip', ip);
+
+    const response = await fetch(url.toString(), { signal: controller.signal });
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as Record<string, unknown>;
+    const city = typeof data.city === 'string' ? data.city : null;
+    const region = typeof data.state_prov === 'string' ? data.state_prov : null;
+    const country = typeof data.country_name === 'string' ? data.country_name : null;
+
+    if (!city && !region && !country) return null;
+    return { city, region, country };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 const formatMetadata = (metadata: Record<string, unknown>): string => {
   try {
@@ -231,7 +271,8 @@ serve(async (req) => {
     const metadataAcquisition = (metadata.acquisition ?? {}) as Record<string, unknown>;
 
     const utm = normalizeUtm(payload.utm ?? metadataAcquisition.utm);
-    const referrer = normalizeString(payload.referrer ?? metadataAcquisition.referrer);
+    const rawReferrer = normalizeString(payload.referrer ?? metadataAcquisition.referrer);
+    const referrer = isBlockedReferrer(rawReferrer) ? null : rawReferrer;
     const landingUrl = normalizeString(
       payload.landing_url ?? metadataAcquisition.landing_url ?? metadataAcquisition.first_landing_url
     );
@@ -243,7 +284,7 @@ serve(async (req) => {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select(
-        'id, email, full_name, acquisition_utm, acquisition_referrer, acquisition_first_landing_url, signup_ip, signup_user_agent, signup_alert_sent_at'
+        'id, email, full_name, acquisition_utm, acquisition_referrer, acquisition_first_landing_url, signup_ip, signup_user_agent, signup_alert_sent_at, geo'
       )
       .eq('id', user.id)
       .maybeSingle();
@@ -253,13 +294,43 @@ serve(async (req) => {
     }
 
     const updates: Record<string, unknown> = {};
+    const internalEmails = new Set([
+      'peter.spannagle@gmail.com',
+      'narrata.ai@gmail.com',
+      'darionovoa@ideartte.com',
+    ]);
+    const blockedIps = new Set(['64.62.226.203']);
+    const isInternal = typeof profile?.email === 'string' && internalEmails.has(profile.email.toLowerCase());
+    const effectiveSignupIp = signupIp && !blockedIps.has(signupIp) ? signupIp : isInternal ? signupIp : null;
     if (!profile?.acquisition_utm && utm) updates.acquisition_utm = utm;
     if (!profile?.acquisition_referrer && referrer) updates.acquisition_referrer = referrer;
     if (!profile?.acquisition_first_landing_url && landingUrl) {
       updates.acquisition_first_landing_url = landingUrl;
     }
-    if (!profile?.signup_ip && signupIp) updates.signup_ip = signupIp;
+    if (!profile?.signup_ip && effectiveSignupIp) updates.signup_ip = effectiveSignupIp;
     if (!profile?.signup_user_agent && userAgent) updates.signup_user_agent = userAgent;
+
+    if (effectiveSignupIp) {
+      const existingGeo = (profile?.geo ?? null) as Record<string, unknown> | null;
+      const hasGeoFields =
+        !!existingGeo &&
+        (typeof existingGeo.city === 'string' ||
+          typeof existingGeo.region === 'string' ||
+          typeof existingGeo.country === 'string');
+
+      if (!hasGeoFields) {
+        const geoLookup = await lookupGeo(effectiveSignupIp);
+        if (geoLookup) {
+          updates.geo = {
+            ...(existingGeo ?? {}),
+            ip: effectiveSignupIp,
+            city: geoLookup.city ?? undefined,
+            region: geoLookup.region ?? undefined,
+            country: geoLookup.country ?? undefined,
+          };
+        }
+      }
+    }
 
     if (Object.keys(updates).length > 0) {
       const { error: updateError } = await supabase

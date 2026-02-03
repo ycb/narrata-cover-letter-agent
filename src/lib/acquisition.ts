@@ -52,12 +52,19 @@ const writeStoredAcquisition = (context: AcquisitionContext): void => {
   }
 };
 
+const isBlockedReferrer = (value: string | null): boolean => {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized.includes('linkedin.com');
+};
+
 export const captureAcquisition = (): AcquisitionContext | null => {
   if (!isBrowser) return null;
 
   const existing = readStoredAcquisition();
   const utm = parseUtmParams(window.location.search);
-  const referrer = document.referrer || null;
+  const rawReferrer = document.referrer || null;
+  const referrer = isBlockedReferrer(rawReferrer) ? null : rawReferrer;
   const landingUrl = window.location.href;
 
   const next: AcquisitionContext = existing ?? {

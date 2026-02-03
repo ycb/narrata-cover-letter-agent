@@ -1,0 +1,3 @@
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS last_login_ip INET,
+  ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
