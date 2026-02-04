@@ -28,6 +28,13 @@ jobs:
       VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
+      VITE_LOGROCKET_APP_ID: ${{ secrets.VITE_LOGROCKET_APP_ID }}
+      VITE_PENDO_API_KEY: ${{ secrets.VITE_PENDO_API_KEY }}
+      VITE_MIXPANEL_TOKEN: ${{ secrets.VITE_MIXPANEL_TOKEN }}
+      VITE_ENABLE_LOGROCKET: ${{ secrets.VITE_ENABLE_LOGROCKET }}
+      VITE_ENABLE_PENDO: ${{ secrets.VITE_ENABLE_PENDO }}
+      VITE_ENABLE_MIXPANEL: ${{ secrets.VITE_ENABLE_MIXPANEL }}
+      VITE_MIXPANEL_RECORD_SESSIONS_PERCENT: ${{ secrets.VITE_MIXPANEL_RECORD_SESSIONS_PERCENT }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,6 +75,13 @@ jobs:
       VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
+      VITE_LOGROCKET_APP_ID: ${{ secrets.VITE_LOGROCKET_APP_ID }}
+      VITE_PENDO_API_KEY: ${{ secrets.VITE_PENDO_API_KEY }}
+      VITE_MIXPANEL_TOKEN: ${{ secrets.VITE_MIXPANEL_TOKEN }}
+      VITE_ENABLE_LOGROCKET: ${{ secrets.VITE_ENABLE_LOGROCKET }}
+      VITE_ENABLE_PENDO: ${{ secrets.VITE_ENABLE_PENDO }}
+      VITE_ENABLE_MIXPANEL: ${{ secrets.VITE_ENABLE_MIXPANEL }}
+      VITE_MIXPANEL_RECORD_SESSIONS_PERCENT: ${{ secrets.VITE_MIXPANEL_RECORD_SESSIONS_PERCENT }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
