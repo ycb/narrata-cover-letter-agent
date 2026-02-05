@@ -57,6 +57,7 @@ export const StoryCard = ({
   onDismissGap
 }: StoryCardProps) => {
   const [expandedVariations, setExpandedVariations] = useState<Record<string, boolean>>({});
+  const [isEmptyVariationsExpanded, setIsEmptyVariationsExpanded] = useState(false);
 
   // Use provided gaps, or fallback to story.gaps, or create default gap
   const storyGaps = gaps || (story as any).gaps || (hasGaps ? [{
@@ -160,48 +161,64 @@ export const StoryCard = ({
       )}
 
       {/* Variations */}
-      {story.variations && story.variations.length > 0 && (
-        <div className="mb-6 pt-4 border-t border-muted">
-          <div
-            className="flex items-center gap-2 mb-3 cursor-pointer hover:bg-muted/30 rounded-lg p-2 transition-colors group"
-            onClick={() => {
-              const variations = story.variations ?? [];
-              const allExpanded =
-                variations.length > 0 &&
-                variations.every(variation => expandedVariations[variation.id]);
-              const nextState: Record<string, boolean> = {};
-              variations.forEach(variation => {
-                nextState[variation.id] = !allExpanded;
-              });
-              setExpandedVariations(nextState);
-            }}
-          >
-            <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-            <span className="text-sm font-medium group-hover:text-primary transition-colors">
-              Variations ({story.variations.length})
-            </span>
-            {story.variations.every(variation => expandedVariations[variation.id]) ? (
-              <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
-            )}
-          </div>
+      {(() => {
+        const variations = story.variations ?? [];
+        const hasVariations = variations.length > 0;
+        const allExpanded =
+          hasVariations && variations.every((variation) => expandedVariations[variation.id]);
+        const anyExpanded = hasVariations && variations.some((variation) => expandedVariations[variation.id]);
+        const isExpanded = hasVariations ? allExpanded : isEmptyVariationsExpanded;
 
-          {/* Variations content - only show when expanded */}
-          {story.variations.some(variation => expandedVariations[variation.id]) && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-green-400" />
-                  Added
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-red-400" />
-                  Removed
-                </span>
+        return (
+          <div className="mb-6 pt-4 border-t border-muted">
+            <div
+              className={cn(
+                "flex items-center gap-2 mb-3 rounded-lg p-2 transition-colors cursor-pointer hover:bg-muted/30 group"
+              )}
+              onClick={() => {
+                if (hasVariations) {
+                  const nextState: Record<string, boolean> = {};
+                  variations.forEach((variation) => {
+                    nextState[variation.id] = !allExpanded;
+                  });
+                  setExpandedVariations(nextState);
+                } else {
+                  setIsEmptyVariationsExpanded((prev) => !prev);
+                }
+              }}
+            >
+              <Layers className={cn("h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors")} />
+              <span className={cn("text-sm font-medium group-hover:text-primary transition-colors")}>
+                Variations ({variations.length})
+              </span>
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
+              )}
+            </div>
+
+            {!hasVariations && isEmptyVariationsExpanded && (
+              <div className="text-xs text-muted-foreground pl-8 pb-1">
+                No variations yet. This section populates automatically as you create cover letters.
               </div>
-              {story.variations.map((variation, index) => (
-                <div key={variation.id} className="p-3 bg-muted/30 rounded-lg border-l-4 border-primary">
+            )}
+
+            {/* Variations content - only show when expanded */}
+            {anyExpanded && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-green-400" />
+                    Added
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-red-400" />
+                    Removed
+                  </span>
+                </div>
+                {variations.map((variation, index) => (
+                  <div key={variation.id} className="p-3 bg-muted/30 rounded-lg border-l-4 border-primary">
                   {/* Header */}
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div>
@@ -261,11 +278,12 @@ export const StoryCard = ({
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </ContentCard>
   );
 };

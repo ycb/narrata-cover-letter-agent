@@ -117,10 +117,13 @@ describe('StoryCard', () => {
       expect(screen.getByText('Variations (2)')).toBeInTheDocument();
     });
 
-    it('does not show variations section when no variations exist', () => {
+    it('shows variations section when no variations exist', () => {
       renderWithRouter(<StoryCard story={mockStory} />);
 
-      expect(screen.queryByText('Variations')).not.toBeInTheDocument();
+      expect(screen.getByText('Variations (0)')).toBeInTheDocument();
+      expect(screen.queryByText(/No variations yet/i)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByText('Variations (0)'));
+      expect(screen.getByText(/No variations yet/i)).toBeInTheDocument();
     });
 
     it('displays variation content correctly', async () => {

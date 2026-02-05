@@ -3731,6 +3731,13 @@ export const CoverLetterModal = ({
                         ...section,
                         content: sectionDrafts[section.id] ?? section.content,
                       }));
+                      if (mergedSections.length) {
+                        try {
+                          await persistPreviewVariations(mergedSections);
+                        } catch (error) {
+                          console.warn('[CoverLetterModal] Failed to persist save variations (non-blocking):', error);
+                        }
+                      }
                       await coverLetterDraftService.updateDraft(draft.id, {
                         sections: mergedSections,
                       });
