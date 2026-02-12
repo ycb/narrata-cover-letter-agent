@@ -1,6 +1,6 @@
 // Basic tests for file upload service
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { FileUploadService } from '../fileUploadService';
+import { FileUploadService, normalizeRoleSummaryForStorage } from '../fileUploadService';
 import { FILE_UPLOAD_CONFIG } from '@/lib/config/fileUpload';
 
 // Mock Supabase
@@ -122,6 +122,30 @@ describe('FileUploadService', () => {
       expect(path).toContain(userId);
       expect(path).toContain('test-resume.pdf');
       expect(path).toMatch(/^[\w-]+\/\d{4}\/\d{2}\/\d{2}\/\d+_test-resume\.pdf$/);
+    });
+  });
+
+  describe('normalizeRoleSummaryForStorage', () => {
+    it('keeps concise role summaries unchanged', () => {
+      const input = 'Led growth strategy for consumer onboarding and activation.';
+      expect(normalizeRoleSummaryForStorage(input)).toBe(input);
+    });
+
+    it('reduces bullet-concatenated resume blocks to a single summary sentence', () => {
+      const input = 'Delivered AI initiative with NVIDIA and launched CPC roadmap. ● Negotiated multi-million-dollar platform deals. ● Secured 35% cost reduction in engine agreement.';
+      const normalized = normalizeRoleSummaryForStorage(input);
+
+      expect(normalized).toContain('Delivered AI initiative with NVIDIA');
+      expect(normalized).not.toContain('●');
+      expect(normalized).not.toContain('Negotiated multi-million-dollar platform deals');
+      expect(normalized.length).toBeLessThanOrEqual(320);
+    });
+
+    it('caps very long summaries to the storage max length', () => {
+      const input = `${'Built and scaled partnerships across major platforms '.repeat(20)}.`;
+      const normalized = normalizeRoleSummaryForStorage(input);
+
+      expect(normalized.length).toBeLessThanOrEqual(320);
     });
   });
 });

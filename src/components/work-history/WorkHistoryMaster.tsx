@@ -140,22 +140,26 @@ export const WorkHistoryMaster = ({
                     </h3>
                     
                     {/* All Roles Listed */}
-                    <div className="space-y-1">
-                      {company.roles.map((role) => {
+                    <div className="space-y-0.5">
+                      {company.roles.map((role, roleIndex) => {
                         const isRoleSelected = selectedRole?.id === role.id;
                         
                         return (
                           <div
                             key={role.id}
-                            className="w-full"
+                            className={cn(
+                              "w-full py-2",
+                              roleIndex > 0 && "border-t border-border/50"
+                            )}
                             onClick={(e) => {
                               e.stopPropagation();
                               onRoleSelect(role);
                             }}
                           >
                             {/* Title on its own line */}
-                            <div className="flex items-center justify-between w-full mb-1">
+                            <div className="flex items-start justify-between w-full mb-0.5 gap-2">
                               <span className={cn(
+                                "text-sm leading-snug",
                                 isRoleSelected ? "font-semibold text-foreground" : "font-medium text-muted-foreground"
                               )}>
                                 {role.title}
@@ -180,8 +184,8 @@ export const WorkHistoryMaster = ({
                                 isRoleSelected ? "text-foreground" : "text-muted-foreground"
                               )} />
                               <span className={cn(
-                                "text-xs",
-                                isRoleSelected ? "text-foreground font-semibold" : "text-muted-foreground"
+                                isRoleSelected ? "text-xs font-semibold" : "text-[11px]",
+                                isRoleSelected ? "text-foreground" : "text-muted-foreground"
                               )}>
                                 {formatDateRange(role.startDate, role.endDate)}
                               </span>

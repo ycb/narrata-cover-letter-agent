@@ -292,6 +292,15 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
           userId: user.id,
           workItemId,
           metrics: metricsJson,
+          roleDescription: description.trim(),
+        });
+
+        await GapDetectionService.resolveSatisfiedRoleDescriptionGaps({
+          userId: user.id,
+          workItemId,
+          description: description.trim(),
+          outcomeMetrics: metricsJson,
+          achievements: outcomeMetrics,
         });
 
         if (normalizedTags.length > 0) {

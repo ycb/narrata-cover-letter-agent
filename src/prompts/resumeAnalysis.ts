@@ -247,6 +247,7 @@ CRITICAL EXTRACTION RULES:
 6. ROLE SUMMARY (EXTRACTION ONLY, PER ROLE):
 
    - roleSummary is a SHORT, VERBATIM extract attached to THIS SPECIFIC ROLE.
+   - roleSummary MUST be one sentence, max 320 characters, and must not include multiple bullet items.
    - Acceptable sources for roleSummary, in priority order:
      1) Role-level header/subheader text immediately attached to this job entry
         (on the same line as, or directly under, the company + title).
