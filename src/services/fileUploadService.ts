@@ -32,6 +32,52 @@ const isGapDetectionDisabled = () => {
   return typeof flag === 'string' && flag.toLowerCase() === 'true';
 };
 
+const MAX_ROLE_SUMMARY_LENGTH = 320;
+
+function truncateRoleSummary(text: string): string {
+  if (text.length <= MAX_ROLE_SUMMARY_LENGTH) return text;
+
+  const snippet = text.slice(0, MAX_ROLE_SUMMARY_LENGTH);
+  const boundary = Math.max(
+    snippet.lastIndexOf('. '),
+    snippet.lastIndexOf('; '),
+    snippet.lastIndexOf(', ')
+  );
+
+  if (boundary > 140) {
+    return snippet.slice(0, boundary + 1).trim();
+  }
+
+  return snippet.trim();
+}
+
+function firstSentence(text: string): string {
+  const match = text.match(/^(.{40,320}?[.!?])(?:\s|$)/);
+  if (match?.[1]) return match[1].trim();
+  return '';
+}
+
+export function normalizeRoleSummaryForStorage(roleSummary?: string, description?: string): string {
+  const raw = `${roleSummary || description || ''}`.trim();
+  if (!raw) return '';
+
+  const normalized = raw.replace(/\s+/g, ' ').trim();
+  const bulletSegments = normalized
+    .split(/\s*[●•▪◦]\s+/)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+
+  let candidate = normalized;
+  if (bulletSegments.length > 1) {
+    candidate = bulletSegments[0];
+  } else if (normalized.length > 520) {
+    const sentence = firstSentence(normalized);
+    candidate = sentence || normalized;
+  }
+
+  return truncateRoleSummary(candidate.replace(/\s+/g, ' ').trim());
+}
+
 // Helper function to get Supabase configuration
 const getSupabaseConfig = () => {
   const env =
@@ -1703,7 +1749,7 @@ source_type: dbSourceType,
           for (let i = 0; i < structuredData.workHistory.length; i++) {
             const workItem = structuredData.workHistory[i];
             // Add work item description
-            const description = workItem.roleSummary || workItem.description || '';
+            const description = normalizeRoleSummaryForStorage(workItem.roleSummary, workItem.description);
             if (description) {
               contentItems.push({
                 id: `work_item_${i}`,
@@ -1840,7 +1886,7 @@ source_type: dbSourceType,
           title: workItemTitle,
           start_date: workItem.startDate,
           end_date: endDate,
-          description: workItem.roleSummary || workItem.description || '',
+          description: normalizeRoleSummaryForStorage(workItem.roleSummary, workItem.description),
           achievements: workItem.outcomeMetrics?.map(formatMetricForDisplay).filter((s: string) => s.trim().length > 0) || workItem.achievements || [],
           tags: workItem.roleTags || workItem.tags || [],
           metrics: outcomeMetrics,
@@ -3939,7 +3985,16 @@ source_type: dbSourceType,
       const gaps: any[] = [];
       for (const [id, gap] of results.entries()) {
         if (!gap.isGeneric) continue;
-        const isStory = contentItems.find((c) => c.id === id)?.type === 'story';
+        const item = contentItems.find((c) => c.id === id);
+        const isStory = item?.type === 'story';
+        if (!isStory && item?.content) {
+          const roleSummaryLooksSpecific = GapDetectionService.roleDescriptionMeetsSpecificity({
+            description: item.content,
+          });
+          if (roleSummaryLooksSpecific) {
+            continue;
+          }
+        }
         gaps.push({
           user_id: userId,
           entity_type: isStory ? 'approved_content' : 'work_item',

@@ -20,6 +20,10 @@ PASS 1: Identify global resume header
 PASS 2: Extract each role independently
 - For EACH role, extract roleSummary from THAT ROLE'S section ONLY
 - Use role-specific text (header under company/title, or first bullet)
+- roleSummary MUST be a concise single-line summary:
+  - one sentence only
+  - max 320 characters
+  - no bullet separators (●, •, -, *)
 - FORBIDDEN: Using global summary as roleSummary for any role
 - FORBIDDEN: Copying the same roleSummary to multiple roles
 - If no role-specific text exists → roleSummary = ""
@@ -27,6 +31,7 @@ PASS 2: Extract each role independently
 VALIDATION BEFORE RETURNING:
 ✓ No two roles have the same non-empty roleSummary
 ✓ Global summary text does NOT appear in any roleSummary
+✓ No roleSummary contains multiple bullets or exceeds 320 chars
 ✓ If check fails → fix it before returning
 
 Resume:
@@ -46,7 +51,7 @@ Return JSON with this exact structure:
       "location": "City, State or null",
       "companyTags": ["SaaS", "B2B"],
       "roleTags": ["growth", "activation"],
-      "roleSummary": "Extract verbatim from THIS ROLE'S header/subheader or first bullet. NOT from global summary."
+      "roleSummary": "Extract verbatim from THIS ROLE'S header/subheader or first bullet. NOT from global summary. Keep it to one sentence, <=320 chars, no bullet separators."
     }
   ]
 }

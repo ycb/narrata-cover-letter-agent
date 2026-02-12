@@ -79,21 +79,31 @@ function countNonEmptyMetrics(metrics: unknown[]): number {
   return (metrics || []).map(extractMetricText).filter((text) => text.trim().length > 0).length;
 }
 
-function hasQuantifiedMetricInText(content: string): boolean {
+const QUANTIFIED_METRIC_SIGNAL_PATTERNS: RegExp[] = [
+  /\$\s*\d[\d,]*(?:\.\d+)?\s*(?:k|m|b|mm|bn)?/gi, // $120k, $1.2M
+  /\b\d+(?:\.\d+)?\s*%/gi, // 20%
+  /\b\d+(?:\.\d+)?\s*x\b/gi, // 10x
+  /\b\d[\d,]*(?:\.\d+)?\s*(?:k|m|b)\b/gi, // 120k, 2.5m
+  /\b(?:multi-)?(?:million|billion)\b/gi,
+  /\b(?:arr|mrr|dau|mau|wau|nps)\b/gi,
+  /\b\d[\d,]*\s*(?:users?|customers?|accounts?|leads?|signups?|installs?|downloads?)\b/gi,
+  /\b\d+(?:\.\d+)?\s*(?:days?|weeks?|months?|quarters?|years?)\b/gi,
+];
+
+function getQuantifiedMetricSignalCount(content: string): number {
   const text = (content || '').trim();
-  if (!text) return false;
-  // Prefer "metric-like" patterns over just any digit to avoid counting things like "5 pods" as a metric.
-  const patterns: RegExp[] = [
-    /\$\s*\d[\d,]*(\.\d+)?\s*(k|m|b|mm|bn)?/i, // $120k, $1.2M
-    /\b\d+(\.\d+)?\s*%/i, // 20%
-    /\b\d+(\.\d+)?\s*x\b/i, // 10x
-    /\b\d[\d,]*(\.\d+)?\s*(k|m|b)\b/i, // 120k, 2.5m
-    /\b(million|billion)\b/i,
-    /\b(arr|mrr|dau|mau|wau|nps)\b/i,
-    /\b\d[\d,]*\s*(users?|customers?|accounts?|leads?|signups?|installs?|downloads?)\b/i,
-    /\b\d+(\.\d+)?\s*(days?|weeks?|months?|quarters?|years?)\b/i,
-  ];
-  return patterns.some((p) => p.test(text));
+  if (!text) return 0;
+
+  let signalCount = 0;
+  for (const pattern of QUANTIFIED_METRIC_SIGNAL_PATTERNS) {
+    const matches = text.match(pattern);
+    if (matches?.length) signalCount += matches.length;
+  }
+  return signalCount;
+}
+
+function hasQuantifiedMetricInText(content: string): boolean {
+  return getQuantifiedMetricSignalCount(content) > 0;
 }
 
 function storyHasMetrics(content: string, metrics: unknown[]): boolean {
@@ -203,6 +213,26 @@ export class GapDetectionService {
 
   static storyMeetsSpecificity(content: string): boolean {
     return !this.checkContentStandards(content || '').needsSpecifics;
+  }
+
+  static roleDescriptionMeetsSpecificity(params: {
+    description: string;
+    outcomeMetrics?: unknown[];
+    achievements?: string[];
+    stories?: Array<{ id: string; title?: string; content: string; metrics?: unknown[] }>;
+  }): boolean {
+    const description = (params.description || '').trim();
+    if (!description) return false;
+
+    const standards = this.checkContentStandards(description);
+    if (!standards.needsSpecifics) return true;
+
+    return this.hasStrongRoleDescriptionEvidence(
+      description,
+      params.outcomeMetrics || [],
+      params.achievements || [],
+      params.stories
+    );
   }
 
   /**
@@ -349,6 +379,7 @@ export class GapDetectionService {
       userId,
       workItemId,
       combinedMetrics,
+      workItemData.description || '',
       workItemData.startDate,
       workItemData.endDate,
       stories?.length || 0
@@ -668,6 +699,7 @@ export class GapDetectionService {
     userId: string,
     workItemId: string,
     outcomeMetrics: any[],
+    roleDescription: string = '',
     startDate?: string,
     endDate?: string | null,
     storyCount: number = 0
@@ -676,9 +708,12 @@ export class GapDetectionService {
 
     // Count valid metrics (supports legacy string[] and JSON metrics[{value, context, ...}])
     const metricCount = countNonEmptyMetrics(outcomeMetrics || []);
+    const quantifiedSignalsInDescription = getQuantifiedMetricSignalCount(roleDescription || '');
+    const inferredDescriptionMetricCount = Math.min(quantifiedSignalsInDescription, 3);
+    const effectiveMetricCount = Math.max(metricCount, inferredDescriptionMetricCount);
 
     // Check for missing metrics
-    if (metricCount === 0) {
+    if (effectiveMetricCount === 0) {
       gaps.push({
         user_id: userId,
         entity_type: 'work_item',
@@ -694,7 +729,7 @@ export class GapDetectionService {
           }
         ]
       });
-    } else if (metricCount < 3 && (storyCount > 0 || this.hasSignificantTenure(startDate, endDate))) {
+    } else if (effectiveMetricCount < 3 && (storyCount > 0 || this.hasSignificantTenure(startDate, endDate))) {
       // Check for insufficient metrics
       // Flag if role has stories or significant tenure but only 1-2 metrics
       gaps.push({
@@ -725,8 +760,12 @@ export class GapDetectionService {
     userId: string;
     workItemId: string;
     metrics: unknown[];
+    roleDescription?: string;
   }): Promise<void> {
     const metricCount = countNonEmptyMetrics(params.metrics || []);
+    const quantifiedSignalsInDescription = getQuantifiedMetricSignalCount(params.roleDescription || '');
+    const inferredDescriptionMetricCount = Math.min(quantifiedSignalsInDescription, 3);
+    const effectiveMetricCount = Math.max(metricCount, inferredDescriptionMetricCount);
 
     try {
       const { data, error } = await supabase
@@ -742,8 +781,8 @@ export class GapDetectionService {
       const gaps = (data || []) as Array<{ id: string; gap_category: string }>;
 
       const shouldResolveCategory = (category: string) => {
-        if (category === 'missing_role_metrics') return metricCount > 0;
-        if (category === 'insufficient_role_metrics') return metricCount >= 3;
+        if (category === 'missing_role_metrics') return effectiveMetricCount > 0;
+        if (category === 'insufficient_role_metrics') return effectiveMetricCount >= 3;
         return false;
       };
 
@@ -754,6 +793,50 @@ export class GapDetectionService {
       }
     } catch (e) {
       console.error('[GapDetectionService.resolveSatisfiedRoleMetricsGaps] Error:', e);
+    }
+  }
+
+  static async resolveSatisfiedRoleDescriptionGaps(params: {
+    userId: string;
+    workItemId: string;
+    description: string;
+    outcomeMetrics?: unknown[];
+    achievements?: string[];
+    stories?: Array<{ id: string; title?: string; content: string; metrics?: unknown[] }>;
+  }): Promise<void> {
+    const description = (params.description || '').trim();
+    const hasDescription = description.length > 0;
+    const meetsSpecificity = this.roleDescriptionMeetsSpecificity({
+      description,
+      outcomeMetrics: params.outcomeMetrics || [],
+      achievements: params.achievements || [],
+      stories: params.stories,
+    });
+
+    try {
+      const { data, error } = await supabase
+        .from('gaps')
+        .select('id, gap_category')
+        .eq('user_id', params.userId)
+        .eq('entity_type', 'work_item')
+        .eq('entity_id', params.workItemId)
+        .in('gap_category', ['missing_role_description', 'role_description_needs_specifics'])
+        .or('resolved.is.null,resolved.eq.false');
+
+      if (error) throw error;
+      const gaps = (data || []) as Array<{ id: string; gap_category: string }>;
+
+      for (const gap of gaps) {
+        if (!gap?.id) continue;
+        if (gap.gap_category === 'missing_role_description' && hasDescription) {
+          await this.resolveGap(gap.id, params.userId, 'no_longer_applicable');
+        }
+        if (gap.gap_category === 'role_description_needs_specifics' && meetsSpecificity) {
+          await this.resolveGap(gap.id, params.userId, 'no_longer_applicable');
+        }
+      }
+    } catch (e) {
+      console.error('[GapDetectionService.resolveSatisfiedRoleDescriptionGaps] Error:', e);
     }
   }
 
@@ -1059,6 +1142,10 @@ export class GapDetectionService {
     // 2. Content standards check (MVP heuristic)
     const standards = this.checkContentStandards(description);
     if (standards.needsSpecifics) {
+      if (this.hasStrongRoleDescriptionEvidence(description, outcomeMetrics, achievements, stories)) {
+        return gaps;
+      }
+
       const metricCount = countNonEmptyMetrics(outcomeMetrics || []);
       const hasOutcomeMetrics = metricCount > 0;
       const hasStoryMetrics = (stories || []).some((story) =>
@@ -1090,6 +1177,35 @@ export class GapDetectionService {
     }
 
     return gaps;
+  }
+
+  private static hasStrongRoleDescriptionEvidence(
+    description: string,
+    outcomeMetrics: unknown[] = [],
+    achievements: string[] = [],
+    stories?: Array<{ id: string; title?: string; content: string; metrics?: unknown[] }>
+  ): boolean {
+    const text = (description || '').trim();
+    if (!text) return false;
+
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    const quantifiedSignalCount = getQuantifiedMetricSignalCount(text);
+    const hasStrongActionVerb = /\b(delivered|negotiated|secured|acquired|created|conceived|led|owned|directed|elevated|advanced|launched|drove)\b/i.test(text);
+    const hasNamedOrgContext = /\b(with|across|including|alongside)\s+[A-Z][A-Za-z0-9&.-]+/.test(text);
+    const bulletSegments = text.split(/[●•]\s+/).filter((segment) => segment.trim().length > 0);
+    const sentenceLikeSegments = text.split(/[.!?](?:\s+|$)|\n+/).filter((segment) => segment.trim().length > 0);
+    const hasMultiSegmentDetail = bulletSegments.length >= 3 || sentenceLikeSegments.length >= 4;
+
+    const hasOutcomeMetrics = countNonEmptyMetrics(outcomeMetrics || []) > 0;
+    const hasStoryMetrics = (stories || []).some((story) => storyHasMetrics(story.content, story.metrics || []));
+    const hasAchievementMetrics = (achievements || []).some((item) => hasQuantifiedMetricInText(item));
+    const hasRelatedMetrics = hasOutcomeMetrics || hasStoryMetrics || hasAchievementMetrics;
+
+    return wordCount >= 60
+      && hasStrongActionVerb
+      && hasMultiSegmentDetail
+      && (quantifiedSignalCount >= 2 || hasNamedOrgContext)
+      && (hasRelatedMetrics || quantifiedSignalCount >= 3);
   }
 
   /**
