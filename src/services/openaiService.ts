@@ -683,6 +683,7 @@ export class LLMAnalysisService {
     retryable?: boolean;
   }> {
     const maxRetries = OPENAI_CONFIG.MAX_TRUNCATION_RETRIES || 2;
+    const maxNetworkRetries = 2;
     
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -819,13 +820,34 @@ export class LLMAnalysisService {
         };
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'OpenAI API call failed';
+      if (retryCount < maxNetworkRetries && this.isTransientNetworkError(errorMessage)) {
+        const retryDelayMs = 750 * (retryCount + 1);
+        console.warn(
+          `[OpenAI] Network error "${errorMessage}". Retrying in ${retryDelayMs}ms (${retryCount + 1}/${maxNetworkRetries})...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        return this.callOpenAI(prompt, dynamicTokenLimit, retryCount + 1);
+      }
+
       console.error('OpenAI API error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'OpenAI API call failed',
-        retryable: true
+        error: errorMessage,
+        retryable: this.isTransientNetworkError(errorMessage)
       };
     }
+  }
+
+  private isTransientNetworkError(message: string): boolean {
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes('load failed') ||
+      normalized.includes('failed to fetch') ||
+      normalized.includes('networkerror') ||
+      normalized.includes('network error') ||
+      normalized.includes('timeout')
+    );
   }
 
   /**

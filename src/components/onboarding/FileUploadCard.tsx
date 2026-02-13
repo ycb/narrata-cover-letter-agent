@@ -77,7 +77,23 @@ export function FileUploadCard({
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const manualTextHashRef = useRef<string | null>(null);
+  const manualTextFailedHashRef = useRef<string | null>(null);
   const manualTextProcessingRef = useRef(false);
+  const onTextInputRef = useRef(onTextInput);
+  const onUploadCompleteRef = useRef(onUploadComplete);
+  const onUploadErrorRef = useRef(onUploadError);
+
+  useEffect(() => {
+    onTextInputRef.current = onTextInput;
+  }, [onTextInput]);
+
+  useEffect(() => {
+    onUploadCompleteRef.current = onUploadComplete;
+  }, [onUploadComplete]);
+
+  useEffect(() => {
+    onUploadErrorRef.current = onUploadError;
+  }, [onUploadError]);
 
   // Streaming step state removed
 
@@ -203,6 +219,7 @@ export function FileUploadCard({
       }
     }
   });
+  const { saveManualText } = fileUpload;
 
   const linkedInUpload = useLinkedInUpload();
 
@@ -281,7 +298,11 @@ export function FileUploadCard({
     }
 
     const hash = `${type}:${trimmed.length}:${trimmed.slice(0, 32)}`;
-    if (manualTextProcessingRef.current || manualTextHashRef.current === hash) {
+    if (
+      manualTextProcessingRef.current ||
+      manualTextHashRef.current === hash ||
+      manualTextFailedHashRef.current === hash
+    ) {
       return;
     }
 
@@ -290,26 +311,29 @@ export function FileUploadCard({
 
     const timer = setTimeout(async () => {
       try {
-        const result = await fileUpload.saveManualText(trimmed, type);
+        const result = await saveManualText(trimmed, type);
         if (result.success && result.fileId) {
           manualTextHashRef.current = hash;
+          manualTextFailedHashRef.current = null;
           setUploadedFileId(result.fileId);
           setUploadedFileContent(trimmed);
           setUploadedFileName(`Manual ${type}`);
           setProcessingStatus('Complete!');
-          onTextInput?.(trimmed);
-          onUploadComplete?.(result.fileId, type);
+          onTextInputRef.current?.(trimmed);
+          onUploadCompleteRef.current?.(result.fileId, type);
         } else {
           const message = result.error || 'Processing failed';
+          manualTextFailedHashRef.current = hash;
           setProcessingStatus('');
           setError(message);
-          onUploadError?.(message);
+          onUploadErrorRef.current?.(message);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Processing failed';
+        manualTextFailedHashRef.current = hash;
         setProcessingStatus('');
         setError(message);
-        onUploadError?.(message);
+        onUploadErrorRef.current?.(message);
       } finally {
         manualTextProcessingRef.current = false;
       }
@@ -319,7 +343,7 @@ export function FileUploadCard({
       clearTimeout(timer);
       manualTextProcessingRef.current = false;
     };
-  }, [coverLetterText, type, fileUpload, onTextInput, onUploadComplete, onUploadError]);
+  }, [coverLetterText, type, saveManualText, uploadedFileId, uploadedFileContent]);
 
   /**
    * Handle file upload - ACTUALLY uploads and processes the file

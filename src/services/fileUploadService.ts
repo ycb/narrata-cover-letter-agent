@@ -33,6 +33,7 @@ const isGapDetectionDisabled = () => {
 };
 
 const MAX_ROLE_SUMMARY_LENGTH = 320;
+const STALE_COVER_LETTER_LOCK_MS = 30 * 60 * 1000;
 
 function truncateRoleSummary(text: string): string {
   if (text.length <= MAX_ROLE_SUMMARY_LENGTH) return text;
@@ -344,7 +345,7 @@ type SourceEntry = { id: string; processing_status: string; structured_data?: un
     try {
       const { data, error } = await supabase
         .from('sources')
-        .select('id, processing_status')
+        .select('id, processing_status, created_at, updated_at')
         .eq('user_id', userId)
         .eq('source_type', 'cover_letter')
         .in('processing_status', ['pending', 'processing', 'completed'])
@@ -360,11 +361,59 @@ type SourceEntry = { id: string; processing_status: string; structured_data?: un
         return null;
       }
 
-      return data[0] as { id: string; processing_status: ProcessingStatus };
+      const latest = data[0] as {
+        id: string;
+        processing_status: ProcessingStatus;
+        created_at?: string | null;
+        updated_at?: string | null;
+      };
+
+      // A stale processing lock should not permanently block new cover-letter uploads.
+      if (
+        (latest.processing_status === 'pending' || latest.processing_status === 'processing') &&
+        this.isStaleSource(latest.updated_at, latest.created_at)
+      ) {
+        const staleMinutes = Math.round(STALE_COVER_LETTER_LOCK_MS / 60000);
+        const staleMessage = `Cover letter upload timed out after ${staleMinutes} minutes. Please retry.`;
+        const { error: staleUpdateError } = await supabase
+          .from('sources')
+          .update({
+            processing_status: 'failed',
+            processing_stage: 'failed',
+            processing_error: staleMessage,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', latest.id)
+          .eq('user_id', userId);
+
+        if (staleUpdateError) {
+          console.error('Failed to mark stale cover letter source as failed:', staleUpdateError);
+        } else {
+          console.warn(`[FileUploadService] Cleared stale cover letter lock: ${latest.id}`);
+        }
+
+        return null;
+      }
+
+      return { id: latest.id, processing_status: latest.processing_status };
     } catch (error) {
       console.error('Error checking existing cover letter source:', error);
       return null;
     }
+  }
+
+  private isStaleSource(updatedAt?: string | null, createdAt?: string | null): boolean {
+    const timestamp = updatedAt || createdAt;
+    if (!timestamp) {
+      return false;
+    }
+
+    const sourceTime = Date.parse(timestamp);
+    if (Number.isNaN(sourceTime)) {
+      return false;
+    }
+
+    return Date.now() - sourceTime > STALE_COVER_LETTER_LOCK_MS;
   }
 
   private async isUserFlagged(

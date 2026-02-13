@@ -441,9 +441,27 @@ export default function NewUserOnboarding() {
     }
   };
 
-  const handleUploadError = (error: string) => {
-    console.warn('Background processing error:', error);
-    // Don't block user flow, just log the error
+  const handleUploadError = (
+    error: string,
+    uploadType?: 'resume' | 'coverLetter' | 'linkedin'
+  ) => {
+    const task = uploadType || 'resume';
+    const taskLabel: Record<'resume' | 'coverLetter' | 'linkedin', string> = {
+      resume: 'Resume',
+      coverLetter: 'Cover letter',
+      linkedin: 'LinkedIn',
+    };
+    console.warn(`[Onboarding] ${task} upload failed:`, error);
+    setTaskProgress(prev => ({ ...prev, [task]: 0 }));
+    setGlobalProgress(prev => ({
+      percent: Math.max(prev.percent, 1),
+      message: `${taskLabel[task]}: ${error}`,
+      stage: 'failed',
+    }));
+    setUploadingFile(null);
+    setUploadStage('');
+    setUploadPercent(0);
+    setIsProcessing(false);
   };
 
   const handleLinkedInUrl = async (url: string) => {
@@ -988,7 +1006,7 @@ export default function NewUserOnboarding() {
             icon={FileText}
             onFileUpload={handleFileUpload}
             onUploadComplete={handleUploadComplete}
-            onUploadError={handleUploadError}
+            onUploadError={(error) => handleUploadError(error, 'resume')}
             currentValue={onboardingData.resume}
             required={true}
           />
@@ -1004,7 +1022,7 @@ export default function NewUserOnboarding() {
             onTextInput={handleCoverLetterText}
             onFileUpload={handleFileUpload}
             onUploadComplete={handleUploadComplete}
-            onUploadError={handleUploadError}
+            onUploadError={(error) => handleUploadError(error, 'coverLetter')}
             currentValue={(onboardingData as any).coverLetterFile || onboardingData.coverLetter}
             required={true}
           />
@@ -1029,7 +1047,7 @@ export default function NewUserOnboarding() {
               icon={LinkedinIcon}
               onLinkedInUrl={handleLinkedInUrl}
               onUploadComplete={handleUploadComplete}
-              onUploadError={handleUploadError}
+              onUploadError={(error) => handleUploadError(error, 'linkedin')}
               currentValue={linkedinUrl}
               disabled={autoPopulatingLinkedIn}
               required={true}
