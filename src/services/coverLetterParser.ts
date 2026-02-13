@@ -45,18 +45,18 @@ export interface ParsedCoverLetter {
   signature: string | null;
 }
 
-const VALEDICTIONS = [
-  'Sincerely,',
-  'Best regards,',
-  'Best,',
-  'Thank you,',
-  'Thanks,',
-  'Regards,',
-  'Warm regards,',
-  'Warmly,',
-  'Cheers,',
-  'Kind regards,',
-  'With appreciation,',
+const VALEDICTION_PATTERNS = [
+  /^\s*sincerely\s*,?\s*$/i,
+  /^\s*best(?:\s+regards)?\s*,?\s*$/i,
+  /^\s*regards\s*,?\s*$/i,
+  /^\s*warm(?:\s+regards)?\s*,?\s*$/i,
+  /^\s*kind\s+regards\s*,?\s*$/i,
+  /^\s*cheers\s*,?\s*$/i,
+  /^\s*cordially\s*,?\s*$/i,
+  /^\s*respectfully(?:\s+yours|\s+submitted)?\s*,?\s*$/i,
+  /^\s*yours\s+(?:truly|sincerely)\s*,?\s*$/i,
+  /^\s*with\s+appreciation\s*,?\s*$/i,
+  /^\s*thank(?:s| you)(?:\s+for\s+your\s+consideration)?\s*,?\s*$/i,
 ];
 
 const GREETINGS = [
@@ -66,6 +66,8 @@ const GREETINGS = [
   /^Greetings\s+/i,
   /^To\s+/i,
 ];
+
+const MAX_BODY_SECTION_COUNT = 5;
 
 /**
  * Parse cover letter into structured sections
@@ -271,6 +273,10 @@ function isHeaderParagraph(paragraph: string): boolean {
     return true;
   }
 
+  if (/\b(drafted|generated|written|created)\b.*\b(ai|anthropic|chatgpt|claude|gpt)\b/i.test(trimmed)) {
+    return true;
+  }
+
   if (/@/.test(trimmed)) {
     return true;
   }
@@ -310,22 +316,49 @@ function isHeaderParagraph(paragraph: string): boolean {
  * Extract signature block (everything after valediction)
  */
 function extractSignature(text: string): { mainText: string; signature: string | null } {
-  // Try to find valediction
-  for (const valediction of VALEDICTIONS) {
-    const idx = text.lastIndexOf(valediction);
-    if (idx !== -1) {
+  const normalized = text.replace(/\r\n/g, '\n');
+  const lines = normalized.split('\n');
+
+  // Prefer explicit valediction lines as the start of signature block.
+  for (let idx = lines.length - 1; idx >= 0; idx -= 1) {
+    if (VALEDICTION_PATTERNS.some((pattern) => pattern.test(lines[idx].trim()))) {
       return {
-        mainText: text.substring(0, idx).trim(),
-        signature: text.substring(idx).trim(),
+        mainText: lines.slice(0, idx).join('\n').trim(),
+        signature: lines.slice(idx).join('\n').trim(),
       };
     }
   }
-  
-  // No valediction found - check if last "paragraph" looks like a signature
-  const paragraphs = text.split(/\n\s*\n/);
+
+  // Fallback: capture trailing signature/contact blocks even without valediction.
+  const paragraphs = normalized
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0);
+
+  if (paragraphs.length > 1) {
+    const trailingSignatureParagraphs: string[] = [];
+
+    for (let idx = paragraphs.length - 1; idx >= 0; idx -= 1) {
+      if (!isLikelySignatureParagraph(paragraphs[idx])) {
+        break;
+      }
+      trailingSignatureParagraphs.unshift(paragraphs[idx]);
+    }
+
+    const trailingSignatureText = trailingSignatureParagraphs.join('\n\n');
+    if (
+      trailingSignatureParagraphs.length >= 2 ||
+      hasStrongSignatureSignal(trailingSignatureText)
+    ) {
+      return {
+        mainText: paragraphs.slice(0, paragraphs.length - trailingSignatureParagraphs.length).join('\n\n').trim(),
+        signature: trailingSignatureText.trim(),
+      };
+    }
+  }
+
+  // Last resort: a trailing short line without punctuation is likely a name/signature fragment.
   const last = paragraphs[paragraphs.length - 1]?.trim();
-  
-  // Heuristic: if last paragraph is < 30 chars and has no punctuation, likely a name
   if (last && last.length < 30 && !/[.!?]/.test(last)) {
     return {
       mainText: paragraphs.slice(0, -1).join('\n\n').trim(),
@@ -335,6 +368,55 @@ function extractSignature(text: string): { mainText: string; signature: string |
   
   // No signature detected
   return { mainText: text, signature: null };
+}
+
+function isLikelySignatureParagraph(paragraph: string): boolean {
+  const trimmed = paragraph.trim();
+  if (!trimmed) return true;
+
+  if (VALEDICTION_PATTERNS.some((pattern) => pattern.test(trimmed))) {
+    return true;
+  }
+
+  if (isSignatureClearanceLine(trimmed)) {
+    return true;
+  }
+
+  if (/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/.test(trimmed)) {
+    return true;
+  }
+
+  if (/\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/.test(trimmed)) {
+    return true;
+  }
+
+  if (isContactPlaceholder(trimmed)) {
+    return true;
+  }
+
+  if (/^[A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){0,3}$/.test(trimmed) && trimmed.length <= 40) {
+    return true;
+  }
+
+  return false;
+}
+
+function hasStrongSignatureSignal(text: string): boolean {
+  return (
+    text.split('\n').some((line) => VALEDICTION_PATTERNS.some((pattern) => pattern.test(line.trim()))) ||
+    /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/.test(text) ||
+    /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/.test(text) ||
+    text.split('\n').some((line) => isContactPlaceholder(line.trim())) ||
+    text.split('\n').some((line) => isSignatureClearanceLine(line.trim()))
+  );
+}
+
+function isContactPlaceholder(value: string): boolean {
+  return /^\[(?:your\s+)?(?:full\s+)?(?:name|phone(?:\s+number)?|email(?:\s+address)?|address|contact(?:\s+info)?|linkedin(?:\s+url)?|portfolio|website)\]$/i.test(value);
+}
+
+function isSignatureClearanceLine(value: string): boolean {
+  return /^(?:active\s+)?(?:top\s+secret(?:\/sci)?|ts\/sci|secret)(?:\s+security)?\s+clearance\.?$/i.test(value);
 }
 
 /**
@@ -418,6 +500,8 @@ function tokenizeCompanyName(text: string, companyName: string): string {
  * 3. Closing (closing paragraph + signature combined in one section)
  */
 export function convertToSavedSections(parsed: ParsedCoverLetter) {
+  const normalized = normalizeParsedForSections(parsed);
+  const boundedBodyParagraphs = limitBodyParagraphCount(normalized.bodyParagraphs);
   const sections: Array<{
     slug: string;
     title: string;
@@ -429,22 +513,22 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
   let order = 0;
   
   // Extract company name from greeting for tokenization
-  const companyName = extractCompanyNameFromGreeting(parsed.greeting);
+  const companyName = extractCompanyNameFromGreeting(normalized.greeting);
 
   // Build introduction content by combining greeting + intro with tokenized company name
   const introParts: string[] = [];
 
-  if (parsed.greeting || parsed.introduction) {
-    const greetingTemplate = parsed.greeting
-      ? parsed.greeting.replace(/Dear .+?,/, 'Dear [COMPANY-NAME] team,')
+  if (normalized.greeting || normalized.introduction) {
+    const greetingTemplate = normalized.greeting
+      ? normalized.greeting.replace(/Dear .+?,/, 'Dear [COMPANY-NAME] team,')
       : 'Dear [COMPANY-NAME] team,';
 
     introParts.push(greetingTemplate.trim());
 
-    if (parsed.introduction) {
+    if (normalized.introduction) {
       const introBody = companyName
-        ? tokenizeCompanyName(parsed.introduction, companyName)
-        : parsed.introduction;
+        ? tokenizeCompanyName(normalized.introduction, companyName)
+        : normalized.introduction;
       introParts.push(introBody.trim());
     }
   }
@@ -463,7 +547,7 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
   }
   
   // Body paragraphs (dynamic - will be replaced with stories post-onboarding, but tokenize company name)
-  parsed.bodyParagraphs.forEach((body, idx) => {
+  boundedBodyParagraphs.forEach((body, idx) => {
     sections.push({
       slug: `body-${idx + 1}`,
       title: `Body Paragraph ${idx + 1}`,
@@ -475,11 +559,11 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
   
   // Closing (static - closing paragraph + signature combined, reused as-is, but tokenize company name)
   const closingParts: string[] = [];
-  if (parsed.closing) {
-    closingParts.push(companyName ? tokenizeCompanyName(parsed.closing, companyName) : parsed.closing);
+  if (normalized.closing) {
+    closingParts.push(companyName ? tokenizeCompanyName(normalized.closing, companyName) : normalized.closing);
   }
-  if (parsed.signature) {
-    closingParts.push(parsed.signature);
+  if (normalized.signature) {
+    closingParts.push(normalized.signature);
   }
   
   if (closingParts.length > 0) {
@@ -493,4 +577,52 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
   }
   
   return sections;
+}
+
+function normalizeParsedForSections(parsed: ParsedCoverLetter): ParsedCoverLetter {
+  if (parsed.signature?.trim()) {
+    return {
+      ...parsed,
+      signature: parsed.signature.trim(),
+    };
+  }
+
+  const bodyParagraphs = [...parsed.bodyParagraphs];
+  let closing = parsed.closing;
+  const signatureParts: string[] = [];
+
+  if (closing && isLikelySignatureParagraph(closing)) {
+    signatureParts.unshift(closing.trim());
+    closing = bodyParagraphs.pop() ?? '';
+  }
+
+  while (bodyParagraphs.length > 0 && isLikelySignatureParagraph(bodyParagraphs[bodyParagraphs.length - 1])) {
+    const signatureFragment = bodyParagraphs.pop();
+    if (!signatureFragment) {
+      break;
+    }
+    signatureParts.unshift(signatureFragment.trim());
+  }
+
+  return {
+    ...parsed,
+    bodyParagraphs,
+    closing,
+    signature: signatureParts.length > 0 ? signatureParts.join('\n\n') : null,
+  };
+}
+
+function limitBodyParagraphCount(bodyParagraphs: string[]): string[] {
+  if (bodyParagraphs.length <= MAX_BODY_SECTION_COUNT) {
+    return bodyParagraphs;
+  }
+
+  if (MAX_BODY_SECTION_COUNT <= 1) {
+    return [bodyParagraphs.join('\n\n').trim()];
+  }
+
+  const kept = bodyParagraphs.slice(0, MAX_BODY_SECTION_COUNT - 1);
+  const overflowMerged = bodyParagraphs.slice(MAX_BODY_SECTION_COUNT - 1).join('\n\n').trim();
+  kept.push(overflowMerged);
+  return kept;
 }
