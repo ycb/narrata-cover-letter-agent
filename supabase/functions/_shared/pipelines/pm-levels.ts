@@ -608,39 +608,176 @@ function buildCompetencyEvidence(
 ) {
   const dimensions = ['execution', 'customer_insight', 'strategy', 'influence'] as const;
   const keywordMap: Record<typeof dimensions[number], string[]> = {
-    execution: ['launched', 'shipped', 'delivered', 'implemented', 'built', 'executed', 'released', 'rollout', 'experiment', 'a/b', 'conversion', 'retention'],
-    customer_insight: ['user', 'customer', 'research', 'feedback', 'interview', 'survey', 'persona', 'ux', 'analytics'],
-    strategy: ['roadmap', 'vision', 'strategy', 'okr', 'kpi', 'goal', 'market', 'competitive', 'framework'],
-    influence: ['stakeholder', 'alignment', 'executive', 'cross-functional', 'buy-in', 'presentation', 'collaboration', 'negotiation'],
+    execution: [
+      'launch', 'ship', 'deliver', 'implement', 'build', 'execute', 'release',
+      'rollout', 'experiment', 'a/b', 'conversion', 'retention', 'activation',
+      'adoption', 'scale'
+    ],
+    customer_insight: [
+      'user', 'customer', 'research', 'feedback', 'interview', 'survey',
+      'persona', 'ux', 'insight', 'analytics'
+    ],
+    strategy: [
+      'roadmap', 'vision', 'strategy', 'strategic', 'okr', 'kpi', 'goal',
+      'objective', 'market', 'competitive', 'framework', 'priorit', 'business model'
+    ],
+    influence: [
+      'stakeholder', 'alignment', 'aligned', 'executive', 'cross-functional',
+      'buy-in', 'presentation', 'collaboration', 'partner', 'negotiat',
+      'consensus', 'leadership', 'influence'
+    ],
   };
+
+  const normalize = (value: unknown): string =>
+    String(value || '')
+      .toLowerCase()
+      .replace(/[-_/]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const toMetricText = (metric: any): string =>
+    `${metric?.value || ''} ${metric?.context || ''}`.trim();
+
+  const workById = new Map((workHistory || []).map((work: any) => [work.id, work]));
+
+  type EvidenceCandidate = {
+    id: string;
+    title: string;
+    content: string;
+    tags: string[];
+    sourceRole: string;
+    sourceCompany: string;
+    lastUsed: string;
+    outcomeMetrics: string[];
+    searchableText: string;
+    isStory: boolean;
+  };
+
+  const candidates: EvidenceCandidate[] = [];
+
+  (stories || []).forEach((story: any) => {
+    const work = story?.work_item_id ? workById.get(story.work_item_id) : null;
+    const storyTags = Array.isArray(story.tags) ? story.tags.filter(Boolean) : [];
+    const workTags = Array.isArray(work?.tags) ? work.tags.filter(Boolean) : [];
+    const achievements = Array.isArray(work?.achievements) ? work.achievements.filter(Boolean) : [];
+    const storyMetrics = Array.isArray(story.metrics)
+      ? story.metrics.map((m: any) => toMetricText(m)).filter(Boolean)
+      : [];
+    const workMetrics = Array.isArray(work?.metrics)
+      ? work.metrics.map((m: any) => toMetricText(m)).filter(Boolean)
+      : [];
+
+    const textParts = [
+      story.title,
+      story.content,
+      ...storyTags,
+      work?.title,
+      work?.description,
+      ...workTags,
+      ...achievements,
+    ].filter(Boolean);
+
+    candidates.push({
+      id: story.id,
+      title: story.title || 'Untitled story',
+      content: story.content || '',
+      tags: [...new Set([...storyTags, ...workTags])],
+      sourceRole: work?.title || story.work_item_title || story.title || '',
+      sourceCompany: work?.companies?.name || story.company || '',
+      lastUsed: story.updated_at || story.created_at || new Date().toISOString(),
+      outcomeMetrics: [...new Set([...storyMetrics, ...workMetrics])],
+      searchableText: normalize(textParts.join(' ')),
+      isStory: true,
+    });
+  });
+
+  // Add work-history evidence so competencies can be grounded even with sparse story text.
+  (workHistory || []).forEach((work: any) => {
+    const tags = Array.isArray(work.tags) ? work.tags.filter(Boolean) : [];
+    const achievements = Array.isArray(work.achievements) ? work.achievements.filter(Boolean) : [];
+    const metrics = Array.isArray(work.metrics)
+      ? work.metrics.map((m: any) => toMetricText(m)).filter(Boolean)
+      : [];
+    const title = work.title || 'Work history entry';
+    const content = [work.description, ...achievements].filter(Boolean).join('. ');
+    const textParts = [title, work.description, ...tags, ...achievements].filter(Boolean);
+
+    candidates.push({
+      id: `work-item-${work.id}`,
+      title,
+      content,
+      tags,
+      sourceRole: title,
+      sourceCompany: work?.companies?.name || work?.company || '',
+      lastUsed: work.updated_at || work.created_at || new Date().toISOString(),
+      outcomeMetrics: [...new Set(metrics)],
+      searchableText: normalize(textParts.join(' ')),
+      isStory: false,
+    });
+  });
 
   const evidence: any = {};
   for (const dim of dimensions) {
-    const matched: any[] = [];
+    const matched: Array<{ item: any; score: number }> = [];
     const matchedTags = new Set<string>();
-    stories.forEach((story: any) => {
-      const content = `${story.title || ''} ${story.content || ''}`.toLowerCase();
-      const hits = keywordMap[dim].filter((k) => content.includes(k));
-      if (hits.length > 0) {
-        matched.push({
-          id: story.id,
-          title: story.title,
-          content: story.content,
-          tags: story.tags || [],
-          sourceRole: story.work_item_title || story.title || '',
-          sourceCompany: story.company || '',
-          lastUsed: story.updated_at || story.created_at,
-          timesUsed: 1,
-          confidence: hits.length > 3 ? 'high' : hits.length > 1 ? 'medium' : 'low',
-          outcomeMetrics: Array.isArray(story.metrics) ? story.metrics.map((m: any) => `${m.value || ''} ${m.context || ''}`.trim()).filter(Boolean) : [],
-          levelAssessment: 'meets',
+    const terms = keywordMap[dim];
+
+    candidates.forEach((candidate) => {
+      const keywordHits: string[] = [];
+      terms.forEach((term) => {
+        const normalizedTerm = normalize(term);
+        if (normalizedTerm && candidate.searchableText.includes(normalizedTerm)) {
+          keywordHits.push(term);
+        }
+      });
+
+      const tagHits = (candidate.tags || []).filter((tag) => {
+        const normalizedTag = normalize(tag);
+        return terms.some((term) => {
+          const normalizedTerm = normalize(term);
+          return normalizedTag.includes(normalizedTerm) || normalizedTerm.includes(normalizedTag);
         });
-        hits.forEach((h) => matchedTags.add(h));
-      }
+      });
+
+      const uniqueHits = [...new Set([...keywordHits, ...tagHits])];
+      if (uniqueHits.length === 0) return;
+
+      uniqueHits.forEach((hit) => matchedTags.add(hit));
+      tagHits.forEach((hit) => matchedTags.add(hit));
+
+      const score =
+        uniqueHits.length +
+        Math.min(candidate.outcomeMetrics.length, 2) +
+        (candidate.isStory ? 1 : 0);
+      const confidence =
+        uniqueHits.length >= 4 ? 'high' : uniqueHits.length >= 2 ? 'medium' : 'low';
+
+      matched.push({
+        score,
+        item: {
+          id: candidate.id,
+          title: candidate.title,
+          content: candidate.content,
+          tags: candidate.tags || [],
+          sourceRole: candidate.sourceRole,
+          sourceCompany: candidate.sourceCompany,
+          lastUsed: candidate.lastUsed,
+          timesUsed: 1,
+          confidence,
+          outcomeMetrics: candidate.outcomeMetrics,
+          levelAssessment: 'meets',
+        },
+      });
     });
+
+    matched.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return new Date(b.item.lastUsed).getTime() - new Date(a.item.lastUsed).getTime();
+    });
+
     evidence[dim] = {
       competency: dim,
-      evidence: matched.slice(0, 10),
+      evidence: matched.slice(0, 10).map((entry) => entry.item),
       matchedTags: Array.from(matchedTags),
       overallConfidence: competencies[dim] && competencies[dim] >= 6 ? 'high' : competencies[dim] >= 4 ? 'medium' : 'low',
     };

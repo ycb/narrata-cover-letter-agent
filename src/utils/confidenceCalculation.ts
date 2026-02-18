@@ -145,9 +145,17 @@ export function calculateEvidenceBasedConfidence({
   }
   // 3+ stories: no cap (can reach 100% with strong evidence)
 
+  // Preserve low-but-nonzero confidence when model sees signal but evidence is sparse.
+  if (evidenceCount === 0 && tagCount === 0 && competencyScore !== undefined && competencyScore > 0) {
+    const sparseEvidenceFloor =
+      competencyScore >= 2.5 ? 20 :
+      competencyScore >= 1.5 ? 15 :
+      10;
+    finalConfidence = Math.max(finalConfidence, sparseEvidenceFloor);
+  }
+
   // Clamp between 0 and 100
   finalConfidence = Math.max(0, Math.min(100, finalConfidence));
 
   return Math.round(finalConfidence);
 }
-

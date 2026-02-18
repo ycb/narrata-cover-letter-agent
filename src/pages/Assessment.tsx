@@ -166,28 +166,44 @@ const transformLevelData = (levelData: any) => {
     "Influencing People": "influence",
   };
 
-  const getEvidenceBasedScore = (domain: string, rawScore: number): number => {
+  const getEvidenceBasedScore = (
+    domain: string,
+    rawScore: number
+  ): { score: number; insufficientEvidence: boolean } => {
     const dimensionKey = dimensionMap[domain];
     const evidence = evidenceByCompetency?.[dimensionKey];
 
     if (evidence) {
-      return calculateEvidenceBasedConfidence({
-        competencyScore: rawScore,
-        evidence: evidence.evidence || [],
-        matchedTags: evidence.matchedTags || [],
-        overallConfidence: evidence.overallConfidence,
-      });
+      const storyCount = Array.isArray(evidence.evidence) ? evidence.evidence.length : 0;
+      const tagCount = Array.isArray(evidence.matchedTags) ? evidence.matchedTags.length : 0;
+      const insufficientEvidence = storyCount === 0 && tagCount === 0;
+
+      return {
+        score: calculateEvidenceBasedConfidence({
+          competencyScore: rawScore,
+          evidence: evidence.evidence || [],
+          matchedTags: evidence.matchedTags || [],
+          overallConfidence: evidence.overallConfidence,
+        }),
+        insufficientEvidence,
+      };
     }
 
-    return scoreToPercentage(rawScore);
+    return { score: scoreToPercentage(rawScore), insufficientEvidence: false };
   };
+
+  const executionDisplay = getEvidenceBasedScore("Product Execution", competencyScores.execution || 0);
+  const customerDisplay = getEvidenceBasedScore("Customer Insight", competencyScores.customer_insight || 0);
+  const strategyDisplay = getEvidenceBasedScore("Product Strategy", competencyScores.strategy || 0);
+  const influenceDisplay = getEvidenceBasedScore("Influencing People", competencyScores.influence || 0);
 
   const competencies = [
     {
       domain: "Product Execution",
-      score: getEvidenceBasedScore("Product Execution", competencyScores.execution || 0),
-      level: getCompetencyLevel(getEvidenceBasedScore("Product Execution", competencyScores.execution || 0)),
+      score: executionDisplay.score,
+      level: executionDisplay.insufficientEvidence ? "Needs Evidence" : getCompetencyLevel(executionDisplay.score),
       rawScore: competencyScores.execution || 0,
+      insufficientEvidence: executionDisplay.insufficientEvidence,
       evidence: signals?.execution_evidence || "Based on your work history and achievements",
       tags: ["Execution", "Delivery", "Technical"],
       description: "Measures your ability to deliver products effectively",
@@ -195,9 +211,10 @@ const transformLevelData = (levelData: any) => {
     },
     {
       domain: "Customer Insight",
-      score: getEvidenceBasedScore("Customer Insight", competencyScores.customer_insight || 0),
-      level: getCompetencyLevel(getEvidenceBasedScore("Customer Insight", competencyScores.customer_insight || 0)),
+      score: customerDisplay.score,
+      level: customerDisplay.insufficientEvidence ? "Needs Evidence" : getCompetencyLevel(customerDisplay.score),
       rawScore: competencyScores.customer_insight || 0,
+      insufficientEvidence: customerDisplay.insufficientEvidence,
       evidence: signals?.customer_evidence || "Based on your user research and customer focus",
       tags: ["Research", "User Experience", "Customer"],
       description: "Assesses your understanding of user needs",
@@ -205,9 +222,10 @@ const transformLevelData = (levelData: any) => {
     },
     {
       domain: "Product Strategy",
-      score: getEvidenceBasedScore("Product Strategy", competencyScores.strategy || 0),
-      level: getCompetencyLevel(getEvidenceBasedScore("Product Strategy", competencyScores.strategy || 0)),
+      score: strategyDisplay.score,
+      level: strategyDisplay.insufficientEvidence ? "Needs Evidence" : getCompetencyLevel(strategyDisplay.score),
       rawScore: competencyScores.strategy || 0,
+      insufficientEvidence: strategyDisplay.insufficientEvidence,
       evidence: signals?.strategy_evidence || "Based on your strategic initiatives",
       tags: ["Strategy", "Vision", "Roadmap"],
       description: "Evaluates your strategic thinking and planning",
@@ -215,9 +233,10 @@ const transformLevelData = (levelData: any) => {
     },
     {
       domain: "Influencing People",
-      score: getEvidenceBasedScore("Influencing People", competencyScores.influence || 0),
-      level: getCompetencyLevel(getEvidenceBasedScore("Influencing People", competencyScores.influence || 0)),
+      score: influenceDisplay.score,
+      level: influenceDisplay.insufficientEvidence ? "Needs Evidence" : getCompetencyLevel(influenceDisplay.score),
       rawScore: competencyScores.influence || 0,
+      insufficientEvidence: influenceDisplay.insufficientEvidence,
       evidence: signals?.influence_evidence || "Based on your leadership examples",
       tags: ["Leadership", "Collaboration", "Stakeholder"],
       description: "Measures your ability to lead and influence",
@@ -990,6 +1009,7 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
                     domain={competency.domain}
                     level={competency.level}
                     score={competency.score}
+                    insufficientEvidence={Boolean(competency.insufficientEvidence)}
                     description={competency.description}
                     onViewEvidence={() => handleShowEvidence(competency)}
                   />
