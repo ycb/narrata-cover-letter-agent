@@ -35,7 +35,6 @@ import { ContentStandardsEvaluationService } from './contentStandardsEvaluationS
 import { aggregateContentStandards, extractSectionsMeta, mapDraftSectionType } from './contentStandardsService';
 import type { ContentStandardsAnalysis, SectionStandardResult, LetterStandardResult } from '@/types/coverLetters';
 import type { DraftReadinessEvaluation } from '@/types/coverLetters';
-import { isDraftReadinessEnabled } from '@/lib/flags';
 import { parseLlmSlotTokens, replaceAllLiteral, replaceSlotTokenWithPunctuation } from '@/lib/coverLetterSlots';
 import type {
   DraftCoverLetterEvalEvent,
@@ -539,10 +538,6 @@ export class CoverLetterDraftService {
    * - Returns normalized JSON per spec
    */
   async getReadinessEvaluation(draftId: string): Promise<DraftReadinessEvaluation | null> {
-    if (!isDraftReadinessEnabled()) {
-      throw new DraftReadinessFeatureDisabledError();
-    }
-
     // Read cached evaluation
     const { data: row } = await this.supabaseClient
       .from('draft_quality_evaluations')

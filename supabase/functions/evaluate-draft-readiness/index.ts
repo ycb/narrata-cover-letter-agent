@@ -90,16 +90,6 @@ export function createEvaluateDraftReadinessHandler(
     }
 
     try {
-      if (deps.getEnv('ENABLE_DRAFT_READINESS') !== 'true') {
-        // Feature disabled — emit telemetry and exit
-        try {
-          elog.info('readiness_eval_disabled', {});
-        } catch {
-          /* no-op */
-        }
-        return json({ error: 'FEATURE_DISABLED' }, 403);
-      }
-
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
         return json({ error: 'Missing authorization header' }, 401);

@@ -1,12 +1,11 @@
 // TEST STATUS: PASSING - HIGH VALUE
-// Tests draft readiness API endpoint with feature flag enabled
+// Tests draft readiness API endpoint (always enabled)
 // Fixed: Mock persistence issue resolved (Dec 4, 2025)
 // Uses mockReturnValue instead of mockReturnValueOnce for consistent mocking
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import handler from '../[draftId]/readiness';
 import { CoverLetterDraftService, DraftReadinessFeatureDisabledError } from '@/services/coverLetterDraftService';
-import { isDraftReadinessEnabled } from '@/lib/flags';
 
 vi.mock('@supabase/supabase-js', () => {
   return {
@@ -31,10 +30,6 @@ vi.mock('@/services/coverLetterDraftService', () => {
     DraftReadinessFeatureDisabledError: MockDraftReadinessFeatureDisabledError,
   };
 });
-
-vi.mock('@/lib/flags', () => ({
-  isDraftReadinessEnabled: vi.fn(() => true),
-}));
 
 const { createClient } = await import('@supabase/supabase-js');
 
@@ -108,8 +103,6 @@ describe('API /api/drafts/[draftId]/readiness', () => {
     process.env.SUPABASE_URL = 'https://supabase.local';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role';
     process.env.SUPABASE_ANON_KEY = 'anon-key';
-    process.env.ENABLE_DRAFT_READINESS = 'true';
-    (isDraftReadinessEnabled as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
     
     // Set up default service mock
     mockService = {
@@ -123,7 +116,6 @@ describe('API /api/drafts/[draftId]/readiness', () => {
     delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     delete process.env.SUPABASE_ANON_KEY;
-    delete process.env.ENABLE_DRAFT_READINESS;
   });
 
   it('rejects non-GET methods', async () => {
@@ -136,19 +128,6 @@ describe('API /api/drafts/[draftId]/readiness', () => {
     await handler(req as any, res as any);
     expect(res.statusCode).toBe(405);
     expect(res.headers['Allow']).toBe('GET');
-  });
-
-  it('returns 503 when feature flag disabled', async () => {
-    (isDraftReadinessEnabled as unknown as ReturnType<typeof vi.fn>).mockReturnValue(false);
-    const req = {
-      method: 'GET',
-      headers: {},
-      query: { draftId: 'draft-1' },
-    };
-    const res = createResponse();
-    await handler(req as any, res as any);
-    expect(res.statusCode).toBe(503);
-    expect(res.body).toEqual({ error: 'disabled' });
   });
 
   it('returns 400 when draftId missing', async () => {
@@ -280,5 +259,4 @@ describe('API /api/drafts/[draftId]/readiness', () => {
     });
   });
 });
-
 

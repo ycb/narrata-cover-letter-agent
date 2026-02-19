@@ -1,7 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import { CoverLetterDraftService, DraftReadinessFeatureDisabledError } from '@/services/coverLetterDraftService';
-import { isDraftReadinessEnabled } from '@/lib/flags';
 
 type NextApiRequestLike = {
   method?: string;
@@ -93,10 +92,6 @@ const readinessHandler = async (req: NextApiRequestLike, res: NextApiResponseLik
     return handleMethodNotAllowed(res);
   }
 
-  if (!isDraftReadinessEnabled()) {
-    return res.status(503).json({ error: 'disabled' });
-  }
-
   const draftId = parseDraftId(req.query);
   if (!draftId) {
     return res.status(400).json({ error: 'missing_draft_id' });
@@ -171,5 +166,4 @@ const readinessHandler = async (req: NextApiRequestLike, res: NextApiResponseLik
 };
 
 export default readinessHandler;
-
 
