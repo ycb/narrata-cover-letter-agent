@@ -26,8 +26,7 @@ jobs:
     env:
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-      VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
-      OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
+      # VITE_OPENAI_API_KEY removed - OpenAI calls now happen server-side via Edge Functions
       VITE_LOGROCKET_APP_ID: ${{ secrets.VITE_LOGROCKET_APP_ID }}
       VITE_PENDO_API_KEY: ${{ secrets.VITE_PENDO_API_KEY }}
       VITE_MIXPANEL_TOKEN: ${{ secrets.VITE_MIXPANEL_TOKEN }}
@@ -73,8 +72,7 @@ jobs:
     env:
       VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-      VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
-      OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
+      # VITE_OPENAI_API_KEY removed - OpenAI calls now happen server-side via Edge Functions
       VITE_LOGROCKET_APP_ID: ${{ secrets.VITE_LOGROCKET_APP_ID }}
       VITE_PENDO_API_KEY: ${{ secrets.VITE_PENDO_API_KEY }}
       VITE_MIXPANEL_TOKEN: ${{ secrets.VITE_MIXPANEL_TOKEN }}

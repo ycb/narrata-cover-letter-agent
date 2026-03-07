@@ -12,8 +12,8 @@ jobs:
       CI: true
       VITE_SUPABASE_URL: https://example.com
       VITE_SUPABASE_ANON_KEY: test-anon-key
-      VITE_OPENAI_API_KEY: test-openai-key
-      OPENAI_API_KEY: test-openai-key
+      # VITE_OPENAI_API_KEY removed - OpenAI calls now happen server-side via Edge Functions
+      # OPENAI_API_KEY removed - no longer needed in tests
     steps:
       - name: Checkout
         uses: actions/checkout@v4

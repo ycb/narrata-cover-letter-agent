@@ -9,13 +9,13 @@
  */
 
 import { useState, useCallback } from 'react';
-import { GapResolutionStreamingService } from '@/services/gapResolutionStreamingService';
 import { CoverLetterVariationService, type VariationMetadata } from '@/services/coverLetterVariationService';
 import { MetricsUpdateService, type MetricsDelta } from '@/services/metricsUpdateService';
 import type { Gap } from '@/services/gapTransformService';
 import type { CoverLetterSection, DetailedMatchAnalysis } from '@/services/coverLetterDraftService';
 import type { MatchMetricsData } from '@/components/cover-letters/useMatchMetricsDetails';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 interface UseGapResolutionOptions {
   onMetricsUpdated?: (metrics: MatchMetricsData, delta: MetricsDelta) => void;
@@ -39,7 +39,6 @@ export function useGapResolution(options: UseGapResolutionOptions = {}) {
     error: null,
   });
 
-  const streamingService = new GapResolutionStreamingService();
   const metricsService = new MetricsUpdateService();
 
   /**
@@ -79,23 +78,28 @@ export function useGapResolution(options: UseGapResolutionOptions = {}) {
       }));
 
       try {
-        // 1. Generate content with streaming
-        const content = await streamingService.streamGapResolution(gap, jobDescription, {
-          onUpdate: (chunk) => {
-            setState(prev => ({
-              ...prev,
-              streamingContent: chunk,
-            }));
-          },
-          onError: (error) => {
-            setState(prev => ({
-              ...prev,
-              error,
-              isGenerating: false,
-            }));
-            options?.onError?.(error);
-          },
-        });
+        // 1. Generate content with streaming via Edge Function
+        const content = await streamGapResolutionViaEdgeFunction(
+          user.id,
+          gap,
+          jobDescription,
+          {
+            onUpdate: (chunk) => {
+              setState(prev => ({
+                ...prev,
+                streamingContent: chunk,
+              }));
+            },
+            onError: (error) => {
+              setState(prev => ({
+                ...prev,
+                error,
+                isGenerating: false,
+              }));
+              options?.onError?.(error);
+            },
+          }
+        );
 
         setState(prev => ({
           ...prev,
@@ -190,6 +194,10 @@ export function useGapResolution(options: UseGapResolutionOptions = {}) {
       },
       count: number = 3
     ): Promise<string[]> => {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
       setState(prev => ({
         ...prev,
         isGenerating: true,
@@ -197,7 +205,17 @@ export function useGapResolution(options: UseGapResolutionOptions = {}) {
       }));
 
       try {
-        const variations = await streamingService.generateVariations(gap, jobDescription, count);
+        // Generate variations by calling Edge Function multiple times
+        const variations: string[] = [];
+        for (let i = 0; i < count; i++) {
+          const content = await streamGapResolutionViaEdgeFunction(
+            user.id,
+            gap,
+            jobDescription,
+            {}
+          );
+          variations.push(content);
+        }
 
         setState(prev => ({
           ...prev,
@@ -216,7 +234,7 @@ export function useGapResolution(options: UseGapResolutionOptions = {}) {
         throw err;
       }
     },
-    [streamingService, options]
+    [user, options]
   );
 
   /**
@@ -237,5 +255,102 @@ export function useGapResolution(options: UseGapResolutionOptions = {}) {
     generateVariations,
     reset,
   };
+}
+
+/**
+ * Call Edge Function for gap resolution with SSE streaming
+ */
+async function streamGapResolutionViaEdgeFunction(
+  userId: string,
+  gap: Gap,
+  jobContext: {
+    role?: string;
+    company?: string;
+    coreRequirements?: string[];
+    preferredRequirements?: string[];
+  },
+  options: {
+    onUpdate?: (content: string) => void;
+    onError?: (error: Error) => void;
+  }
+): Promise<string> {
+  // Get auth session for token
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error('No active session');
+  }
+
+  const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-gap-resolution`;
+
+  return new Promise((resolve, reject) => {
+    let fullContent = '';
+    let eventSource: EventSource | null = null;
+
+    try {
+      // Create EventSource connection with auth token
+      eventSource = new EventSource(functionUrl + '?access_token=' + session.access_token);
+
+      // Send request body via fetch first (EventSource doesn't support POST body)
+      fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          gap: {
+            id: gap.id,
+            type: gap.type,
+            severity: gap.severity,
+            description: gap.description,
+            suggestion: gap.suggestion,
+          },
+          jobContext,
+        }),
+      }).catch(err => {
+        console.error('[useGapResolution] Fetch error:', err);
+        reject(err);
+      });
+
+      eventSource.addEventListener('start', () => {
+        console.log('[useGapResolution] Stream started');
+      });
+
+      eventSource.addEventListener('update', (e: MessageEvent) => {
+        const data = JSON.parse(e.data);
+        fullContent = data.content;
+        options.onUpdate?.(fullContent);
+      });
+
+      eventSource.addEventListener('complete', (e: MessageEvent) => {
+        const data = JSON.parse(e.data);
+        fullContent = data.content;
+        eventSource?.close();
+        resolve(fullContent);
+      });
+
+      eventSource.addEventListener('error', (e: Event) => {
+        console.error('[useGapResolution] SSE error:', e);
+        eventSource?.close();
+        const error = new Error('Stream error');
+        options.onError?.(error);
+        reject(error);
+      });
+
+      eventSource.onerror = (e) => {
+        console.error('[useGapResolution] Connection error:', e);
+        eventSource?.close();
+        const error = new Error('Connection failed');
+        options.onError?.(error);
+        reject(error);
+      };
+
+    } catch (error) {
+      eventSource?.close();
+      const err = error instanceof Error ? error : new Error('Unknown error');
+      options.onError?.(err);
+      reject(err);
+    }
+  });
 }
 

@@ -10,12 +10,8 @@ import { Sparkles, RefreshCw, ChevronDown } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { ContentGapBanner } from '@/components/shared/ContentGapBanner';
 import { SectionInspector, type SectionAttributionData } from '@/components/cover-letters/SectionInspector';
-import { GapResolutionStreamingServiceV2, type JobContextV2 } from '@/services/gapResolutionStreamingServiceV2';
-import {
-  HilReviewNotesStreamingService,
-  type ReviewNotes,
-  type ReviewSuggestion,
-} from '@/services/hilReviewNotesStreamingService';
+import { streamGapResolution, streamHilReview } from '@/utils/edgeFunctionHelpers';
+import type { ReviewNotes, ReviewSuggestion } from '@/services/hilReviewNotesStreamingService';
 import { useUserVoice } from '@/contexts/UserVoiceContext';
 import { getApplicableStandards } from '@/config/contentStandards';
 
@@ -220,9 +216,6 @@ export function ContentGenerationModalV3({
   const [saveToSavedSections, setSaveToSavedSections] = useState(false);
   const [saveToStories, setSaveToStories] = useState(false);
 
-  const generationService = useMemo(() => new GapResolutionStreamingServiceV2(), []);
-  const reviewService = useMemo(() => new HilReviewNotesStreamingService(), []);
-
   useEffect(() => {
     if (!isOpen) {
       setGeneratedContent('');
@@ -349,20 +342,22 @@ export function ContentGenerationModalV3({
 
     let finalContent = '';
     try {
-      finalContent = await generationService.streamGapResolutionV2(
-        gapForService,
-        effectiveJobContext,
+      finalContent = await streamGapResolution(
         {
-          userVoicePrompt: voice?.prompt,
-          sectionTitle: gapForService.paragraphId,
-          workHistorySummary,
-          draftCoverageSummary,
-          draftOutline,
+          gap: gapForService,
+          jobContext: effectiveJobContext,
+          hilContext: {
+            userVoicePrompt: voice?.prompt,
+            sectionTitle: gapForService.paragraphId,
+            workHistorySummary,
+            draftCoverageSummary,
+            draftOutline,
+          },
+          promptOptions: { allowNeedsInputPlaceholders: false },
         },
         {
           onUpdate: (partial) => setGeneratedContent(partial),
-        },
-        { allowNeedsInputPlaceholders: false },
+        }
       );
     } catch (error) {
       console.error('[ContentGenerationModalV3] Generation failed:', error);
@@ -386,10 +381,11 @@ export function ContentGenerationModalV3({
     if (!gapForService) return;
     const text = (textOverride ?? generatedContent).trim();
     if (!text) return;
-    if (!reviewService.isAvailable()) {
+
+    if (!text) {
       toast({
         title: 'Review unavailable',
-        description: 'OpenAI key is not configured.',
+        description: 'No content to review.',
         variant: 'destructive',
       });
       return;
@@ -404,7 +400,7 @@ export function ContentGenerationModalV3({
     setExpandedSuggestionId(null);
 
     try {
-      const raw = await reviewService.streamReviewNotes(
+      const raw = await streamHilReview(
         {
           originalGap: gapForService,
           job: effectiveJobContext,
@@ -505,11 +501,10 @@ export function ContentGenerationModalV3({
     if (!gapForService) return;
     if (!generatedContent.trim()) return;
     if (!s.anchor.trim()) return;
-    if (!reviewService.isAvailable()) return;
 
     setRegeneratingSuggestionId(s.id);
     try {
-      const raw = await reviewService.streamAlternativeSuggestion({
+      const raw = await streamHilReview({
         job: effectiveJobContext,
         context: {
           userVoicePrompt: voice?.prompt,
