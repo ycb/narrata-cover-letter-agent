@@ -294,7 +294,8 @@ export class ProviderService {
         (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
       if (!apiKey) {
-        throw new Error('OpenAI API key not configured');
+        console.warn('[ProviderService] No API key - skipping OpenAI provider initialization');
+        return; // Skip OpenAI initialization if no key
       }
 
       return {

@@ -28,9 +28,11 @@ export class LLMAnalysisService {
   constructor() {
     this.apiKey = (import.meta.env?.VITE_OPENAI_API_KEY) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) || '';
     this.baseUrl = 'https://api.openai.com/v1';
-    
+
+    // Note: API key is now optional as most operations use Edge Functions
+    // Only needed for legacy operations that haven't been migrated yet
     if (!this.apiKey) {
-      throw new Error('OpenAI API key not found. Please set VITE_OPENAI_API_KEY in your environment variables.');
+      console.warn('[OpenAIService] No API key found - only Edge Function operations will work');
     }
   }
 
