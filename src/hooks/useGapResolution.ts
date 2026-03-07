@@ -177,7 +177,7 @@ export function useGapResolution(options: UseGapResolutionOptions = {}) {
         throw err;
       }
     },
-    [user, streamingService, metricsService, options]
+    [user, metricsService, options]
   );
 
   /**

@@ -1,3 +1,18 @@
+/**
+ * @deprecated OpenAI Service - Client-Side API Calls Being Phased Out
+ * 
+ * SECURITY NOTICE: This service exposes OpenAI API keys in the client bundle.
+ * All functionality is being migrated to secure server-side Edge Functions.
+ * 
+ * Use the following Edge Functions instead:
+ * - Job description parsing: `supabase/functions/parse-job-description`
+ * - Gap resolution: `supabase/functions/stream-gap-resolution`
+ * - HIL review: `supabase/functions/stream-hil-review`
+ * - Story generation: `supabase/functions/generate-stories`
+ * 
+ * See `src/utils/edgeFunctionHelpers.ts` for helper functions.
+ */
+
 // OpenAI service for LLM analysis
 import { OPENAI_CONFIG } from '@/lib/config/fileUpload';
 import type { FileType } from '@/lib/config/fileUpload';

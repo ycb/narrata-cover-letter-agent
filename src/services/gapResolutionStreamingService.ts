@@ -1,4 +1,7 @@
 /**
+ * @deprecated This service uses client-side OpenAI API calls which are being phased out.
+ * For gap resolution, use the Edge Function via `src/utils/edgeFunctionHelpers.ts` instead.
+ * 
  * Gap Resolution Streaming Service
  * 
  * Generates content to address specific gaps using ai-sdk streaming.
@@ -26,7 +29,9 @@ export class GapResolutionStreamingService {
     this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
 
     if (!this.apiKey) {
-      console.error('[GapResolutionStreamingService] No API key found');
+      console.warn('[GapResolutionStreamingService] DEPRECATED: This service uses client-side OpenAI. Use Edge Functions instead via src/utils/edgeFunctionHelpers.ts');
+    } else {
+      console.warn('[GapResolutionStreamingService] DEPRECATED: Client-side OpenAI is being phased out. Migrate to Edge Functions.');
     }
 
     this.openai = createOpenAI({
