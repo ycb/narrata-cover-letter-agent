@@ -72,8 +72,11 @@ const createOpenAIClient = (apiKey?: string) => {
     (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
     (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
+  // API key is optional - job parsing now uses Edge Functions
   if (!key) {
-    throw new Error('OpenAI API key not configured. Set VITE_OPENAI_API_KEY or OPENAI_API_KEY.');
+    console.warn('[JobDescriptionService] No API key - operations will use Edge Functions');
+    // Return a dummy client that will fail gracefully if called
+    return createOpenAI({ apiKey: 'dummy-key-for-initialization' });
   }
 
   return createOpenAI({ apiKey: key });

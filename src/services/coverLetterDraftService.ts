@@ -148,8 +148,10 @@ const createDefaultMetricsStreamer = (): MetricsStreamer => {
     (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
     (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
+  // API key is optional - most operations now use Edge Functions
   if (!apiKey) {
-    throw new Error('OpenAI API key not configured. Set VITE_OPENAI_API_KEY or OPENAI_API_KEY.');
+    console.warn('[CoverLetterDraft] No API key - using Edge Functions only');
+    return ''; // Return empty string to allow service to instantiate
   }
 
   const client = createOpenAI({ apiKey });
@@ -1826,7 +1828,8 @@ export class CoverLetterDraftService {
       (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
     if (!apiKey) {
-      throw new Error('OpenAI API key not configured');
+      console.warn('[CoverLetterDraft.stream] No API key - metrics unavailable');
+      return { metrics: [], atsScore: 0, raw: {} };
     }
 
     const client = createOpenAI({ apiKey });
@@ -1948,7 +1951,8 @@ export class CoverLetterDraftService {
       (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
     if (!apiKey) {
-      throw new Error('OpenAI API key not configured');
+      console.warn('[EnhancedMetricsStreamer] No API key - using Edge Functions');
+      return { metrics: {}, enhancedMatchData: {} };
     }
 
     const client = createOpenAI({ apiKey });
@@ -2050,7 +2054,8 @@ export class CoverLetterDraftService {
       (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
 
     if (!apiKey) {
-      throw new Error('OpenAI API key not configured');
+      console.warn('[SectionStreamer] No API key - using Edge Functions');
+      return { section: '', raw: {}, ratingCriteria: [] };
     }
 
     const client = createOpenAI({ apiKey });
