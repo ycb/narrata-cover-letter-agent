@@ -1,5 +1,4 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, type TextStreamPart } from 'ai';
 import { OPENAI_CONFIG } from '@/lib/config/fileUpload';
 import { supabase } from '@/lib/supabase';
 import type { Database, Json } from '@/types/supabase';
@@ -13,7 +12,6 @@ import {
 } from '@/types/coverLetters';
 import { EvaluationEventLogger } from './evaluationEventLogger';
 import { StreamingTokenTracker } from '@/utils/streamingTokenTracker';
-import { buildJobDescriptionAnalysisPrompt } from '@/prompts/jobDescriptionAnalysis';
 
 type SupabaseClient = typeof supabase;
 
@@ -390,48 +388,6 @@ export class JobDescriptionService {
     this.now = options.now ?? (() => new Date());
   }
 
-  /**
-   * Calculate optimal token limit based on content analysis
-   * Uses same smart calculation from LLMAnalysisService
-   */
-  private calculateOptimalTokens(content: string, type: 'jobDescription' | 'metrics'): number {
-    // Improved token estimate (more accurate char-to-token ratio)
-    const contentTokens = Math.ceil(content.length / 3.5); // ~3.5 chars per token
-    
-    // Structured output overhead (JSON structure for JD parsing)
-    const structureOverhead = type === 'jobDescription' ? 600 : 1000; // JD is simpler than metrics
-    
-    // Complexity analysis
-    const lines = content.split('\n').length;
-    const bulletPoints = (content.match(/[•\-\*]\s/g) || []).length;
-    const sections = (content.match(/\n\s*\n/g) || []).length;
-    
-    // Calculate complexity multiplier
-    let complexityMultiplier = 1.0;
-    if (lines > 100 || bulletPoints > 20) complexityMultiplier = 1.3;
-    else if (lines > 50 || bulletPoints > 10) complexityMultiplier = 1.2;
-    else if (lines > 20 || bulletPoints > 5) complexityMultiplier = 1.1;
-    if (sections > 10) complexityMultiplier += 0.2;
-    
-    // Type-specific multiplier
-    const typeMultiplier = type === 'jobDescription' ? 0.4 : 0.8; // JD parsing is simpler
-    
-    // Calculate base output tokens needed
-    const baseOutputTokens = Math.ceil(contentTokens * complexityMultiplier * typeMultiplier);
-    
-    // Add structure overhead and safety buffer
-    const safetyBuffer = 1.5; // 50% safety buffer
-    const finalTokens = Math.ceil((baseOutputTokens + structureOverhead) * safetyBuffer);
-    
-    // Apply bounds: minimum 800, maximum 3000 for JD / 4000 for metrics
-    const maxTokens = type === 'jobDescription' ? 3000 : 4000;
-    const result = Math.max(800, Math.min(finalTokens, maxTokens));
-    
-    console.warn(`📊 Token calculation (${type}): ${content.length} chars → ${contentTokens} content tokens → ${result} max tokens (complexity: ${complexityMultiplier.toFixed(2)}x)`);
-    
-    return Math.floor(result);
-  }
-
   async parseJobDescription(
     content: string,
     options: ParseJobDescriptionOptions = {},
@@ -440,10 +396,8 @@ export class JobDescriptionService {
       throw new Error('Job description content must be at least 50 characters.');
     }
 
-    // If no OpenAI client, the calling code should use Edge Functions instead
-    if (!this.openAIClient) {
-      throw new Error('Job description parsing requires Edge Functions. Please use the stream-job Edge Function via useJobStream hook.');
-    }
+    // Call secure Edge Function instead of client-side OpenAI
+    options.onProgress?.('Analyzing job description via secure server...');
 
     let lastError: Error | null = null;
 
@@ -455,71 +409,42 @@ export class JobDescriptionService {
           await sleep(delay);
         }
 
-        // Use smart token calculation based on content length and complexity
-        const optimalTokens = this.calculateOptimalTokens(content.trim(), 'jobDescription');
-        options.onProgress?.(`Analyzing job description (${optimalTokens} tokens)…`);
+        const { data: { session } } = await this.supabaseClient.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('Authentication required for job description parsing');
+        }
 
-        // Build the new prompt from prompts/jobDescriptionAnalysis.ts
-        const userPrompt = buildJobDescriptionAnalysisPrompt(content.trim());
-
-        const result: any = await streamText({
-          model: this.openAIClient.chat(OPENAI_CONFIG.MODEL),
-          messages: [
-            {
-              role: 'user',
-              content: userPrompt,
-            },
-          ],
-          temperature: 0.2,
-          maxTokens: optimalTokens,
+        const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-job-description`;
+        
+        const response = await fetch(functionUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ content: content.trim() }),
           signal: options.signal,
-        } as any);
+        });
 
-        let aggregated = '';
-        let tokenSequence = 0;
-
-        const handleToken = (token: string) => {
-          aggregated += token;
-          tokenSequence++;
-          options.onToken?.(token, aggregated);
-        };
-
-        if (result?.textStream) {
-          for await (const chunk of result.textStream as AsyncIterable<TextStreamPart<string>>) {
-            const token =
-              typeof chunk === 'string'
-                ? chunk
-                : chunk && typeof chunk === 'object' && 'text' in chunk && typeof chunk.text === 'string'
-                ? chunk.text
-                : '';
-            if (!token) continue;
-            handleToken(token);
-          }
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+          throw new Error(errorData.error || `Edge Function error: ${response.status}`);
         }
 
-        if (!aggregated && typeof result?.text === 'string') {
-          aggregated = result.text;
-          options.onToken?.(aggregated, aggregated);
-        }
+        const result = await response.json();
 
-        if (!aggregated.trim()) {
+        if (!result.success || !result.parsed) {
           throw new Error('Job description analysis returned empty response.');
         }
 
-        const cleaned = cleanJsonResponse(aggregated);
-        let parsedJson: Record<string, unknown>;
-        try {
-          parsedJson = JSON.parse(cleaned);
-        } catch (error) {
-          console.error('[JobDescriptionService] Failed to parse JD JSON', error, { cleaned });
-          throw new Error('Failed to parse job description analysis. Please try again.');
-        }
+        options.onProgress?.('Job description analyzed successfully');
 
-        const parsed = await this.transformParsedResponse(parsedJson);
+        const parsed = await this.transformParsedResponse(result.parsed);
         if (!parsed.workType) {
           parsed.workType = inferWorkTypeFromText(content);
         }
-        return { parsed, raw: parsedJson };
+        
+        return { parsed, raw: result.raw };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error during JD parse');
         if (attempt === MAX_RETRIES) {
@@ -583,14 +508,6 @@ export class JobDescriptionService {
     content: string,
     options: ParseJobDescriptionOptions & { url?: string | null; syntheticProfileId?: string } = {},
   ): Promise<JobDescriptionRecord & { evaluationRunId?: string; sessionId?: string }> {
-    // Check if we have an OpenAI client available
-    if (!this.openAIClient) {
-      console.error('[JobDescriptionService.parseAndCreate] No OpenAI client available');
-      throw new Error(
-        'Job description parsing is currently unavailable. Please refresh the page and try again. If the issue persists, contact support.'
-      );
-    }
-
     const trimmedContent = content.trim();
     const checksum = computeTextChecksum(trimmedContent);
     const startTimestamp = this.now().getTime();

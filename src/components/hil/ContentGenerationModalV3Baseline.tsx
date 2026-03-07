@@ -13,11 +13,11 @@ import { useUserVoice } from '@/contexts/UserVoiceContext';
 import { ContentGenerationService } from '@/services/contentGenerationService';
 import type { Gap as GapRecord } from '@/services/gapDetectionService';
 import { clearDraft, loadDraft, saveDraft } from '@/lib/localDraft';
-import {
-  HilReviewNotesStreamingService,
-  type ReviewNotes,
-  type ReviewSuggestion,
-  type ReviewContentKind,
+import { streamHilReview } from '@/utils/edgeFunctionHelpers';
+import type {
+  ReviewNotes,
+  ReviewSuggestion,
+  ReviewContentKind,
 } from '@/services/hilReviewNotesStreamingService';
 import { cn } from '@/lib/utils';
 
@@ -225,7 +225,6 @@ export function ContentGenerationModalV3Baseline({
   }, [reviewNotes]);
 
   const generationService = useMemo(() => new ContentGenerationService(), []);
-  const reviewService = useMemo(() => new HilReviewNotesStreamingService(), []);
 
   const draftKey = useMemo(() => {
     const entity = entityType && entityId ? `${entityType}:${entityId}` : `gap:${gap?.id ?? 'unknown'}`;
@@ -526,7 +525,7 @@ export function ContentGenerationModalV3Baseline({
     setExpandedSuggestionId(null);
 
     try {
-      const raw = await reviewService.streamReviewNotesForContent(
+      const raw = await streamHilReview(
         {
           contentKind: kind,
           context: {
@@ -594,63 +593,13 @@ export function ContentGenerationModalV3Baseline({
   };
 
   const handleRegenerateSuggestion = async (s: ReviewSuggestion) => {
-    if (!reviewService.isAvailable()) return;
-    if (!generatedContent.trim()) return;
-    if (!s.anchor.trim()) return;
-    if (!entityType) return;
-
-    const kind = kindFromEntityType(entityType) as Exclude<ReviewContentKind, 'cover_letter_section'>;
-
-    setRegeneratingSuggestionId(s.id);
-    try {
-      const raw = await reviewService.streamAlternativeSuggestionForContent({
-        contentKind: kind,
-        context: {
-          userVoicePrompt: voice?.prompt,
-          sectionTitle: gap?.paragraphId,
-          workHistorySummary,
-          savedSectionType: entityType === 'saved_section' ? savedSectionType : undefined,
-        },
-        text: generatedContent,
-        anchor: s.anchor,
-        currentReplacement: s.replacement,
-      });
-
-      const parsed = safeParseJson<{ why?: string; anchor?: string; replacement?: string }>(raw);
-      if (!parsed || typeof parsed.replacement !== 'string') {
-        toast({
-          title: 'Could not regenerate',
-          description: 'Failed to parse an alternative replacement.',
-        });
-        return;
-      }
-
-      setReviewNotes((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          suggestions: prev.suggestions.map((existing) =>
-            existing.id === s.id
-              ? {
-                  ...existing,
-                  why: String(parsed.why || existing.why),
-                  anchor: String(parsed.anchor || existing.anchor),
-                  replacement: String(parsed.replacement || existing.replacement),
-                }
-              : existing,
-          ),
-        };
-      });
-    } catch (error) {
-      console.error('[ContentGenerationModalV3Baseline] Regenerate suggestion failed:', error);
-      toast({
-        title: 'Regenerate failed',
-        description: 'Unable to generate a new suggestion. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setRegeneratingSuggestionId(null);
-    }
+    // Alternative suggestion regeneration is not yet migrated to Edge Functions
+    // This feature will be available once the full HIL review Edge Function is expanded
+    toast({
+      title: 'Feature temporarily unavailable',
+      description: 'Suggestion regeneration will be available soon. You can manually edit the suggestion or request a new review.',
+    });
+    return;
   };
 
   return (
