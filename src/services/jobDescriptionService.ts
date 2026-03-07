@@ -583,6 +583,14 @@ export class JobDescriptionService {
     content: string,
     options: ParseJobDescriptionOptions & { url?: string | null; syntheticProfileId?: string } = {},
   ): Promise<JobDescriptionRecord & { evaluationRunId?: string; sessionId?: string }> {
+    // Check if we have an OpenAI client available
+    if (!this.openAIClient) {
+      console.error('[JobDescriptionService.parseAndCreate] No OpenAI client available');
+      throw new Error(
+        'Job description parsing is currently unavailable. Please refresh the page and try again. If the issue persists, contact support.'
+      );
+    }
+
     const trimmedContent = content.trim();
     const checksum = computeTextChecksum(trimmedContent);
     const startTimestamp = this.now().getTime();
