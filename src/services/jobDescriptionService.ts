@@ -75,8 +75,8 @@ const createOpenAIClient = (apiKey?: string) => {
   // API key is optional - job parsing now uses Edge Functions
   if (!key) {
     console.warn('[JobDescriptionService] No API key - operations will use Edge Functions');
-    // Return a dummy client that will fail gracefully if called
-    return createOpenAI({ apiKey: 'dummy-key-for-initialization' });
+    // Return null to signal that Edge Functions should be used
+    return null;
   }
 
   return createOpenAI({ apiKey: key });
@@ -381,7 +381,7 @@ const mapRowToRecord = (row: JobDescriptionRow): JobDescriptionRecord => {
 
 export class JobDescriptionService {
   private readonly supabaseClient: SupabaseClient;
-  private readonly openAIClient: ReturnType<typeof createOpenAI>;
+  private readonly openAIClient: ReturnType<typeof createOpenAI> | null;
   private readonly now: () => Date;
 
   constructor(options: JobDescriptionServiceOptions = {}) {
@@ -438,6 +438,11 @@ export class JobDescriptionService {
   ): Promise<{ parsed: ParsedJobDescription; raw: Record<string, unknown> }> {
     if (!content || content.trim().length < 50) {
       throw new Error('Job description content must be at least 50 characters.');
+    }
+
+    // If no OpenAI client, the calling code should use Edge Functions instead
+    if (!this.openAIClient) {
+      throw new Error('Job description parsing requires Edge Functions. Please use the stream-job Edge Function via useJobStream hook.');
     }
 
     let lastError: Error | null = null;
