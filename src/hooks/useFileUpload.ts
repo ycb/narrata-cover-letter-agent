@@ -799,13 +799,32 @@ export function useLinkedInUpload() {
             
             // Generate stories for the LinkedIn work_items that were just created
             try {
-              const { generateStoriesForWorkItems } = await import('@/services/storiesGenerationService');
               console.log(`📖 Generating stories for LinkedIn work_items...`);
-              const { storiesCreated, errors } = await generateStoriesForWorkItems(
-                user.id,
-                profileId,
-                import.meta.env.VITE_OPENAI_API_KEY
-              );
+              
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session) {
+                throw new Error('No active session');
+              }
+
+              const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-stories`;
+              const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  userId: user.id,
+                  sourceId: profileId,
+                }),
+              });
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Story generation failed');
+              }
+
+              const { storiesCreated, errors } = await response.json();
               console.log(`📖 Stories generation complete: ${storiesCreated} created, ${errors.length} errors`);
               if (errors.length > 0) {
                 console.warn(`📖 Story generation errors:`, errors);
