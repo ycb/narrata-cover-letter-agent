@@ -200,9 +200,9 @@ serve(async (req) => {
     }
 
     const data = await openaiResponse.json();
-    const content = data.choices?.[0]?.message?.content;
+    const responseContent = data.choices?.[0]?.message?.content;
 
-    if (!content) {
+    if (!responseContent) {
       console.error('[parse-job-description] No content in OpenAI response');
       return new Response(
         JSON.stringify({ error: 'Empty response from OpenAI' }),
@@ -211,7 +211,7 @@ serve(async (req) => {
     }
 
     // Clean and parse JSON response
-    const cleaned = content
+    const cleaned = responseContent
       .replace(/^```json\s*/i, '')
       .replace(/^```\s*/i, '')
       .replace(/```\s*$/i, '')
