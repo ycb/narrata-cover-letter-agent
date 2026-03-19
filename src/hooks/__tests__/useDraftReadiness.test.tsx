@@ -75,6 +75,7 @@ describe('useDraftReadiness', () => {
 
     await waitFor(() => expect(result.current.data).not.toBeNull());
     expect(result.current.data?.rating).toBe('strong');
+    expect(result.current.status).toBe('ready');
     expect(result.current.featureDisabled).toBe(false);
   });
 
@@ -88,6 +89,7 @@ describe('useDraftReadiness', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.data).toBeNull();
+    expect(result.current.status).toBe('pending');
     expect(result.current.featureDisabled).toBe(false);
   });
 
@@ -108,5 +110,24 @@ describe('useDraftReadiness', () => {
 
     await waitFor(() => expect(result.current.featureDisabled).toBe(true));
     expect(result.current.data).toBeNull();
+    expect(result.current.status).toBe('disabled');
+  });
+
+  it('returns error status on non-feature errors', async () => {
+    invokeMock.mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Internal server error',
+        context: { json: vi.fn().mockResolvedValue({ error: 'Internal server error' }) },
+      },
+    });
+
+    const { result } = renderHook(
+      () => useDraftReadiness({ draftId: 'draft-1', enabled: true }),
+      { wrapper: createWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.status).toBe('error');
   });
 });

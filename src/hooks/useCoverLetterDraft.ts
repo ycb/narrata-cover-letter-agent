@@ -279,11 +279,14 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
                 const updated = await service.getDraft(result.draft.id);
                 if (updated) {
                   setState(prev => {
+                    const phaseB = updated.llmFeedback?.phaseB as Record<string, any> | undefined;
+                    const sectionGapStatus = typeof phaseB?.sectionGaps?.status === 'string' ? phaseB.sectionGaps.status : null;
                     const hasGapInsights = updated.enhancedMatchData?.sectionGapInsights !== undefined;
+                    const phaseBTerminal = sectionGapStatus === 'success' || sectionGapStatus === 'error';
                     return {
                       ...prev,
                       draft: updated,
-                      ...(hasGapInsights ? { metricsLoading: false, pendingSectionInsights: {} } : null),
+                      ...(hasGapInsights || phaseBTerminal ? { metricsLoading: false, pendingSectionInsights: {} } : null),
                     };
                   });
                 }
@@ -327,8 +330,11 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
                 // arrive first.
                 const hasSectionGapInsights =
                   updatedDraft.enhancedMatchData?.sectionGapInsights !== undefined;
+                const phaseB = updatedDraft.llmFeedback?.phaseB as Record<string, any> | undefined;
+                const sectionGapStatus = typeof phaseB?.sectionGaps?.status === 'string' ? phaseB.sectionGaps.status : null;
+                const phaseBTerminal = sectionGapStatus === 'success' || sectionGapStatus === 'error';
 
-                if (hasSectionGapInsights) {
+                if (hasSectionGapInsights || phaseBTerminal) {
                   setState(prev => ({
                     ...prev,
                     draft: updatedDraft,
@@ -378,13 +384,16 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
   useEffect(() => {
     setState(prev => {
       const hasGapInsights = prev.draft?.enhancedMatchData?.sectionGapInsights !== undefined;
+      const phaseB = prev.draft?.llmFeedback?.phaseB as Record<string, any> | undefined;
+      const sectionGapStatus = typeof phaseB?.sectionGaps?.status === 'string' ? phaseB.sectionGaps.status : null;
+      const phaseBTerminal = sectionGapStatus === 'success' || sectionGapStatus === 'error';
 
-      if (prev.metricsLoading && hasGapInsights) {
+      if (prev.metricsLoading && (hasGapInsights || phaseBTerminal)) {
         return { ...prev, metricsLoading: false, pendingSectionInsights: {} };
       }
       return prev;
     });
-  }, [state.draft?.enhancedMatchData?.sectionGapInsights]);
+  }, [state.draft?.enhancedMatchData?.sectionGapInsights, state.draft?.llmFeedback?.phaseB]);
 
   const updateSection = useCallback<UseCoverLetterDraftReturn['updateSection']>(
     async ({ sectionId, content }) => {

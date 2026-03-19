@@ -3,7 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { isDraftReadinessEnabled } from '@/lib/flags';
 import { supabase } from '@/lib/supabase';
-import type { DraftReadinessEvaluation } from '@/types/coverLetters';
+import type {
+  DraftReadinessAvailability,
+  DraftReadinessEvaluation,
+} from '@/types/coverLetters';
 
 interface UseDraftReadinessOptions {
   draftId?: string | null;
@@ -40,7 +43,7 @@ export const useDraftReadiness = ({
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchInterval: false,
-    retry: 1,
+    retry: 0,
     queryFn: async () => {
       if (!normalizedDraftId) {
         throw new Error('Draft ID is required for readiness queries.');
@@ -158,9 +161,20 @@ export const useDraftReadiness = ({
 
   const readinessData = shouldFetch ? query.data?.readiness ?? null : null;
   const isLoading = shouldFetch ? query.isLoading || query.isFetching : false;
+  const status: DraftReadinessAvailability =
+    featureDisabled
+      ? 'disabled'
+      : query.isError || Boolean(query.error)
+      ? 'error'
+      : readinessData
+      ? 'ready'
+      : isLoading || shouldFetch
+      ? 'pending'
+      : 'pending';
 
   return {
     data: readinessData,
+    status,
     isLoading,
     isError: query.isError,
     error: query.error,
@@ -168,5 +182,3 @@ export const useDraftReadiness = ({
     refetch: query.refetch,
   };
 };
-
-

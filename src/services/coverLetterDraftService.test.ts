@@ -162,5 +162,106 @@ describe('CoverLetterDraftService story selection', () => {
     expect(sections[0].source.kind).toBe('work_story');
     expect(sections[0].source.entityId).toBe('clean-energy');
   });
+
+  it('never reuses a story once all unused stories are exhausted', () => {
+    const service = new CoverLetterDraftService({ supabaseClient: {} as any, jobDescriptionService: {} as any });
+
+    const templateSections: any[] = [
+      {
+        id: 'sec-1',
+        type: 'paragraph',
+        title: 'Body Paragraph 1',
+        contentType: 'work-history',
+        isStatic: false,
+        blurbCriteria: { goals: [] },
+        order: 1,
+      },
+      {
+        id: 'sec-2',
+        type: 'paragraph',
+        title: 'Body Paragraph 2',
+        contentType: 'work-history',
+        isStatic: false,
+        blurbCriteria: { goals: [] },
+        order: 2,
+      },
+      {
+        id: 'sec-3',
+        type: 'paragraph',
+        title: 'Body Paragraph 3',
+        contentType: 'work-history',
+        isStatic: false,
+        blurbCriteria: { goals: [] },
+        order: 3,
+      },
+    ];
+
+    const stories: any[] = [
+      {
+        id: 'story-a',
+        title: 'Story A',
+        content: 'Led strategy and roadmap execution with measurable delivery outcomes.',
+        tags: [],
+        times_used: 0,
+      },
+      {
+        id: 'story-b',
+        title: 'Story B',
+        content: 'Owned stakeholder alignment and cross-functional execution for a product launch.',
+        tags: [],
+        times_used: 0,
+      },
+    ];
+
+    const jobDescription: any = {
+      company: 'Acme',
+      role: 'Senior Product Manager',
+      summary: '',
+      standardRequirements: [],
+      preferredRequirements: [],
+      differentiatorRequirements: [],
+      boilerplateSignals: [],
+      differentiatorSignals: [],
+      keywords: ['strategy', 'execution'],
+      structuredInsights: {},
+      analysis: {},
+    };
+
+    const { sections } = (service as any).buildSections({
+      templateSections,
+      stories,
+      savedSections: [],
+      jobDescription,
+      userGoals: null,
+    });
+
+    expect(sections[0].source.entityId).toBe('story-a');
+    expect(sections[1].source.entityId).toBe('story-b');
+    expect(sections[2].source.kind).toBe('template_static');
+    expect(sections[2].metadata.storySelection?.selectionMode).toBe('no-unused-stories');
+    expect(sections[2].metadata.storySelection?.selectedStoryId).toBeNull();
+  });
 });
 
+describe('CoverLetterDraftService Phase B invocation', () => {
+  it('invokes the server-side phase B function instead of relying on a browser OpenAI key', async () => {
+    const invoke = vi.fn().mockResolvedValue({ data: { ok: true }, error: null });
+    const update = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) }));
+    const supabaseClient = {
+      functions: { invoke },
+      from: vi.fn(() => ({ update })),
+    } as any;
+
+    const service = new CoverLetterDraftService({ supabaseClient, jobDescriptionService: {} as any });
+    vi.spyOn(service, 'getDraft').mockResolvedValue({
+      enhancedMatchData: { coreRequirementDetails: [] },
+    } as any);
+
+    const result = await service.calculateMetricsForDraft('draft-1', 'user-1', 'job-1');
+
+    expect(invoke).toHaveBeenCalledWith('cover-letter-phase-b', {
+      body: { draftId: 'draft-1', mode: 'full' },
+    });
+    expect(result).toEqual({ coreRequirementDetails: [] });
+  });
+});

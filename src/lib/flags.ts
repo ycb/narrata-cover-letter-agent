@@ -1,9 +1,6 @@
-/**
- * Draft readiness is always enabled.
- * Keep this helper for call-site compatibility.
- */
 export function isDraftReadinessEnabled(): boolean {
-  return true;
+  const explicit = readBooleanEnv('ENABLE_DRAFT_READINESS') ?? readBooleanEnv('VITE_ENABLE_DRAFT_READINESS');
+  return explicit ?? false;
 }
 
 /**

@@ -19,7 +19,12 @@ import {
   type MatchJobDescription,
   type RequirementDisplayItem,
 } from './useMatchMetricsDetails';
-import type { EnhancedMatchData, DraftReadinessEvaluation } from '@/types/coverLetters';
+import type {
+  DraftReadinessAvailability,
+  DraftReadinessEvaluation,
+  EnhancedMatchData,
+  PhaseBRecord,
+} from '@/types/coverLetters';
 import type { ContentStandardsAnalysis } from '@/types/coverLetters';
 import type { APhaseInsights } from '@/types/jobs';
 import { isDraftReadinessEnabled } from '@/lib/flags';
@@ -47,13 +52,7 @@ interface MatchMetricsToolbarProps {
   draftId?: string;
   draftUpdatedAt?: string;
   refreshStartedAt?: string | null;
-  phaseBStatus?: {
-    completedAt?: string;
-    basicMetrics?: { completedAt?: string };
-    requirementAnalysis?: { completedAt?: string };
-    sectionGaps?: { completedAt?: string };
-    contentStandards?: { completedAt?: string };
-  } | null;
+  phaseBStatus?: PhaseBRecord | null;
   // Persisted MwS from draft (fallback when aPhaseInsights not available)
   draftMws?: {
     summaryScore: 0 | 1 | 2 | 3;
@@ -90,6 +89,7 @@ interface MatchMetricsToolbarContentProps extends MatchMetricsToolbarProps {
   ENABLE_DRAFT_READINESS: boolean;
   readinessFetchEnabled: boolean;
   readiness: DraftReadinessEvaluation | null;
+  readinessStatus: DraftReadinessAvailability;
   isReadinessLoading: boolean;
   readinessError: boolean;
   readinessErrorDetails: unknown;
@@ -131,6 +131,7 @@ export function MatchMetricsToolbar(props: MatchMetricsToolbarProps) {
         ENABLE_DRAFT_READINESS={ENABLE_DRAFT_READINESS}
         readinessFetchEnabled={readinessFetchEnabled}
         readiness={null}
+        readinessStatus={!ENABLE_DRAFT_READINESS ? 'disabled' : 'pending'}
         isReadinessLoading={false}
         readinessError={false}
         readinessErrorDetails={null}
@@ -158,6 +159,7 @@ function MatchMetricsToolbarWithReadiness(
   const { draftId, draftUpdatedAt, readinessFetchEnabled } = props;
   const {
     data: readiness,
+    status: readinessStatus,
     isLoading: readinessLoading,
     isError: readinessError,
     error: readinessErrorDetails,
@@ -174,6 +176,7 @@ function MatchMetricsToolbarWithReadiness(
     <MatchMetricsToolbarContent
       {...props}
       readiness={readiness ?? null}
+      readinessStatus={readinessStatus}
       isReadinessLoading={isReadinessLoading}
       readinessError={readinessError}
       readinessErrorDetails={readinessErrorDetails}
@@ -212,6 +215,7 @@ function MatchMetricsToolbarContent({
   ENABLE_DRAFT_READINESS,
   readinessFetchEnabled,
   readiness,
+  readinessStatus,
   isReadinessLoading,
   readinessError,
   readinessErrorDetails,
@@ -239,6 +243,7 @@ function MatchMetricsToolbarContent({
       readinessFetchEnabled,
       // 4. Hook response
       readinessLoading: isReadinessLoading,
+      readinessStatus,
       readinessError,
       errorDetails: readinessErrorDetails?.message,
       readinessFeatureDisabled,
@@ -263,7 +268,7 @@ function MatchMetricsToolbarContent({
   // Telemetry: readiness card viewed when it first appears
   useEffect(() => {
     if (!ENABLE_DRAFT_READINESS || !draftId) return;
-    const isVisible = Boolean(readiness || isReadinessLoading);
+    const isVisible = readinessStatus !== 'disabled' && (Boolean(readiness) || isReadinessLoading || readinessStatus === 'error');
     const alreadySentForDraft = viewedEventForDraftRef.current === draftId;
     if (isVisible && !alreadySentForDraft) {
       logReadinessEvent('ui_readiness_card_viewed', {
@@ -272,7 +277,7 @@ function MatchMetricsToolbarContent({
       });
       viewedEventForDraftRef.current = draftId;
     }
-  }, [ENABLE_DRAFT_READINESS, draftId, readiness, isReadinessLoading]);
+  }, [ENABLE_DRAFT_READINESS, draftId, readiness, isReadinessLoading, readinessStatus]);
 
   useEffect(() => {
     if (!draftId || !readiness?.rating || readinessFeatureDisabled) return;
@@ -416,9 +421,15 @@ function MatchMetricsToolbarContent({
   };
 
   const contentStandardsOverallScore = contentStandards?.aggregated?.overallScore ?? null;
-  const overallScoreValue = isStagePending(phaseBStatus?.completedAt ?? undefined)
-    ? null
-    : contentStandardsOverallScore ?? metrics.overallScore ?? null;
+  const overallStageStatus = phaseBStatus?.status;
+  const overallPending =
+    overallStageStatus === 'pending' ||
+    (!overallStageStatus && isStagePending(phaseBStatus?.completedAt ?? undefined));
+  const overallError =
+    overallStageStatus === 'error' ||
+    phaseBStatus?.contentStandards?.status === 'error' ||
+    phaseBStatus?.basicMetrics?.status === 'error';
+  const overallScoreValue = overallError ? null : contentStandardsOverallScore ?? metrics.overallScore ?? null;
 
   const contentStandardsCriteria = useMemo(() => {
     if (!contentStandards?.aggregated?.standards) return null;
@@ -737,12 +748,20 @@ function MatchMetricsToolbarContent({
 	      // 1) GAPS (Phase B) - shows count when gap data is available
 	      // gapsCount comes from enhancedMatchData which is B-phase, so check if it exists
       const hasGapData = enhancedMatchData?.sectionGapInsights !== undefined;
-      const gapsPending = isStagePending(phaseBStatus?.sectionGaps?.completedAt ?? undefined);
+      const gapStageStatus = phaseBStatus?.sectionGaps?.status;
+      const gapsPending =
+        gapStageStatus === 'pending' ||
+        (!gapStageStatus && isStagePending(phaseBStatus?.sectionGaps?.completedAt ?? undefined));
+      const gapsError = gapStageStatus === 'error';
       items.push({
         key: 'gaps',
         label: 'Gaps',
-        value: gapsPending ? null : hasGapData ? String(gapsCount) : (isLoading ? null : '—'),
-        badgeClass: gapsCount > 0 ? 'border-warning bg-warning/10 text-warning' : 'border-muted bg-muted/10 text-muted-foreground',
+        value: gapsPending ? null : gapsError ? 'Unavailable' : hasGapData ? String(gapsCount) : (isLoading ? null : '—'),
+        badgeClass: gapsError
+          ? 'border-muted bg-muted/10 text-muted-foreground'
+          : gapsCount > 0
+          ? 'border-warning bg-warning/10 text-warning'
+          : 'border-muted bg-muted/10 text-muted-foreground',
         disabled: false,
       });
 	    }
@@ -782,7 +801,10 @@ function MatchMetricsToolbarContent({
     // 4) CORE REQUIREMENTS (A-phase totals → B-phase mapping)
     // Fit check: never show "0/12" while requirementAnalysis is still running.
     // Show skeleton until we have A-phase requirement analysis data.
-    const requirementPending = isStagePending(phaseBStatus?.requirementAnalysis?.completedAt ?? undefined);
+    const requirementStageStatus = phaseBStatus?.requirementAnalysis?.status;
+    const requirementPending =
+      requirementStageStatus === 'pending' ||
+      (!requirementStageStatus && isStagePending(phaseBStatus?.requirementAnalysis?.completedAt ?? undefined));
     const coreValue = requirementPending
       ? null
       : (mode === 'fitCheck' && !hasAPhaseRequirementAnalysis)
@@ -825,12 +847,11 @@ function MatchMetricsToolbarContent({
 
     // 6) OVERALL SCORE (Phase B ONLY) - shows ONLY after draft generation complete
     // Must be !isLoading AND have real score - skeleton during all of Phase A
-    const overallPending = isStagePending(phaseBStatus?.completedAt ?? undefined);
-    const hasRealScore = !isLoading && !overallPending && overallScoreValue !== null;
+    const hasRealScore = !isLoading && !overallPending && !overallError && overallScoreValue !== null;
         items.push({
       key: 'rating',
       label: 'Overall Score',
-      value: hasRealScore ? `${overallScoreValue}%` : null, // Skeleton until Phase B complete
+      value: overallPending ? null : overallError ? 'Unavailable' : hasRealScore ? `${overallScoreValue}%` : '—',
       badgeClass: hasRealScore ? getScoreColor(overallScoreValue!) : 'border-muted bg-muted/10 text-muted-foreground',
           disabled: false,
         });
@@ -838,7 +859,7 @@ function MatchMetricsToolbarContent({
     // 7) DRAFT READINESS (Phase B) - only if feature enabled
     // Shows skeleton until readiness data arrives (independent of isLoading)
     // Uses unified labels: Exceptional | Strong | Adequate | Needs Work
-    if (ENABLE_DRAFT_READINESS) {
+    if (ENABLE_DRAFT_READINESS && !readinessFeatureDisabled) {
       const getUnifiedLabel = (rating: 'exceptional' | 'strong' | 'adequate' | 'weak' | undefined): string | null => {
         if (!rating) return null;
         switch (rating) {
@@ -851,13 +872,15 @@ function MatchMetricsToolbarContent({
       };
       const readinessEvaluatedAt = readiness?.evaluatedAt ? Date.parse(readiness.evaluatedAt) : null;
       const readinessPending =
+        readinessStatus === 'pending' ||
         isReadinessLoading ||
         (isRefreshLoading &&
           (!refreshStartMs ||
             !Number.isFinite(refreshStartMs) ||
             !readinessEvaluatedAt ||
             readinessEvaluatedAt < refreshStartMs));
-      const ratingLabel = readinessPending ? null : getUnifiedLabel(readiness?.rating);
+      const readinessUnavailable = readinessStatus === 'error';
+      const ratingLabel = readinessPending ? null : readinessUnavailable ? 'Unavailable' : getUnifiedLabel(readiness?.rating);
       const badgeClass =
         ratingLabel === 'Exceptional'
           ? 'border-success bg-success/10 text-success'
@@ -881,6 +904,8 @@ function MatchMetricsToolbarContent({
     goalsSummary, gapsCount, isLoading, 
     overallScoreValue, metrics.goalsMatchScore,
     isPostHIL, readiness, isReadinessLoading, ENABLE_DRAFT_READINESS, 
+    readinessStatus,
+    readinessFeatureDisabled,
     aPhaseInsights, hasMwsData, hasJdCounts, aPhaseCoreTot, aPhasePrefTot,
     effectiveMws, draftMws, // MwS persistence: use streaming OR draft data
     effectiveCoreRequirements,

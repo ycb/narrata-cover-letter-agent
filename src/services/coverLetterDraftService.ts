@@ -17,6 +17,8 @@ import type {
   DraftWorkpad,
   EnhancedMatchData,
   MatchStrength,
+  PhaseBRecord,
+  PhaseBStageRecord,
   ParsedJobDescription,
   RequirementCategory,
   RequirementInsight,
@@ -35,7 +37,6 @@ import { ContentStandardsEvaluationService } from './contentStandardsEvaluationS
 import { aggregateContentStandards, extractSectionsMeta, mapDraftSectionType } from './contentStandardsService';
 import type { ContentStandardsAnalysis, SectionStandardResult, LetterStandardResult } from '@/types/coverLetters';
 import type { DraftReadinessEvaluation } from '@/types/coverLetters';
-import { parseLlmSlotTokens, replaceAllLiteral, replaceSlotTokenWithPunctuation } from '@/lib/coverLetterSlots';
 import type {
   DraftCoverLetterEvalEvent,
   PhaseACompleteness,
@@ -122,13 +123,11 @@ export interface CoverLetterDraftServiceOptions {
   now?: () => Date;
 }
 
-interface TemplateRow
-  extends Database['public']['Tables']['cover_letter_templates']['Row'] {}
-interface CoverLetterRow extends Database['public']['Tables']['cover_letters']['Row'] {}
-interface SavedSectionRow extends Database['public']['Tables']['saved_sections']['Row'] {}
-interface StoryRow extends Database['public']['Tables']['stories']['Row'] {}
-interface WorkpadRow
-  extends Database['public']['Tables']['cover_letter_workpads']['Row'] {}
+type TemplateRow = Database['public']['Tables']['cover_letter_templates']['Row'];
+type CoverLetterRow = Database['public']['Tables']['cover_letters']['Row'];
+type SavedSectionRow = Database['public']['Tables']['saved_sections']['Row'];
+type StoryRow = Database['public']['Tables']['stories']['Row'];
+type WorkpadRow = Database['public']['Tables']['cover_letter_workpads']['Row'];
 
 const MATCH_PHASES: DraftGenerationPhase[] = [
   'jd_parse',
@@ -893,8 +892,126 @@ export class CoverLetterDraftService {
    * Called from generateDraftFast to calculate expensive LLM metrics.
    * Non-blocking - user can edit draft while this runs.
    *
-   * PHASE 2: Uses 3 parallel LLM calls for 1.6x speedup (45s vs 72s)
+   * Phase B now runs server-side via Supabase Edge Functions.
    */
+  private buildPhaseBErrorRecord(startedAt: string, message: string): PhaseBRecord {
+    const failedAt = this.now().toISOString();
+    const errorStage: PhaseBStageRecord = {
+      status: 'error',
+      startedAt,
+      failedAt,
+      message,
+    };
+
+    return {
+      status: 'error',
+      startedAt,
+      failedAt,
+      message,
+      basicMetrics: { ...errorStage },
+      requirementAnalysis: { ...errorStage },
+      sectionGaps: { ...errorStage },
+      contentStandards: { ...errorStage },
+    };
+  }
+
+  private async updateDraftFeedback(
+    draftId: string,
+    updater: (feedback: Record<string, unknown>) => Record<string, unknown>,
+  ): Promise<void> {
+    const { data, error } = await this.supabaseClient
+      .from('cover_letters')
+      .select('llm_feedback')
+      .eq('id', draftId)
+      .single();
+
+    if (error || !data) {
+      throw new Error('Draft not found');
+    }
+
+    const existingFeedback =
+      data.llm_feedback && typeof data.llm_feedback === 'object'
+        ? (data.llm_feedback as Record<string, unknown>)
+        : {};
+
+    await this.supabaseClient
+      .from('cover_letters')
+      .update({
+        llm_feedback: updater(existingFeedback) as unknown as Record<string, unknown>,
+        updated_at: this.now().toISOString(),
+      })
+      .eq('id', draftId);
+  }
+
+  private async persistPhaseBInvocationError(
+    draftId: string,
+    message: string,
+    mode: 'full' | 'section-gaps',
+    startedAt = this.now().toISOString(),
+  ): Promise<void> {
+    await this.updateDraftFeedback(draftId, (existingFeedback) => {
+      const existingPhaseB =
+        existingFeedback.phaseB && typeof existingFeedback.phaseB === 'object'
+          ? (existingFeedback.phaseB as Record<string, unknown>)
+          : {};
+
+      if (mode === 'section-gaps') {
+        return {
+          ...existingFeedback,
+          phaseB: {
+            ...existingPhaseB,
+            sectionGaps: {
+              status: 'error',
+              startedAt,
+              failedAt: this.now().toISOString(),
+              message,
+            },
+          },
+        };
+      }
+
+      return {
+        ...existingFeedback,
+        phaseB: this.buildPhaseBErrorRecord(startedAt, message),
+      };
+    });
+  }
+
+  private async invokeCoverLetterPhaseB(
+    draftId: string,
+    mode: 'full' | 'section-gaps' | 'slots-only',
+  ): Promise<Record<string, unknown>> {
+    const { data, error } = await this.supabaseClient.functions.invoke('cover-letter-phase-b', {
+      body: { draftId, mode },
+    });
+
+    if (error) {
+      let errorBody: Record<string, unknown> | null = null;
+      const maybeContext = (error as any)?.context;
+      if (maybeContext && typeof maybeContext.json === 'function') {
+        try {
+          errorBody = await maybeContext.json();
+        } catch {
+          errorBody = null;
+        }
+      }
+
+      const message =
+        typeof errorBody?.error === 'string'
+          ? errorBody.error
+          : typeof (error as any)?.message === 'string'
+          ? (error as any).message
+          : 'cover-letter-phase-b invocation failed';
+      throw new Error(message);
+    }
+
+    if (data && typeof data === 'object' && typeof (data as Record<string, unknown>).error === 'string') {
+      throw new Error(String((data as Record<string, unknown>).error));
+    }
+
+    return (data as Record<string, unknown> | null) ?? {};
+  }
+
   async calculateMetricsForDraft(
     draftId: string,
     userId: string,
@@ -904,634 +1021,63 @@ export class CoverLetterDraftService {
       jobId?: string;
     }
   ): Promise<EnhancedMatchData | undefined> {
-    const metricsStartTime = Date.now();
+    void userId;
+    void jobDescriptionId;
+
     const jobId = options?.jobId ?? null;
-    let jobStagesCache: Record<string, any> = {};
-    let jobStageWrite = Promise.resolve();
-    const queueJobUpdate = async (patch: Record<string, unknown>) => {
-      if (!jobId) return;
-      jobStageWrite = jobStageWrite
-        .then(async () => {
-          await this.supabaseClient
-            .from('jobs')
-            .update(patch)
-            .eq('id', jobId);
-        })
-        .catch((error) => {
-          console.warn('[CoverLetterDraftService] Failed to update refresh job (non-blocking):', error);
-        });
-      return jobStageWrite;
-    };
-    const updateJobStage = async (
-      stage: string,
-      status: 'running' | 'complete' | 'failed',
-      data?: Record<string, unknown>,
-    ) => {
-      if (!jobId) return;
-      const nowIso = this.now().toISOString();
-      const existingStage = jobStagesCache[stage] ?? {};
-      const mergedData = {
-        ...(existingStage.data || {}),
-        ...(data || {}),
-      };
-      jobStagesCache = {
-        ...jobStagesCache,
-        [stage]: {
-          ...existingStage,
-          status,
-          data: mergedData,
-          completedAt: status === 'running' ? existingStage.completedAt : nowIso,
-        },
-      };
-      await queueJobUpdate({ stages: jobStagesCache });
-    };
+    const startedAt = this.now().toISOString();
+
     try {
-      this.emitProgress(onProgress, 'metrics', 'Loading data for metrics calculation...');
+      this.emitProgress(onProgress, 'metrics', 'Running server-side cover letter analysis...');
 
       if (jobId) {
-        try {
-          const { data: jobRow } = await this.supabaseClient
-            .from('jobs')
-            .select('stages')
-            .eq('id', jobId)
-            .single();
-          jobStagesCache = (jobRow?.stages as Record<string, any>) ?? {};
-        } catch (error) {
-          console.warn('[CoverLetterDraftService] Failed to load refresh job stages (non-blocking):', error);
-        }
-        await queueJobUpdate({
+        await this.supabaseClient
+          .from('jobs')
+          .update({
           status: 'running',
           started_at: this.now().toISOString(),
           error_message: null,
-        });
-        await updateJobStage('phaseB.basicMetrics', 'running');
-        await updateJobStage('phaseB.requirementAnalysis', 'running');
-        await updateJobStage('phaseB.sectionGaps', 'running');
-        await updateJobStage('phaseB.contentStandards', 'running');
-      }
-
-      const [draftRow, jobDescription, userGoals, workHistory, approvedContent] = await Promise.all([
-        this.supabaseClient
-          .from('cover_letters')
-          .select('*')
-          .eq('id', draftId)
-          .single()
-          .then(({ data, error }) => {
-            if (error || !data) throw new Error('Draft not found');
-            return data;
-          }),
-        this.fetchJobDescription(userId, jobDescriptionId),
-        UserPreferencesService.loadGoals(userId),
-        this.fetchWorkHistory(userId),
-        this.fetchStoriesForMatching(userId),
-      ]);
-
-      const sections = this.normaliseDraftSections(draftRow.sections);
-
-      // Extract MwS from draft (primary) or job description (fallback) for eval logging
-      const llmFeedback = draftRow.llm_feedback as Record<string, unknown> | null;
-      const mwsFromDraft = llmFeedback?.mws as {
-        summaryScore: 0 | 1 | 2 | 3;
-        details: Array<{ label: string; strengthLevel: string; explanation: string }>;
-      } | undefined;
-      const mwsFromJd = (jobDescription.analysis as Record<string, unknown>)?.mws as typeof mwsFromDraft | undefined;
-      const mwsData = mwsFromDraft || mwsFromJd || null;
-
-    // PHASE 2: Run 4 parallel LLM calls for optimized performance
-    // IMPORTANT: persist sectionGapInsights as soon as they are ready so the UI doesn't "stall at gaps"
-    // while waiting for slower Phase B subcalls (e.g., requirement analysis, content standards).
-    this.emitProgress(onProgress, 'metrics', 'Analyzing match quality with AI (this takes ~45 seconds)...');
-
-    // Storage for results
-    let basicResult: Awaited<ReturnType<typeof this.calculateBasicMetrics>> | undefined;
-    let reqResult: { enhancedMatchData: Partial<EnhancedMatchData> } | undefined;
-    let gapResult: { enhancedMatchData: Partial<EnhancedMatchData>; ratingCriteria?: any[] } | undefined;
-    let contentStandardsResult: ContentStandardsAnalysis | null = null;
-
-    const persistEnhancedPartial = async (partial: Partial<EnhancedMatchData>, patch: Record<string, unknown>) => {
-      try {
-        const { data: latestRow } = await this.supabaseClient
-          .from('cover_letters')
-          .select('llm_feedback')
-          .eq('id', draftId)
-          .single();
-
-        const existingFeedback =
-          latestRow?.llm_feedback && typeof latestRow.llm_feedback === 'object'
-            ? (latestRow.llm_feedback as Record<string, unknown>)
-            : {};
-        const existingEnhanced =
-          (existingFeedback.enhancedMatchData as Partial<EnhancedMatchData> | undefined) ?? {};
-
-        const mergedEnhanced: EnhancedMatchData = {
-          ...(existingEnhanced as EnhancedMatchData),
-          ...(partial as EnhancedMatchData),
-        };
-
-        // Keep the no-stall invariant: sectionGapInsights should never remain undefined once any
-        // Phase B persist happens (even if empty).
-        if ((mergedEnhanced as any).sectionGapInsights === undefined) {
-          (mergedEnhanced as any).sectionGapInsights = Array.isArray((existingEnhanced as any).sectionGapInsights)
-            ? (existingEnhanced as any).sectionGapInsights
-            : [];
-        }
-
-        const patchRecord = patch ?? {};
-        const patchPhaseB = (patchRecord as any).phaseB as Record<string, unknown> | undefined;
-        const { phaseB: _ignored, ...restPatch } = patchRecord as any;
-
-        const nextFeedback: Record<string, unknown> = {
-          ...existingFeedback,
-          ...restPatch,
-          enhancedMatchData: mergedEnhanced,
-          ...(patchPhaseB
-            ? {
-                phaseB: {
-                  ...(((existingFeedback as any).phaseB as Record<string, unknown>) ?? {}),
-                  ...patchPhaseB,
-                },
-              }
-            : null),
-        };
-
-        await this.supabaseClient
-          .from('cover_letters')
-          .update({
-            llm_feedback: nextFeedback as unknown as Record<string, unknown>,
-            updated_at: this.now().toISOString(),
           })
-          .eq('id', draftId);
-      } catch (persistError) {
-        console.warn('[CoverLetterDraftService] Failed to persist Phase B partial (non-blocking):', persistError);
+          .eq('id', jobId);
       }
-    };
 
-    const persistMetricsPartial = async (
-      metricPayload: Awaited<ReturnType<typeof this.calculateBasicMetrics>>,
-      patch: Record<string, unknown>,
-    ) => {
-      try {
-        const { data: latestRow } = await this.supabaseClient
-          .from('cover_letters')
-          .select('llm_feedback, analytics')
-          .eq('id', draftId)
-          .single();
+      await this.invokeCoverLetterPhaseB(draftId, 'full');
+      const updatedDraft = await this.getDraft(draftId);
 
-        const existingFeedback =
-          latestRow?.llm_feedback && typeof latestRow.llm_feedback === 'object'
-            ? (latestRow.llm_feedback as Record<string, unknown>)
-            : {};
-        const existingAnalytics =
-          latestRow?.analytics && typeof latestRow.analytics === 'object'
-            ? (latestRow.analytics as Record<string, unknown>)
-            : {};
-
-        const patchRecord = patch ?? {};
-        const patchPhaseB = (patchRecord as any).phaseB as Record<string, unknown> | undefined;
-        const { phaseB: _ignored, ...restPatch } = patchRecord as any;
-
-        const nextFeedback: Record<string, unknown> = {
-          ...existingFeedback,
-          ...restPatch,
-          metrics: metricPayload.raw,
-          ...(patchPhaseB
-            ? {
-                phaseB: {
-                  ...(((existingFeedback as any).phaseB as Record<string, unknown>) ?? {}),
-                  ...patchPhaseB,
-                },
-              }
-            : null),
-        };
-
+      if (jobId) {
         await this.supabaseClient
-          .from('cover_letters')
+          .from('jobs')
           .update({
-            llm_feedback: nextFeedback as unknown as Record<string, unknown>,
-            metrics: metricPayload.metrics as unknown as Record<string, unknown>,
-            analytics: {
-              ...existingAnalytics,
-              atsScore: metricPayload.atsScore,
-              generatedAt: this.now().toISOString(),
-            } as unknown as Record<string, unknown>,
-            updated_at: this.now().toISOString(),
+            status: 'complete',
+            completed_at: this.now().toISOString(),
+            error_message: null,
           })
-          .eq('id', draftId);
-      } catch (persistError) {
-        console.warn('[CoverLetterDraftService] Failed to persist Phase B metrics partial (non-blocking):', persistError);
+          .eq('id', jobId);
       }
-    };
 
-    // Fire all 4 calls in parallel - each has independent retry logic
-    const call1Promise = (async () => {
-      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          if (attempt > 0) {
-            const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
-            await sleep(delay);
-          }
-          const startMs = Date.now();
-          const res = await this.calculateBasicMetrics({
-            sections,
-            jobDescription,
-            userGoals,
-          });
-          const completedAt = this.now().toISOString();
-          await persistMetricsPartial(res, {
-            phaseB: {
-              basicMetrics: {
-                status: 'success',
-                attempt: attempt + 1,
-                latencyMs: Date.now() - startMs,
-                completedAt,
-              },
-            },
-          });
-          await updateJobStage('phaseB.basicMetrics', 'complete', {
-            latencyMs: Date.now() - startMs,
-          });
-          return res;
-        } catch (error) {
-          if (attempt === MAX_RETRIES) {
-            console.warn('[CoverLetterDraftService] Basic metrics failed, using fallback');
-            const fallback = this.createFallbackMetrics();
-            const completedAt = this.now().toISOString();
-            await persistMetricsPartial(fallback, {
-              phaseB: {
-                basicMetrics: {
-                  status: 'success',
-                  attempt: attempt + 1,
-                  latencyMs: Date.now() - metricsStartTime,
-                  completedAt,
-                  fallback: true,
-                },
-              },
-            });
-            await updateJobStage('phaseB.basicMetrics', 'complete', {
-              latencyMs: Date.now() - metricsStartTime,
-              fallback: true,
-            });
-            return fallback;
-          }
-        }
-      }
-      return this.createFallbackMetrics();
-    })();
-
-    const call2Promise = (async () => {
-      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          if (attempt > 0) {
-            const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
-            await sleep(delay);
-          }
-          const startMs = Date.now();
-          const res = await this.calculateRequirementAnalysis({
-            sections,
-            jobDescription,
-            userGoals,
-            workHistory,
-            approvedContent,
-          });
-          await persistEnhancedPartial(res.enhancedMatchData, {
-            phaseB: {
-              requirementAnalysis: {
-                status: 'success',
-                attempt: attempt + 1,
-                latencyMs: Date.now() - startMs,
-                completedAt: this.now().toISOString(),
-              },
-            },
-          });
-          await updateJobStage('phaseB.requirementAnalysis', 'complete', {
-            latencyMs: Date.now() - startMs,
-          });
-          return res;
-        } catch (error) {
-          if (attempt === MAX_RETRIES) {
-            console.warn('[CoverLetterDraftService] Requirement analysis failed');
-            await updateJobStage('phaseB.requirementAnalysis', 'failed', {
-              message: error instanceof Error ? error.message : String(error),
-            });
-            return { enhancedMatchData: {} };
-          }
-        }
-      }
-      return { enhancedMatchData: {} };
-    })();
-
-    const call3Promise = (async () => {
-      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          if (attempt > 0) {
-            const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
-            await sleep(delay);
-          }
-          const res = await this.calculateSectionGaps({
-            sections,
-            jobDescription,
-          });
-          // Persist gaps as soon as they are ready to unblock UI ("no gap stall").
-          await persistEnhancedPartial(res.enhancedMatchData, {
-            phaseB: {
-              sectionGaps: {
-                status: 'success',
-                attempt: attempt + 1,
-                latencyMs: Date.now() - metricsStartTime,
-                completedAt: this.now().toISOString(),
-              },
-            },
-          });
-          await updateJobStage('phaseB.sectionGaps', 'complete', {
-            latencyMs: Date.now() - metricsStartTime,
-          });
-          return res;
-        } catch (error) {
-          if (attempt === MAX_RETRIES) {
-            console.warn('[CoverLetterDraftService] Section gaps failed');
-            await updateJobStage('phaseB.sectionGaps', 'failed', {
-              message: error instanceof Error ? error.message : String(error),
-            });
-            return { enhancedMatchData: {}, ratingCriteria: [] };
-          }
-        }
-      }
-      return { enhancedMatchData: {}, ratingCriteria: [] };
-    })();
-
-    const call4Promise = (async () => {
-      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-        try {
-          if (attempt > 0) {
-            const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
-            await sleep(delay);
-          }
-          const startMs = Date.now();
-          const res = await this.calculateContentStandards({
-            sections,
-            jobDescription,
-          });
-          if (res) {
-            await persistEnhancedPartial({}, {
-              contentStandards: res,
-              phaseB: {
-                contentStandards: {
-                  status: 'success',
-                  attempt: attempt + 1,
-                  latencyMs: Date.now() - startMs,
-                  completedAt: this.now().toISOString(),
-                },
-              },
-            });
-            await updateJobStage('phaseB.contentStandards', 'complete', {
-              latencyMs: Date.now() - startMs,
-            });
-          } else {
-            await updateJobStage('phaseB.contentStandards', 'complete', {
-              skipped: true,
-            });
-          }
-          return res;
-        } catch (error) {
-          if (attempt === MAX_RETRIES) {
-            console.warn('[CoverLetterDraftService] Content standards failed');
-            await updateJobStage('phaseB.contentStandards', 'failed', {
-              message: error instanceof Error ? error.message : String(error),
-            });
-            return null;
-          }
-        }
-      }
-      return null;
-    })();
-
-    // Wait for all 4 to complete in parallel
-    [basicResult, reqResult, gapResult, contentStandardsResult] = await Promise.all([
-      call1Promise,
-      call2Promise,
-      call3Promise,
-      call4Promise,
-    ]);
-
-    // Merge results from all 3 calls
-    const metricResult = {
-      metrics: basicResult.metrics,
-      atsScore: basicResult.atsScore,
-      enhancedMatchData: {
-        ...reqResult.enhancedMatchData,
-        ...gapResult.enhancedMatchData,
-      } as EnhancedMatchData,
-      raw: basicResult.raw,
-    };
-
-    // Extract rating criteria from section gaps result if available
-    const ratingMetric = basicResult.metrics.find(m => m.key === 'rating');
-    const ratingData = gapResult.ratingCriteria && Array.isArray(gapResult.ratingCriteria)
-      ? {
-          criteria: gapResult.ratingCriteria.map((c: any) => ({
-            id: c.id || '',
-            label: c.label || '',
-            met: c.met === true,
-            evidence: c.evidence || '',
-            suggestion: c.suggestion || '',
-          })),
-          score: ratingMetric && ratingMetric.type === 'score' ? ratingMetric.value : 0,
-          summary: ratingMetric?.summary || '',
-          tooltip: ratingMetric?.tooltip || '',
-        }
-      : undefined;
-
-    // Fetch MwS from streaming job result (persisted at source, not via frontend useEffect)
-    let mwsFromJob: { summaryScore: 0 | 1 | 2 | 3; details: Array<{ label: string; strengthLevel: string; explanation: string }> } | undefined;
-    try {
-      const { data: jobRows } = await this.supabaseClient
-        .from('jobs')
-        .select('result')
-        .eq('user_id', userId)
-        .eq('type', 'coverLetter')
-        .order('created_at', { ascending: false })
-        .limit(5); // Get recent jobs to find one with matching JD
-
-      // Find job with MwS data (result.mws exists)
-      const jobWithMws = (jobRows ?? []).find((j: any) => j.result?.mws?.summaryScore !== undefined);
-      if (jobWithMws?.result?.mws) {
-        mwsFromJob = jobWithMws.result.mws;
-        console.log('[CoverLetterDraftService] Found MwS from job result:', {
-          summaryScore: mwsFromJob?.summaryScore,
-          detailCount: mwsFromJob?.details?.length,
-        });
-      }
-    } catch (mwsError) {
-      console.warn('[CoverLetterDraftService] Failed to fetch MwS from jobs:', mwsError);
-    }
-
-    // Re-read llm_feedback just before persisting metrics so we don't clobber
-    // enhancedMatchData written by the streaming edge pipeline (race-safe).
-    let latestFeedback: Record<string, unknown> = (draftRow.llm_feedback as Record<string, unknown> | null) ?? {};
-    try {
-      const { data: latestRow } = await this.supabaseClient
-        .from('cover_letters')
-        .select('llm_feedback')
-        .eq('id', draftId)
-        .single();
-      if (latestRow?.llm_feedback && typeof latestRow.llm_feedback === 'object') {
-        latestFeedback = latestRow.llm_feedback as Record<string, unknown>;
-      }
-    } catch (e) {
-      // Non-blocking: proceed with the draftRow snapshot if re-read fails.
-      console.warn('[CoverLetterDraftService] Failed to re-read llm_feedback before persist (non-blocking):', e);
-    }
-
-    const existingFeedback = latestFeedback;
-    const existingEnhanced = (existingFeedback.enhancedMatchData as Partial<EnhancedMatchData> | undefined) ?? {};
-    const mergedEnhanced: EnhancedMatchData = {
-      ...(existingEnhanced as EnhancedMatchData),
-      ...(metricResult.enhancedMatchData as EnhancedMatchData),
-    };
-    // Ensure sectionGapInsights is always present so UI doesn't get stuck in skeleton mode.
-    // Prefer computed (draft-based) gaps when available; edge-persisted gaps are template-based.
-    const existingSectionGaps = Array.isArray((existingEnhanced as any).sectionGapInsights)
-      ? (existingEnhanced as any).sectionGapInsights
-      : undefined;
-    const computedSectionGaps = Array.isArray((metricResult.enhancedMatchData as any)?.sectionGapInsights)
-      ? (metricResult.enhancedMatchData as any).sectionGapInsights
-      : undefined;
-    const pickNonEmpty = (value: unknown) =>
-      Array.isArray(value) && value.length > 0 ? value : undefined;
-    (mergedEnhanced as any).sectionGapInsights =
-      pickNonEmpty(computedSectionGaps) ??
-      pickNonEmpty(existingSectionGaps) ??
-      computedSectionGaps ??
-      existingSectionGaps ??
-      [];
-    if (!('coreRequirementDetails' in mergedEnhanced)) {
-      (mergedEnhanced as any).coreRequirementDetails = Array.isArray((existingEnhanced as any).coreRequirementDetails)
-        ? (existingEnhanced as any).coreRequirementDetails
-        : [];
-    }
-    if (!('preferredRequirementDetails' in mergedEnhanced)) {
-      (mergedEnhanced as any).preferredRequirementDetails = Array.isArray((existingEnhanced as any).preferredRequirementDetails)
-        ? (existingEnhanced as any).preferredRequirementDetails
-        : [];
-    }
-
-      const existingPhaseB = ((existingFeedback as any)?.phaseB as Record<string, unknown>) ?? {};
-      const phaseBAttempt = (((existingPhaseB as any)?.attempt ?? 0) + 1);
-      const nextPhaseB = {
-        ...existingPhaseB,
-        status: 'success',
-        attempt: phaseBAttempt,
-        latencyMs: Date.now() - metricsStartTime,
-        completedAt: this.now().toISOString(),
-      };
-      // Update draft with calculated metrics + MwS from streaming job
-      await this.supabaseClient
-        .from('cover_letters')
-        .update({
-          llm_feedback: {
-            ...existingFeedback,
-            generatedAt: this.now().toISOString(),
-            metrics: metricResult.raw,
-            enhancedMatchData: mergedEnhanced,
-            phaseB: nextPhaseB,
-            ...(ratingData ? { rating: ratingData } : {}),
-            ...(contentStandardsResult ? { contentStandards: contentStandardsResult } : {}),
-            ...(mwsFromJob ? { mws: mwsFromJob } : {}), // Persist MwS from streaming job
-          } as unknown as Record<string, unknown>,
-          metrics: metricResult.metrics as unknown as Record<string, unknown>,
-          analytics: {
-            atsScore: metricResult.atsScore,
-            ...(contentStandardsResult ? { overallScore: contentStandardsResult.aggregated.overallScore } : {}),
-            generatedAt: this.now().toISOString(),
-          } as unknown as Record<string, unknown>,
-          updated_at: this.now().toISOString(),
-        })
-        .eq('id', draftId);
-
-      await queueJobUpdate({
-        status: 'complete',
-        completed_at: this.now().toISOString(),
-        error_message: null,
-      });
-
-    this.emitProgress(onProgress, 'metrics', 'Match metrics calculated successfully!');
-
-    // Log evaluation result for QA tracking (best effort - don't block on errors)
-    const metricsEndTime = Date.now();
-    try {
-      await this.logDraftCoverLetterResult({
-        userId,
-        draftId,
-        jobDescriptionId,
-        sections,
-        enhancedMatchData: metricResult.enhancedMatchData,
-        metrics: metricResult.metrics,
-        contentStandards: contentStandardsResult,
-        overallScore: contentStandardsResult?.aggregated?.overallScore,
-        mws: mwsFromJob || mwsData, // Include MwS in eval logging (prefer job result, fallback to draft/JD)
-        phaseBLatencyMs: metricsEndTime - metricsStartTime,
-        status: 'success',
-      });
+      this.emitProgress(onProgress, 'metrics', 'Match metrics calculated successfully.');
+      return updatedDraft?.enhancedMatchData;
     } catch (error) {
-      // Don't block draft generation if evaluation logging fails
-      console.warn('[CoverLetterDraftService] Failed to log evaluation result (non-blocking):', error);
-    }
-
-      return metricResult.enhancedMatchData;
-    } catch (error) {
-      // Prevent "gap stall": ensure the draft always gets a defined `sectionGapInsights` on failure.
-      // This unblocks the UI (users can keep editing) and allows automatic retries to kick in.
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error('[CoverLetterDraftService] Phase B metrics calculation failed:', error);
-      try {
-        const { data: latestRow } = await this.supabaseClient
-          .from('cover_letters')
-          .select('llm_feedback')
-          .eq('id', draftId)
-          .single();
-        const existingFeedback =
-          latestRow?.llm_feedback && typeof latestRow.llm_feedback === 'object'
-            ? (latestRow.llm_feedback as Record<string, unknown>)
-            : {};
-        const existingEnhanced = (existingFeedback.enhancedMatchData as Record<string, unknown> | undefined) ?? {};
-        const existingPhaseB = ((existingFeedback as any)?.phaseB as Record<string, unknown>) ?? {};
-        const phaseBAttempt = (((existingPhaseB as any)?.attempt ?? 0) + 1);
-        const nextPhaseB = {
-          ...existingPhaseB,
-          status: 'error',
-          attempt: phaseBAttempt,
-          latencyMs: Date.now() - metricsStartTime,
-          failedAt: this.now().toISOString(),
-          message,
-        };
-        const mergedEnhanced = {
-          ...existingEnhanced,
-          sectionGapInsights:
-            (existingEnhanced as any).sectionGapInsights !== undefined ? (existingEnhanced as any).sectionGapInsights : [],
-        };
 
-        await this.supabaseClient
-          .from('cover_letters')
-          .update({
-            llm_feedback: {
-              ...existingFeedback,
-              phaseB: nextPhaseB,
-              enhancedMatchData: mergedEnhanced,
-            } as unknown as Record<string, unknown>,
-            updated_at: this.now().toISOString(),
-          })
-          .eq('id', draftId);
+      try {
+        await this.persistPhaseBInvocationError(draftId, message, 'full', startedAt);
       } catch (persistError) {
         console.warn('[CoverLetterDraftService] Failed to persist Phase B error status (non-blocking):', persistError);
       }
 
-      await queueJobUpdate({
-        status: 'error',
-        completed_at: this.now().toISOString(),
-        error_message: message,
-      });
+      if (jobId) {
+        await this.supabaseClient
+          .from('jobs')
+          .update({
+            status: 'error',
+            completed_at: this.now().toISOString(),
+            error_message: message,
+          })
+          .eq('id', jobId);
+      }
 
-      // Still throw so callers (manual refresh) can surface an error if desired.
       throw error;
     }
   }
@@ -1546,63 +1092,26 @@ export class CoverLetterDraftService {
     jobDescriptionId: string,
     onProgress?: DraftGenerationOptions['onProgress'],
   ): Promise<Partial<EnhancedMatchData> | undefined> {
-    const startedAt = Date.now();
+    void userId;
+    void jobDescriptionId;
+
+    const startedAt = this.now().toISOString();
     this.emitProgress(onProgress, 'gap_detection', 'Refreshing gaps for this draft...');
 
-    const [draftRow, jobDescription] = await Promise.all([
-      this.supabaseClient
-        .from('cover_letters')
-        .select('id, llm_feedback, sections')
-        .eq('id', draftId)
-        .single()
-        .then(({ data, error }) => {
-          if (error || !data) throw new Error('Draft not found');
-          return data as Pick<CoverLetterRow, 'id' | 'llm_feedback' | 'sections'>;
-        }),
-      this.fetchJobDescription(userId, jobDescriptionId),
-    ]);
-
-    const sections = this.normaliseDraftSections((draftRow as any).sections);
-    const res = await this.calculateSectionGaps({ sections, jobDescription });
-
-    // Merge and persist (race-safe) without touching metrics/analytics.
-    const existingFeedback =
-      (draftRow as any).llm_feedback && typeof (draftRow as any).llm_feedback === 'object'
-        ? ((draftRow as any).llm_feedback as Record<string, unknown>)
-        : {};
-    const existingEnhanced =
-      (existingFeedback.enhancedMatchData as Partial<EnhancedMatchData> | undefined) ?? {};
-    const mergedEnhanced: EnhancedMatchData = {
-      ...(existingEnhanced as EnhancedMatchData),
-      ...(res.enhancedMatchData as EnhancedMatchData),
-    };
-    if ((mergedEnhanced as any).sectionGapInsights === undefined) {
-      (mergedEnhanced as any).sectionGapInsights = [];
+    try {
+      await this.invokeCoverLetterPhaseB(draftId, 'section-gaps');
+      const updatedDraft = await this.getDraft(draftId);
+      this.emitProgress(onProgress, 'gap_detection', 'Gaps refreshed.');
+      return updatedDraft?.enhancedMatchData;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      try {
+        await this.persistPhaseBInvocationError(draftId, message, 'section-gaps', startedAt);
+      } catch (persistError) {
+        console.warn('[CoverLetterDraftService] Failed to persist section gap error status (non-blocking):', persistError);
+      }
+      throw error;
     }
-
-    const attempt = (((existingFeedback as any)?.phaseB as any)?.sectionGaps?.attempt ?? 0) + 1;
-    await this.supabaseClient
-      .from('cover_letters')
-      .update({
-        llm_feedback: {
-          ...existingFeedback,
-          enhancedMatchData: mergedEnhanced,
-          phaseB: {
-            ...(((existingFeedback as any)?.phaseB as Record<string, unknown>) ?? {}),
-            sectionGaps: {
-              status: 'success',
-              attempt,
-              latencyMs: Date.now() - startedAt,
-              completedAt: this.now().toISOString(),
-            },
-          },
-        } as unknown as Record<string, unknown>,
-        updated_at: this.now().toISOString(),
-      })
-      .eq('id', draftId);
-
-    this.emitProgress(onProgress, 'gap_detection', 'Gaps refreshed.');
-    return res.enhancedMatchData;
   }
 
   private async fillTemplateSlotsForDraft(
@@ -1615,197 +1124,11 @@ export class CoverLetterDraftService {
       jobDescription?: ParsedJobDescription;
     },
   ): Promise<void> {
-    const draftRow = await this.supabaseClient
-      .from('cover_letters')
-      .select('*')
-      .eq('id', draftId)
-      .single()
-      .then(({ data, error }) => {
-        if (error || !data) throw new Error('Draft not found');
-        return data;
-      });
-
-    const sections = this.normaliseDraftSections(draftRow.sections);
-    const slotTokens = sections.flatMap(section => {
-      const content = section.content || '';
-      const tokens = parseLlmSlotTokens(content);
-      return tokens.map(token => {
-        const start = typeof token.index === 'number' ? token.index : content.indexOf(token.rawToken);
-        const safeStart = start < 0 ? 0 : start;
-        const before = content.slice(Math.max(0, safeStart - 80), safeStart);
-        const afterStart = start < 0 ? 0 : safeStart + token.rawToken.length;
-        const after = content.slice(afterStart, afterStart + 80);
-        return {
-          ...token,
-          context: { before, after },
-        };
-      });
-    });
-    if (slotTokens.length === 0) return;
-
-    // Use preloaded data if available to avoid redundant DB queries
-    const [jobDescriptionRecord, workHistory, approvedContent] = await Promise.all([
-      preloadedData?.jobDescription
-        ? Promise.resolve(preloadedData.jobDescription)
-        : this.jobDescriptionService.getJobDescription(userId, jobDescriptionId),
-      this.fetchWorkHistory(userId),
-      preloadedData?.stories
-        ? Promise.resolve(preloadedData.stories.map(s => ({ id: s.id, title: s.title, content: s.content })))
-        : this.fetchStoriesForMatching(userId),
-    ]);
-
-    if (!jobDescriptionRecord) return;
-
-    const apiKey =
-      (import.meta.env?.VITE_OPENAI_API_KEY as string | undefined) ||
-      (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
-      (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
-
-    if (!apiKey) {
-      console.warn('[fillTemplateSlotsForDraft] OpenAI key not configured; leaving slot tokens untouched');
-      return;
-    }
-
+    void userId;
+    void jobDescriptionId;
+    void preloadedData;
     this.emitProgress(onProgress, 'content_match', 'Filling template placeholders with AI...');
-
-    const requestPayload = {
-      company: jobDescriptionRecord.company,
-      role: jobDescriptionRecord.role,
-      jobDescriptionText: jobDescriptionRecord.content,
-      workHistory: workHistory.slice(0, 12).map(item => ({
-        company: item.company,
-        title: item.title,
-        description: (item.description || '').slice(0, 800),
-        achievements: (item.achievements || []).slice(0, 8),
-      })),
-      approvedStories: approvedContent.slice(0, 12).map(item => ({
-        title: item.title,
-        content: (item.content || '').slice(0, 900),
-      })),
-      slots: slotTokens.slice(0, 20).map(token => ({
-        id: token.id,
-        label: token.label,
-        instruction: token.instruction,
-        rawToken: token.rawToken,
-        context: (token as any).context || undefined,
-      })),
-    };
-
-    const client = createOpenAI({ apiKey });
-    const system = [
-      'You fill template placeholders in a cover letter draft.',
-      'Each placeholder token is either [LLM:...] or [SLOT:...] and contains an instruction.',
-      'For each slot, produce a short fill that can be inserted directly into the cover letter.',
-      'If context.before/context.after are provided, ensure the fill fits grammatically between them.',
-      'Do not include trailing punctuation if the surrounding text continues the sentence.',
-      'Use job description ONLY to choose relevant capability themes; do not restate JD entities as candidate experience.',
-      'Every fill must be grounded in work history or approved stories; do not invent facts.',
-      'Never claim experience with specific companies, customers, or industries unless explicitly present in work history or stories.',
-      'Prefer transferable capability phrasing over domain-specific claims.',
-      'If you cannot confidently fill from the provided evidence, return status NOT_FOUND and an empty fill.',
-      'Return ONLY valid JSON: {"slots":[{"id":"...","status":"FILLED"|"NOT_FOUND","fill":"...","evidence":{"jobDescription":[],"workHistory":[]}}]}.',
-    ].join('\n');
-
-    const result: any = await streamText({
-      model: client.chat(OPENAI_CONFIG.MODEL),
-      system,
-      messages: [{ role: 'user', content: JSON.stringify(requestPayload) }],
-      temperature: 0.2,
-      maxTokens: 1200,
-    } as any);
-
-    let rawOutput = '';
-    if (result?.textStream) {
-      for await (const chunk of result.textStream as AsyncIterable<unknown>) {
-        const token =
-          typeof chunk === 'string'
-            ? chunk
-            : typeof chunk === 'object' && chunk !== null && 'text' in chunk
-            ? // @ts-expect-error runtime inspection
-              chunk.text
-            : typeof chunk === 'object' && chunk !== null && 'value' in chunk
-            ? // @ts-expect-error runtime inspection
-              chunk.value
-            : '';
-        if (!token) continue;
-        rawOutput += token;
-      }
-    }
-    if (!rawOutput && typeof result?.text === 'string') rawOutput = result.text;
-
-    const cleaned = rawOutput
-      .trim()
-      .replace(/^```json/i, '')
-      .replace(/^```/, '')
-      .replace(/```$/, '')
-      .trim();
-
-    let parsed: any;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      console.warn('[fillTemplateSlotsForDraft] Unable to parse slot fill JSON; leaving tokens untouched');
-      return;
-    }
-
-    const fills: Array<{
-      id: string;
-      status: 'FILLED' | 'NOT_FOUND';
-      fill: string;
-      evidence?: { jobDescription?: string[]; workHistory?: string[] };
-    }> = Array.isArray(parsed?.slots) ? parsed.slots : [];
-
-    if (fills.length === 0) return;
-
-    const fillById = new Map(fills.map(item => [item.id, item]));
-    const updatedSections = sections.map(section => {
-      if (section.status?.isModified) return section;
-
-      const tokens = parseLlmSlotTokens(section.content || '');
-      if (tokens.length === 0) return section;
-
-      let updatedContent = section.content || '';
-      for (const token of tokens) {
-        const fill = fillById.get(token.id);
-        if (!fill) continue;
-        const replacement =
-          fill.status === 'FILLED' && typeof fill.fill === 'string' && fill.fill.trim().length > 0
-            ? fill.fill.trim()
-            : 'NOT_FOUND';
-        updatedContent = replaceSlotTokenWithPunctuation(updatedContent, token.rawToken, replacement);
-      }
-
-      if (updatedContent === section.content) return section;
-      return {
-        ...section,
-        content: updatedContent,
-        status: {
-          ...section.status,
-          lastUpdatedAt: this.now().toISOString(),
-        },
-      };
-    });
-
-    const llmFeedback =
-      draftRow.llm_feedback && typeof draftRow.llm_feedback === 'object'
-        ? (draftRow.llm_feedback as Record<string, unknown>)
-        : {};
-
-    await this.supabaseClient
-      .from('cover_letters')
-      .update({
-        sections: updatedSections as unknown as Record<string, unknown>,
-        llm_feedback: {
-          ...llmFeedback,
-          templateSlots: {
-            filledAt: this.now().toISOString(),
-            slots: fills,
-          },
-        } as unknown as Record<string, unknown>,
-        updated_at: this.now().toISOString(),
-      })
-      .eq('id', draftId);
-
+    await this.invokeCoverLetterPhaseB(draftId, 'slots-only');
     this.emitProgress(onProgress, 'content_match', 'Template placeholders updated.');
   }
 
@@ -3347,12 +2670,6 @@ export class CoverLetterDraftService {
     const { templateSections, stories, savedSections, jobDescription, userGoals, onSectionBuilt } = input;
     const nowIso = this.now().toISOString();
     const usedStoryIds = new Set<string>();
-    const includeStorySelectionDiagnostics =
-      Boolean((import.meta as any)?.env?.DEV) ||
-      (import.meta as any)?.env?.VITE_COVER_LETTER_STORY_SELECTION_DIAGNOSTICS === '1' ||
-      (typeof process !== 'undefined' &&
-        (process.env.NODE_ENV === 'development' ||
-          process.env.COVER_LETTER_STORY_SELECTION_DIAGNOSTICS === '1'));
 
     console.log(`[CoverLetterDraftService] buildSections: ${templateSections.length} template sections, ${stories.length} stories, ${savedSections.length} saved sections`);
     
@@ -3452,7 +2769,7 @@ export class CoverLetterDraftService {
               source: { kind: 'work_story', entityId: bestStory.id },
               requirementsMatched,
               tags: bestStory.tags ?? [],
-              storySelection: includeStorySelectionDiagnostics ? diagnostics : undefined,
+              storySelection: diagnostics,
               nowIso,
               });
             } else {
@@ -3473,6 +2790,7 @@ export class CoverLetterDraftService {
                 source: { kind: 'template_static', entityId: null },
                 requirementsMatched: [],
                 tags: [],
+                storySelection: diagnostics,
                 nowIso,
               });
             }
@@ -3501,7 +2819,7 @@ export class CoverLetterDraftService {
               source: { kind: 'work_story', entityId: bestStory.id },
               requirementsMatched,
               tags: bestStory.tags ?? [],
-              storySelection: includeStorySelectionDiagnostics ? diagnostics : undefined,
+              storySelection: diagnostics,
               nowIso,
             });
           } else {
@@ -3522,6 +2840,7 @@ export class CoverLetterDraftService {
               source: { kind: 'template_static', entityId: null },
               requirementsMatched: [],
               tags: [],
+              storySelection: diagnostics,
               nowIso,
             });
           }
@@ -3642,6 +2961,8 @@ export class CoverLetterDraftService {
           selectedScore: null,
           hasUnusedStories: false,
           usedStoryIds: Array.from(options?.usedStoryIds ?? []),
+          selectionMode: 'no-viable-match',
+          selectionBlockedReason: 'No stories are available for this draft.',
           topCandidates: [],
         },
       };
@@ -3691,6 +3012,15 @@ export class CoverLetterDraftService {
       ]),
     );
     const userSegmentTokens = normalizeTokenList(userSegment);
+    const degradedJobDescription = {
+      hasStructuredSignals:
+        Boolean(industryTokens.length || verticalTokens.length || buyerSegmentTokens.length || userSegmentTokens.length),
+      keywordCount: normalisedJdKeywords.length,
+      requirementCount:
+        (jobDescription.standardRequirements?.length ?? 0) +
+        (jobDescription.preferredRequirements?.length ?? 0) +
+        (jobDescription.differentiatorRequirements?.length ?? 0),
+    };
 
     const genericKeywordStoplist = new Set([
       'product',
@@ -3847,7 +3177,7 @@ export class CoverLetterDraftService {
       score -= shortContentPenalty;
 
       let reusePenalty = 0;
-      if (usedStoryIds?.has(story.id) && hasUnusedStories) {
+      if (usedStoryIds?.has(story.id)) {
         reusePenalty = 1000;
         score -= reusePenalty;
       }
@@ -3885,6 +3215,10 @@ export class CoverLetterDraftService {
         },
       });
 
+      if (usedStoryIds?.has(story.id)) {
+        continue;
+      }
+
       if (score > bestScore) {
         bestScore = score;
         bestStory = story;
@@ -3894,16 +3228,10 @@ export class CoverLetterDraftService {
     if (bestStory) {
       console.log(`[CoverLetterDraftService] Selected best story "${bestStory.title || bestStory.id}" for section "${section.title || 'unnamed'}" (score: ${bestScore})`);
     } else if (stories.length > 0) {
-      // If no story was selected but stories exist, try to find one with content
-      // This handles edge cases where all stories have empty content or very low scores
-      const fallbackStory = stories.find(s => s.content?.trim());
-      if (fallbackStory) {
-        console.warn(`[CoverLetterDraftService] No story selected for section "${section.title || 'unnamed'}" (${stories.length} stories evaluated, score: ${bestScore}), using fallback with content: "${fallbackStory.title || fallbackStory.id}"`);
-        bestStory = fallbackStory;
-        bestScore = bestScore === -Infinity ? 0 : bestScore;
+      if (hasUnusedStories) {
+        console.warn(`[CoverLetterDraftService] No viable unused story matched section "${section.title || 'unnamed'}"`);
       } else {
-        // If all stories have empty content, return null so caller can show helpful message
-        console.warn(`[CoverLetterDraftService] All ${stories.length} stories have empty content for section "${section.title || 'unnamed'}"`);
+        console.warn(`[CoverLetterDraftService] Story reuse blocked for section "${section.title || 'unnamed'}" because every story is already used in this draft`);
       }
     } else {
       console.warn(`[CoverLetterDraftService] No stories available for section "${section.title || 'unnamed'}"`);
@@ -3915,6 +3243,13 @@ export class CoverLetterDraftService {
       selectedScore: Number.isFinite(bestScore) ? bestScore : null,
       hasUnusedStories,
       usedStoryIds: Array.from(usedStoryIds ?? []),
+      selectionMode: bestStory ? 'best-fit' : hasUnusedStories ? 'no-viable-match' : 'no-unused-stories',
+      selectionBlockedReason: bestStory
+        ? undefined
+        : hasUnusedStories
+        ? 'Unused stories exist, but none produced a viable match for this section.'
+        : 'Story reuse is blocked because every available story is already used in this draft.',
+      degradedJobDescription,
       topCandidates: candidates.sort((a, b) => b.score - a.score).slice(0, 5),
     };
 

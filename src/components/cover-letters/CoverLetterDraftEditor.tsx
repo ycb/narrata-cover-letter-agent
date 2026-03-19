@@ -680,6 +680,30 @@ export function CoverLetterDraftEditor({
                             </div>
                           );
                         })()}
+                        {section.metadata?.storySelection ? (
+                          <details className="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                            <summary className="cursor-pointer font-medium text-foreground">
+                              Story selection diagnostics
+                            </summary>
+                            <div className="mt-2 space-y-1">
+                              <div>
+                                Selected: {section.metadata.storySelection.selectedStoryId ?? 'No story selected'}
+                              </div>
+                              <div>
+                                Mode: {section.metadata.storySelection.selectionMode ?? 'best-fit'}
+                              </div>
+                              {section.metadata.storySelection.selectionBlockedReason ? (
+                                <div>{section.metadata.storySelection.selectionBlockedReason}</div>
+                              ) : null}
+                              <div>
+                                JD signals: {section.metadata.storySelection.degradedJobDescription?.requirementCount ?? 0} requirements, {section.metadata.storySelection.degradedJobDescription?.keywordCount ?? 0} keywords, {section.metadata.storySelection.degradedJobDescription?.hasStructuredSignals ? 'structured context present' : 'structured context missing'}
+                              </div>
+                              <div>
+                                Top candidates: {section.metadata.storySelection.topCandidates.map((candidate) => `${candidate.title || candidate.storyId} (${Math.round(candidate.score)})`).join(', ') || 'None'}
+                              </div>
+                            </div>
+                          </details>
+                        ) : null}
                         <GrammarTextarea
                           data-section-id={section.id}
                           value={editedContent}

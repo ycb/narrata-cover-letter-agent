@@ -68,7 +68,31 @@ export interface StorySelectionDiagnostics {
   selectedScore: number | null;
   hasUnusedStories: boolean;
   usedStoryIds: string[];
+  selectionMode?: 'best-fit' | 'no-unused-stories' | 'no-viable-match';
+  selectionBlockedReason?: string;
+  degradedJobDescription?: {
+    hasStructuredSignals: boolean;
+    keywordCount: number;
+    requirementCount: number;
+  };
   topCandidates: StorySelectionCandidateDiagnostic[];
+}
+
+export type PhaseBStageStatus = 'pending' | 'success' | 'error' | 'skipped';
+
+export interface PhaseBStageRecord {
+  status: PhaseBStageStatus;
+  startedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+  message?: string;
+}
+
+export interface PhaseBRecord extends PhaseBStageRecord {
+  basicMetrics?: PhaseBStageRecord;
+  requirementAnalysis?: PhaseBStageRecord;
+  sectionGaps?: PhaseBStageRecord;
+  contentStandards?: PhaseBStageRecord;
 }
 
 export interface StoredJobDescription extends ParsedJobDescription {
@@ -550,6 +574,8 @@ export interface DraftReadinessEvaluation {
   metadata?: Record<string, unknown>;
   fromCache?: boolean;
 }
+
+export type DraftReadinessAvailability = 'ready' | 'pending' | 'error' | 'disabled';
 
 // Helper to convert unified label to display string
 export function getReadinessDisplayLabel(rating: DraftReadinessRating): UnifiedReadinessLabel {

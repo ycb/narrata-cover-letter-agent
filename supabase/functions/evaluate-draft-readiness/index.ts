@@ -90,6 +90,11 @@ export function createEvaluateDraftReadinessHandler(
     }
 
     try {
+      const featureEnabled = deps.getEnv('ENABLE_DRAFT_READINESS') === 'true';
+      if (!featureEnabled) {
+        return json({ error: 'FEATURE_DISABLED' }, 403);
+      }
+
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
         return json({ error: 'Missing authorization header' }, 401);
