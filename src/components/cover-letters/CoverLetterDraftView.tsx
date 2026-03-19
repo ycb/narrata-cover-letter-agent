@@ -11,6 +11,7 @@ import { getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
 import { getApplicableStandards } from '@/config/contentStandards';
 import type { EnhancedMatchData, SectionGapInsight, ContentStandardsAnalysis } from '@/types/coverLetters';
 import type { MatchMetricsData } from './useMatchMetricsDetails';
+import { isClosingSection, isIntroSection } from './sectionStructure';
 
 interface GoNoGoAnalysis {
   decision: 'go' | 'no-go';
@@ -429,6 +430,8 @@ export function CoverLetterDraftView({
   // Always render toolbar - matchMetrics should never be null due to fallback in parent
   // But keep check for safety in case of edge cases
   const shouldRenderToolbar = matchMetrics !== null && matchMetrics !== undefined;
+  const firstSection = sections[0];
+  const showTopInsertButton = isEditable && Boolean(onInsertBetweenSections) && !isIntroSection(firstSection);
 
   return (
     <div className={cn('flex h-full overflow-hidden', className)}>
@@ -457,7 +460,7 @@ export function CoverLetterDraftView({
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-6 pl-6 pb-6">
           {/* Add Section button at the top if editable */}
-          {isEditable && onInsertBetweenSections && (
+          {showTopInsertButton && (
             <SectionInsertButton onClick={() => onInsertBetweenSections(0)} variant="default" />
           )}
 
@@ -599,7 +602,7 @@ export function CoverLetterDraftView({
             </ContentCard>
 
             {/* Add Section button after each section if editable */}
-            {isEditable && onInsertBetweenSections && (
+            {isEditable && onInsertBetweenSections && !(sectionIndex === sections.length - 1 && isClosingSection(section)) && (
               <SectionInsertButton
                 onClick={() => onInsertBetweenSections(sectionIndex + 1)}
                 variant="default"

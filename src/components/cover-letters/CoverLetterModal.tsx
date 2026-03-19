@@ -86,6 +86,7 @@ import { DraftGapSyncService } from '@/services/draftGapSyncService';
 import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
 import { AddSectionFromLibraryModal, type InvocationType } from './AddSectionFromLibraryModal';
 import { SectionInsertButton } from '@/components/template-blurbs/SectionInsertButton';
+import { normalizeCoverLetterInsertionTarget, normalizeCoverLetterSections } from './sectionStructure';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
 	import { useToast } from '@/hooks/use-toast';
 	import { transformMetricsToMatchData, getUnresolvedRatingCriteria, useMatchMetricsDetails, type MatchMetricsData } from './useMatchMetricsDetails';
@@ -1337,7 +1338,16 @@ export const CoverLetterModal = ({
 
     return null;
   }, [jobState?.stages?.requirementAnalysis?.data, draft?.enhancedMatchData]);
-  const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
+  const rawSetDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
+  const setDraft = useCallback((nextDraft: CoverLetterDraft | null) => {
+    if (!nextDraft?.sections?.length) {
+      rawSetDraft(nextDraft);
+      return;
+    }
+
+    const normalized = normalizeCoverLetterSections(nextDraft.sections);
+    rawSetDraft(normalized.changed ? { ...nextDraft, sections: normalized.sections } : nextDraft);
+  }, [rawSetDraft]);
   const workpad = mode === 'create' ? createModeHook.workpad : null;
   const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
   const progress = mode === 'create' ? createModeHook.progress : 0;
@@ -1347,6 +1357,26 @@ export const CoverLetterModal = ({
   const isFinalizing = mode === 'create' ? createModeHook.isFinalizing : false;
   const generationError = mode === 'create' ? createModeHook.error : null;
   const generateDraft = mode === 'create' ? createModeHook.generateDraft : async () => {};
+
+  useEffect(() => {
+    if (!draft?.id || !draft.sections?.length) return;
+
+    const normalized = normalizeCoverLetterSections(draft.sections);
+    if (!normalized.changed) return;
+
+    rawSetDraft({ ...draft, sections: normalized.sections });
+
+    void coverLetterDraftService.updateDraft(draft.id, {
+      sections: normalized.sections,
+    }).catch((error) => {
+      console.error('[CoverLetterModal] Failed to persist repaired section structure:', error);
+      toast({
+        title: 'Unable to repair draft structure',
+        description: error instanceof Error ? error.message : 'Please refresh and try again.',
+        variant: 'destructive',
+      });
+    });
+  }, [coverLetterDraftService, draft, rawSetDraft, toast]);
 
   // Hydrate enhancedMatchData onto draft when present in llmFeedback or persisted backend
   useEffect(() => {
@@ -2740,19 +2770,12 @@ export const CoverLetterModal = ({
   const handleInsertBetweenSections = (insertIndex: number) => {
     if (!draft) return;
     const sections = draft.sections || [];
-
-    // Infer section type from neighbors
-    let preferredType: 'intro' | 'body' | 'closing' = 'body';
-    if (insertIndex === 0) {
-      preferredType = 'intro';
-    } else if (insertIndex >= sections.length) {
-      preferredType = 'closing';
-    }
+    const normalizedTarget = normalizeCoverLetterInsertionTarget(sections, insertIndex);
 
     setLibraryInvocation({
       type: 'insert_here',
-      insertIndex,
-      preferredSectionType: preferredType,
+      insertIndex: normalizedTarget.insertIndex,
+      preferredSectionType: normalizedTarget.sectionType,
     });
     setLibraryInitialContentType(null);
     setLibraryAutoAdvance(false);
@@ -2792,25 +2815,25 @@ export const CoverLetterModal = ({
     if (!draft) return;
     
     try {
+      const normalizedTarget = normalizeCoverLetterInsertionTarget(draft.sections || [], insertIndex);
       const newSection = {
         id: `section-${Date.now()}`,
-        type: libraryInvocation?.preferredSectionType || 'body',
-        slug: libraryInvocation?.preferredSectionType || 'body',
+        type: normalizedTarget.sectionType,
+        slug: normalizedTarget.sectionType,
         title: source.title || 'New Section',
         content,
         source: toDraftSource(source),
-        order: insertIndex,
+        order: normalizedTarget.insertIndex,
       };
 
       // Insert the new section at the specified index
       const updatedSections = [...draft.sections];
-      updatedSections.splice(insertIndex, 0, newSection);
+      updatedSections.splice(normalizedTarget.insertIndex, 0, newSection);
 
-      // Reorder all sections
-      const reorderedSections = updatedSections.map((section, index) => ({
+      const reorderedSections = normalizeCoverLetterSections(updatedSections.map((section, index) => ({
         ...section,
         order: index,
-      }));
+      }))).sections;
 
       // Update draft in state
       setDraft({ ...draft, sections: reorderedSections });
@@ -2864,10 +2887,10 @@ export const CoverLetterModal = ({
     if (insertIndex > sections.length) insertIndex = sections.length;
 
     sections.splice(insertIndex, 0, moved);
-    const reorderedSections = sections.map((section, index) => ({
+    const reorderedSections = normalizeCoverLetterSections(sections.map((section, index) => ({
       ...section,
       order: index,
-    }));
+    }))).sections;
 
     setDraft({ ...draft, sections: reorderedSections });
     try {
@@ -2938,10 +2961,10 @@ export const CoverLetterModal = ({
     try {
       const updatedSections = draft.sections.filter(s => s.id !== sectionId);
 
-      const reorderedSections = updatedSections.map((s, index) => ({
+      const reorderedSections = normalizeCoverLetterSections(updatedSections.map((s, index) => ({
         ...s,
         order: index,
-      }));
+      }))).sections;
 
       setDraft({ ...draft, sections: reorderedSections });
 
@@ -3007,32 +3030,32 @@ export const CoverLetterModal = ({
 
   const handleInsertBelow = async (
     sectionIndex: number,
-    sectionType: string,
+    _sectionType: string,
     content: string,
     source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string; title?: string }
   ) => {
     if (!draft) return;
 
     try {
+      const normalizedTarget = normalizeCoverLetterInsertionTarget(draft.sections || [], sectionIndex + 1);
       const newSection = {
         id: `section-${Date.now()}`,
-        type: sectionType,
-        slug: sectionType,
+        type: normalizedTarget.sectionType,
+        slug: normalizedTarget.sectionType,
         title: source.title || 'New Section',
         content,
         source: toDraftSource(source),
-        order: sectionIndex + 1,
+        order: normalizedTarget.insertIndex,
       };
 
       // Insert the new section after the specified index
       const updatedSections = [...draft.sections];
-      updatedSections.splice(sectionIndex + 1, 0, newSection);
+      updatedSections.splice(normalizedTarget.insertIndex, 0, newSection);
 
-      // Reorder all sections
-      const reorderedSections = updatedSections.map((section, index) => ({
+      const reorderedSections = normalizeCoverLetterSections(updatedSections.map((section, index) => ({
         ...section,
         order: index,
-      }));
+      }))).sections;
 
       // Update draft in state
       setDraft({ ...draft, sections: reorderedSections });

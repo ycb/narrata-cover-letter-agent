@@ -18,6 +18,7 @@ import type { MatchMetricsData } from './useMatchMetricsDetails';
 import type { SectionGapInsight } from '@/types/coverLetters';
 import { useUiZoom } from "@/hooks/useUiZoom";
 import { FloatingZoomControls } from "@/components/shared/FloatingZoomControls";
+import { isClosingSection, isIntroSection } from './sectionStructure';
 
 /**
  * Phase 1: Extract shared editor component from CreateModal
@@ -206,6 +207,8 @@ export function CoverLetterDraftEditor({
 
   // Extract content standards from draft
   const contentStandards = draft?.llmFeedback?.contentStandards as any;
+  const firstSection = sectionsToRender[0];
+  const showTopInsertButton = !isLoadingSection && !isIntroSection(firstSection);
 
   /**
    * DRAFT-ONLY GAP MATCHING
@@ -489,7 +492,7 @@ export function CoverLetterDraftEditor({
               {/* Top controls: Add section (centered) */}
               <div className="flex items-center justify-center">
                 {/* Add Section button - centered */}
-                {!isLoadingSection && (
+                {showTopInsertButton && (
                   <SectionInsertButton onClick={() => onInsertBetweenSections(0)} />
                 )}
               </div>
@@ -719,7 +722,7 @@ export function CoverLetterDraftEditor({
                   </ContentCard>
 
                   {/* Add Section button after each section (hide during loading) */}
-                  {!isLoadingSection && (
+                  {!isLoadingSection && !(sectionIndex === sectionsToRender.length - 1 && isClosingSection(section)) && (
                     <SectionInsertButton
                       onClick={() => onInsertBetweenSections(sectionIndex + 1)}
                       variant="default"
