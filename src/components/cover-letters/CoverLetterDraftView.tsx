@@ -97,6 +97,21 @@ interface CoverLetterDraftViewProps {
   className?: string;
 }
 
+const hasGapSignalText = (gap: any): boolean =>
+  [
+    gap?.issue,
+    gap?.label,
+    gap?.recommendation,
+    gap?.rationale,
+    gap?.description,
+    gap?.requirement,
+    gap?.evidenceQuote,
+    gap?.hiringRisk,
+    gap?.whyNow,
+  ].some((value) => typeof value === 'string' && value.trim().length > 0);
+
+const isActionableGap = (gap: any): boolean => gap?.status === 'unmet' && hasGapSignalText(gap);
+
 /**
  * Shared component for displaying cover letter draft content
  * Used by both CoverLetterCreateModal and CoverLetterEditModal for DRY
@@ -251,11 +266,6 @@ export function CoverLetterDraftView({
    * - gaps: structured gap objects with title + description
    */
   const getSectionGapInsights = (sectionId: string, sectionType: string) => {
-    const isRenderableGap = (gap: any) =>
-      gap?.status === 'unmet' &&
-      Boolean(gap?.hiringRisk?.trim()) &&
-      Boolean(gap?.whyNow?.trim()) &&
-      Boolean(gap?.evidenceQuote?.trim());
     const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
     const toIssueFallback = (value?: string) => {
       const raw = String(value || '').trim();
@@ -307,7 +317,7 @@ export function CoverLetterDraftView({
         console.log(`[AGENT D] Showing heuristic gaps for section ${sectionId}:`, pendingInsight);
         // Show pending heuristic insight while waiting for LLM
         const gaps = pendingInsight.requirementGaps
-          .filter(isRenderableGap)
+          .filter(isActionableGap)
           .map(gap => ({
             id: gap.id,
             headline: buildHeadline(gap),
@@ -349,7 +359,7 @@ export function CoverLetterDraftView({
       if (sectionInsight) {
         // LLM insight found - use it (most accurate)
         const gaps = sectionInsight.requirementGaps
-          .filter(isRenderableGap)
+          .filter(isActionableGap)
           .map(gap => ({
             id: gap.id,
             headline: buildHeadline(gap),
@@ -369,7 +379,7 @@ export function CoverLetterDraftView({
     // Priority 2: Pending heuristic insight (if available and no LLM insight)
     if (pendingInsight) {
       const gaps = pendingInsight.requirementGaps
-        .filter(isRenderableGap)
+        .filter(isActionableGap)
         .map(gap => ({
           id: gap.id,
           headline: buildHeadline(gap),

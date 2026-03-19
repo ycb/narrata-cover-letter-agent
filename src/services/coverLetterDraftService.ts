@@ -374,6 +374,12 @@ const slugify = (value: string, fallback: string): string => {
   return base || fallback;
 };
 
+const fingerprintStoryContent = (content: string): string =>
+  String(content || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
 const createRequirementId = (): string => {
   const globalCrypto: Crypto | undefined =
     typeof globalThis !== 'undefined' ? (globalThis as { crypto?: Crypto }).crypto : undefined;
@@ -1043,6 +1049,29 @@ export class CoverLetterDraftService {
 
       await this.invokeCoverLetterPhaseB(draftId, 'full');
       const updatedDraft = await this.getDraft(draftId);
+
+      if (updatedDraft) {
+        const llmFeedback =
+          updatedDraft.llmFeedback && typeof updatedDraft.llmFeedback === 'object'
+            ? updatedDraft.llmFeedback
+            : {};
+        await this.logDraftCoverLetterResult({
+          userId,
+          draftId,
+          jobDescriptionId,
+          sections: updatedDraft.sections,
+          enhancedMatchData: updatedDraft.enhancedMatchData,
+          metrics: updatedDraft.metrics,
+          contentStandards: (llmFeedback.contentStandards as ContentStandardsAnalysis | null | undefined) ?? null,
+          overallScore: updatedDraft.analytics?.overallScore,
+          mws: updatedDraft.mws ?? (((llmFeedback as Record<string, unknown>).mws as {
+            summaryScore: 0 | 1 | 2 | 3;
+            details: Array<{ label: string; strengthLevel: string; explanation: string }>;
+          } | null | undefined) ?? null),
+          phaseBLatencyMs: Math.max(0, Date.now() - Date.parse(startedAt)),
+          status: 'success',
+        });
+      }
 
       if (jobId) {
         await this.supabaseClient
@@ -2670,6 +2699,7 @@ export class CoverLetterDraftService {
     const { templateSections, stories, savedSections, jobDescription, userGoals, onSectionBuilt } = input;
     const nowIso = this.now().toISOString();
     const usedStoryIds = new Set<string>();
+    const usedStoryFingerprints = new Set<string>();
 
     console.log(`[CoverLetterDraftService] buildSections: ${templateSections.length} template sections, ${stories.length} stories, ${savedSections.length} saved sections`);
     
@@ -2751,13 +2781,15 @@ export class CoverLetterDraftService {
               stories,
               jobDescription,
               userGoals,
-              { usedStoryIds },
+              { usedStoryIds, usedStoryFingerprints },
           );
           if (bestStory && bestStory.content?.trim()) {
             // Only use story if it has actual content
             const content = this.applyTemplateTokens(bestStory.content, jobDescription);
             const requirementsMatched = this.matchRequirements(content, jobDescription);
             usedStoryIds.add(bestStory.id);
+            const storyFingerprint = fingerprintStoryContent(bestStory.content);
+            if (storyFingerprint) usedStoryFingerprints.add(storyFingerprint);
             builtSection = this.createSection({
               id: sectionId,
               slug,
@@ -2801,13 +2833,15 @@ export class CoverLetterDraftService {
             stories,
             jobDescription,
             userGoals,
-            { usedStoryIds },
+            { usedStoryIds, usedStoryFingerprints },
           );
           if (bestStory && bestStory.content?.trim()) {
             // Only use story if it has actual content
             const content = this.applyTemplateTokens(bestStory.content, jobDescription);
             const requirementsMatched = this.matchRequirements(content, jobDescription);
             usedStoryIds.add(bestStory.id);
+            const storyFingerprint = fingerprintStoryContent(bestStory.content);
+            if (storyFingerprint) usedStoryFingerprints.add(storyFingerprint);
             builtSection = this.createSection({
               id: sectionId,
               slug,
@@ -2949,7 +2983,7 @@ export class CoverLetterDraftService {
     stories: StoryRow[],
     jobDescription: ParsedJobDescription,
     userGoals: Awaited<ReturnType<typeof UserPreferencesService.loadGoals>> | null,
-    options?: { usedStoryIds?: Set<string> },
+    options?: { usedStoryIds?: Set<string>; usedStoryFingerprints?: Set<string> },
   ): { story: StoryRow | null; diagnostics: StorySelectionDiagnostics } {
     if (!stories.length) {
       console.log(`[CoverLetterDraftService] No stories available for section "${section.title || 'unnamed'}"`);
@@ -2961,6 +2995,7 @@ export class CoverLetterDraftService {
           selectedScore: null,
           hasUnusedStories: false,
           usedStoryIds: Array.from(options?.usedStoryIds ?? []),
+          usedStoryContentFingerprints: Array.from(options?.usedStoryFingerprints ?? []),
           selectionMode: 'no-viable-match',
           selectionBlockedReason: 'No stories are available for this draft.',
           topCandidates: [],
@@ -2971,13 +3006,19 @@ export class CoverLetterDraftService {
     const goals = section.blurbCriteria?.goals ?? [];
     const differentiatorIds = new Set(jobDescription.differentiatorRequirements.map(req => req.id));
     const usedStoryIds = options?.usedStoryIds;
+    const usedStoryFingerprints = options?.usedStoryFingerprints;
 
     let bestStory: StoryRow | null = null;
     let bestScore = -Infinity;
     const candidates: StorySelectionDiagnostics['topCandidates'] = [];
 
     const hasUnusedStories =
-      !!usedStoryIds && stories.some(story => !!story.content?.trim() && !usedStoryIds.has(story.id));
+      stories.some(story => {
+        if (!story.content?.trim()) return false;
+        if (usedStoryIds?.has(story.id)) return false;
+        const storyFingerprint = fingerprintStoryContent(story.content);
+        return !storyFingerprint || !usedStoryFingerprints?.has(storyFingerprint);
+      });
 
     const normalisedJdKeywords = (jobDescription.keywords ?? [])
       .map(keyword => keyword.trim().toLowerCase())
@@ -3107,6 +3148,7 @@ export class CoverLetterDraftService {
         console.warn(`[CoverLetterDraftService] Story "${story.title || story.id}" has empty content, skipping`);
         continue;
       }
+      const storyFingerprint = fingerprintStoryContent(content);
 
       const requirementsMatched = this.matchRequirements(content, jobDescription);
       const differentiatorMatches = requirementsMatched.filter(reqId => differentiatorIds.has(reqId));
@@ -3182,11 +3224,18 @@ export class CoverLetterDraftService {
         score -= reusePenalty;
       }
 
+      let duplicateContentPenalty = 0;
+      if (storyFingerprint && usedStoryFingerprints?.has(storyFingerprint)) {
+        duplicateContentPenalty = 1000;
+        score -= duplicateContentPenalty;
+      }
+
       candidates.push({
         storyId: story.id,
         title: story.title ?? undefined,
         score,
         wasUsed: !!usedStoryIds?.has(story.id),
+        contentAlreadyUsed: Boolean(storyFingerprint && usedStoryFingerprints?.has(storyFingerprint)),
         counts: {
           requirementsMatched: requirementsMatched.length,
           differentiatorsMatched: differentiatorMatches.length,
@@ -3205,6 +3254,7 @@ export class CoverLetterDraftService {
         },
         adjustments: {
           reusePenalty,
+          duplicateContentPenalty,
           shortContentPenalty,
           lowTimesUsedBonus,
           targetTitleTagBonus,
@@ -3215,7 +3265,7 @@ export class CoverLetterDraftService {
         },
       });
 
-      if (usedStoryIds?.has(story.id)) {
+      if (usedStoryIds?.has(story.id) || (storyFingerprint && usedStoryFingerprints?.has(storyFingerprint))) {
         continue;
       }
 
@@ -3243,12 +3293,13 @@ export class CoverLetterDraftService {
       selectedScore: Number.isFinite(bestScore) ? bestScore : null,
       hasUnusedStories,
       usedStoryIds: Array.from(usedStoryIds ?? []),
+      usedStoryContentFingerprints: Array.from(usedStoryFingerprints ?? []),
       selectionMode: bestStory ? 'best-fit' : hasUnusedStories ? 'no-viable-match' : 'no-unused-stories',
       selectionBlockedReason: bestStory
         ? undefined
         : hasUnusedStories
         ? 'Unused stories exist, but none produced a viable match for this section.'
-        : 'Story reuse is blocked because every available story is already used in this draft.',
+        : 'Story reuse is blocked because every available story or story variant is already used in this draft.',
       degradedJobDescription,
       topCandidates: candidates.sort((a, b) => b.score - a.score).slice(0, 5),
     };
@@ -3679,6 +3730,33 @@ export class CoverLetterDraftService {
     };
   }
 
+  private buildStorySelectionSnapshot(sections: CoverLetterDraftSection[]) {
+    const dynamicSelections = sections
+      .filter(section => section.metadata?.storySelection)
+      .map(section => ({
+        sectionId: section.id,
+        sectionTitle: section.title,
+        sourceKind: section.source.kind,
+        sourceEntityId: section.source.entityId,
+        contentFingerprint: fingerprintStoryContent(section.content),
+        diagnostics: section.metadata.storySelection,
+      }));
+
+    const fingerprintCounts = dynamicSelections.reduce((counts, section) => {
+      if (!section.contentFingerprint) return counts;
+      counts.set(section.contentFingerprint, (counts.get(section.contentFingerprint) ?? 0) + 1);
+      return counts;
+    }, new Map<string, number>());
+
+    return {
+      sectionCount: dynamicSelections.length,
+      duplicateContentFingerprints: Array.from(fingerprintCounts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([fingerprint]) => fingerprint),
+      sections: dynamicSelections,
+    };
+  }
+
   // ============================================================================
   // EVALUATION LOGGING
   // ============================================================================
@@ -3746,6 +3824,7 @@ export class CoverLetterDraftService {
       const badgeCount = allGaps.length;
       const hasGapsChildren = (data.enhancedMatchData?.sectionGapInsights?.length ?? 0) > 0;
       const gapDiagnostics = this.buildGapDiagnostics(data.enhancedMatchData);
+      const storySelection = this.buildStorySelectionSnapshot(data.sections);
 
       const phaseB: PhaseBCompleteness = {
         sectionsGenerated: {
@@ -3849,6 +3928,7 @@ export class CoverLetterDraftService {
           missingFields,
           evalStatus,
           gapDiagnostics,
+          storySelection,
         } as unknown as Record<string, unknown>,
       };
 

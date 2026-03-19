@@ -39,6 +39,7 @@ export interface StorySelectionCandidateDiagnostic {
   title?: string;
   score: number;
   wasUsed: boolean;
+  contentAlreadyUsed?: boolean;
   counts: {
     requirementsMatched: number;
     differentiatorsMatched: number;
@@ -52,6 +53,7 @@ export interface StorySelectionCandidateDiagnostic {
   };
   adjustments: {
     reusePenalty: number;
+    duplicateContentPenalty?: number;
     shortContentPenalty: number;
     lowTimesUsedBonus: number;
     targetTitleTagBonus: number;
@@ -68,6 +70,7 @@ export interface StorySelectionDiagnostics {
   selectedScore: number | null;
   hasUnusedStories: boolean;
   usedStoryIds: string[];
+  usedStoryContentFingerprints?: string[];
   selectionMode?: 'best-fit' | 'no-unused-stories' | 'no-viable-match';
   selectionBlockedReason?: string;
   degradedJobDescription?: {

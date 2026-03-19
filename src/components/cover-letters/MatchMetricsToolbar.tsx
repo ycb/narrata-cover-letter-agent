@@ -112,6 +112,21 @@ const deriveMwsSummaryScore = (mws?: {
   return typeof mws.summaryScore === 'number' ? mws.summaryScore : undefined;
 };
 
+const hasGapSignalText = (gap: any): boolean =>
+  [
+    gap?.issue,
+    gap?.label,
+    gap?.recommendation,
+    gap?.rationale,
+    gap?.description,
+    gap?.requirement,
+    gap?.evidenceQuote,
+    gap?.hiringRisk,
+    gap?.whyNow,
+  ].some((value) => typeof value === 'string' && value.trim().length > 0);
+
+const isActionableGap = (gap: any): boolean => gap?.status === 'unmet' && hasGapSignalText(gap);
+
 export function MatchMetricsToolbar(props: MatchMetricsToolbarProps) {
   const {
     isLoading = false,
@@ -585,11 +600,6 @@ function MatchMetricsToolbarContent({
   // Collect gaps: Build directly from sectionGapInsights without requiring section matching
   // This fixes the bug where section IDs didn't match and gaps showed empty
   const allGaps = useMemo(() => {
-    const isRenderableGap = (gap: any) =>
-      gap?.status === 'unmet' &&
-      Boolean(gap?.hiringRisk?.trim()) &&
-      Boolean(gap?.whyNow?.trim()) &&
-      Boolean(gap?.evidenceQuote?.trim());
     // Debug: Log gaps data source
     if (process.env.NODE_ENV !== 'production') {
       console.log('[MatchMetricsToolbar] Gaps debug:', {
@@ -602,7 +612,7 @@ function MatchMetricsToolbarContent({
         sectionGapInsights: enhancedMatchData?.sectionGapInsights?.map(i => ({
           sectionId: i.sectionId,
           sectionSlug: i.sectionSlug,
-          gapCount: i.requirementGaps?.filter(isRenderableGap).length,
+          gapCount: i.requirementGaps?.filter(isActionableGap).length,
         })),
       });
     }
@@ -613,7 +623,7 @@ function MatchMetricsToolbarContent({
     
     // Iterate directly over sectionGapInsights - no matching required
     enhancedMatchData.sectionGapInsights.forEach((insight, idx) => {
-      const filteredGaps = (insight.requirementGaps || []).filter(isRenderableGap);
+      const filteredGaps = (insight.requirementGaps || []).filter(isActionableGap);
       if (filteredGaps.length === 0) return;
       if (insight.sectionId && dismissedGapSectionIdSet.has(insight.sectionId)) return;
       
@@ -648,18 +658,13 @@ function MatchMetricsToolbarContent({
 
   // Count sections with gaps - directly from sectionGapInsights (don't depend on sections array)
   const gapsCount = useMemo(() => {
-    const isRenderableGap = (gap: any) =>
-      gap?.status === 'unmet' &&
-      Boolean(gap?.hiringRisk?.trim()) &&
-      Boolean(gap?.whyNow?.trim()) &&
-      Boolean(gap?.evidenceQuote?.trim());
     if (!enhancedMatchData?.sectionGapInsights) return 0;
     
     // Count sections that have at least one gap
     return enhancedMatchData.sectionGapInsights.filter(
       (insight) =>
         insight.requirementGaps &&
-        insight.requirementGaps.filter(isRenderableGap).length > 0 &&
+        insight.requirementGaps.filter(isActionableGap).length > 0 &&
         !(insight.sectionId && dismissedGapSectionIdSet.has(insight.sectionId))
     ).length;
   }, [enhancedMatchData?.sectionGapInsights, dismissedGapSectionIdSet]);

@@ -142,6 +142,50 @@ describe('MatchMetricsToolbar', () => {
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);
   });
 
+  it('surfaces unmet gaps even when the model omits secondary evidence fields', () => {
+    render(
+      <MatchMetricsToolbar
+        metrics={baseMetrics}
+        jobDescription={{ role: 'Senior Product Manager' }}
+        enhancedMatchData={{
+          ...enhancedMatchData,
+          sectionGapInsights: [
+            {
+              sectionId: 'body-1',
+              sectionSlug: 'experience',
+              sectionType: 'experience',
+              sectionTitle: 'Body Paragraph 1',
+              promptSummary: 'Needs stronger ownership proof.',
+              requirementGaps: [
+                {
+                  id: 'gap-1',
+                  issue: 'missing direct ownership signal',
+                  label: 'Ownership signal',
+                  status: 'unmet',
+                  severity: 'high',
+                  rationale: 'The paragraph describes outcomes but not the candidate’s explicit ownership.',
+                  recommendation: 'Add a sentence clarifying the decision scope and leadership responsibility.',
+                },
+              ],
+              recommendedMoves: [],
+            },
+          ],
+        } as any}
+        phaseBStatus={{
+          status: 'success',
+          sectionGaps: { status: 'success' },
+        } as any}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Gaps/i }));
+
+    expect(screen.getByText(/Missing direct ownership signal/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/The paragraph describes outcomes but not the candidate’s explicit ownership/i),
+    ).toBeInTheDocument();
+  });
+
   it('renders readiness unavailable when the readiness hook errors', () => {
     useDraftReadinessMock.mockReturnValue({
       data: null,

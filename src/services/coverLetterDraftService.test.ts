@@ -241,6 +241,86 @@ describe('CoverLetterDraftService story selection', () => {
     expect(sections[2].metadata.storySelection?.selectionMode).toBe('no-unused-stories');
     expect(sections[2].metadata.storySelection?.selectedStoryId).toBeNull();
   });
+
+  it('never repeats the same story content across sections when duplicate records exist', () => {
+    const service = new CoverLetterDraftService({ supabaseClient: {} as any, jobDescriptionService: {} as any });
+
+    const templateSections: any[] = [
+      {
+        id: 'sec-1',
+        type: 'paragraph',
+        title: 'Body Paragraph 1',
+        contentType: 'work-history',
+        isStatic: false,
+        blurbCriteria: { goals: [] },
+        order: 1,
+      },
+      {
+        id: 'sec-2',
+        type: 'paragraph',
+        title: 'Body Paragraph 2',
+        contentType: 'work-history',
+        isStatic: false,
+        blurbCriteria: { goals: [] },
+        order: 2,
+      },
+    ];
+
+    const duplicatedContent =
+      'Led product strategy and stakeholder management across teams while driving roadmap execution.';
+
+    const stories: any[] = [
+      {
+        id: 'story-a',
+        title: 'Story A',
+        content: duplicatedContent,
+        tags: [],
+        times_used: 0,
+      },
+      {
+        id: 'story-b',
+        title: 'Story B duplicate',
+        content: duplicatedContent,
+        tags: [],
+        times_used: 0,
+      },
+    ];
+
+    const jobDescription: any = {
+      company: 'Acme',
+      role: 'Senior Product Manager',
+      summary: '',
+      standardRequirements: [
+        {
+          id: 'req-strategy',
+          label: 'product strategy',
+          category: 'standard',
+          priority: 'high',
+          keywords: ['product strategy'],
+        },
+      ],
+      preferredRequirements: [],
+      differentiatorRequirements: [],
+      boilerplateSignals: [],
+      differentiatorSignals: [],
+      keywords: ['strategy', 'roadmap'],
+      structuredInsights: {},
+      analysis: {},
+    };
+
+    const { sections } = (service as any).buildSections({
+      templateSections,
+      stories,
+      savedSections: [],
+      jobDescription,
+      userGoals: null,
+    });
+
+    expect(sections[0].source.entityId).toBe('story-a');
+    expect(sections[1].source.kind).toBe('template_static');
+    expect(sections[1].metadata.storySelection?.selectionMode).toBe('no-unused-stories');
+    expect(sections[1].metadata.storySelection?.selectedStoryId).toBeNull();
+  });
 });
 
 describe('CoverLetterDraftService Phase B invocation', () => {

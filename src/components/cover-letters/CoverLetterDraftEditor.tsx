@@ -100,6 +100,21 @@ interface CoverLetterDraftEditorProps {
   refreshStartedAt?: string | null;
 }
 
+const hasGapSignalText = (gap: any): boolean =>
+  [
+    gap?.issue,
+    gap?.label,
+    gap?.recommendation,
+    gap?.rationale,
+    gap?.description,
+    gap?.requirement,
+    gap?.evidenceQuote,
+    gap?.hiringRisk,
+    gap?.whyNow,
+  ].some((value) => typeof value === 'string' && value.trim().length > 0);
+
+const isActionableGap = (gap: any): boolean => gap?.status === 'unmet' && hasGapSignalText(gap);
+
 export function CoverLetterDraftEditor({
   draft,
   jobDescription,
@@ -198,11 +213,6 @@ export function CoverLetterDraftEditor({
    * Match by section.id (preferred), fallback to slug/title for legacy drafts
    */
   const getSectionGapInsights = (sectionId: string, sectionSlug: string, sectionIndex: number) => {
-    const isRenderableGap = (gap: any) =>
-      gap?.status === 'unmet' &&
-      Boolean(gap?.hiringRisk?.trim()) &&
-      Boolean(gap?.whyNow?.trim()) &&
-      Boolean(gap?.evidenceQuote?.trim());
     const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
     const toIssueFallback = (value?: string) => {
       const raw = String(value || '').trim();
@@ -251,7 +261,7 @@ export function CoverLetterDraftEditor({
       sectionInsight = allInsights[sectionIndex] || allInsights[0];
     }
     
-    const requirementGaps = (sectionInsight?.requirementGaps || []).filter(isRenderableGap);
+    const requirementGaps = (sectionInsight?.requirementGaps || []).filter(isActionableGap);
     
     // Transform to UI format
     const gaps = requirementGaps.map((gap: any) => ({
@@ -387,13 +397,8 @@ export function CoverLetterDraftEditor({
               const sectionInsight = draft?.enhancedMatchData?.sectionGapInsights?.find(
                 (insight: any) => insight.sectionId === sectionId || insight.sectionSlug === section.slug || insight.sectionSlug === section.type
               );
-              const isRenderableGap = (gap: any) =>
-                gap?.status === 'unmet' &&
-                Boolean(gap?.hiringRisk?.trim()) &&
-                Boolean(gap?.whyNow?.trim()) &&
-                Boolean(gap?.evidenceQuote?.trim());
               const requirementGaps = sectionInsight?.requirementGaps
-                ?.filter(isRenderableGap)
+                ?.filter(isActionableGap)
                 ?.map((gap: any) => ({
                   id: gap.id,
                   headline: buildHeadline(gap),
@@ -680,30 +685,6 @@ export function CoverLetterDraftEditor({
                             </div>
                           );
                         })()}
-                        {section.metadata?.storySelection ? (
-                          <details className="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                            <summary className="cursor-pointer font-medium text-foreground">
-                              Story selection diagnostics
-                            </summary>
-                            <div className="mt-2 space-y-1">
-                              <div>
-                                Selected: {section.metadata.storySelection.selectedStoryId ?? 'No story selected'}
-                              </div>
-                              <div>
-                                Mode: {section.metadata.storySelection.selectionMode ?? 'best-fit'}
-                              </div>
-                              {section.metadata.storySelection.selectionBlockedReason ? (
-                                <div>{section.metadata.storySelection.selectionBlockedReason}</div>
-                              ) : null}
-                              <div>
-                                JD signals: {section.metadata.storySelection.degradedJobDescription?.requirementCount ?? 0} requirements, {section.metadata.storySelection.degradedJobDescription?.keywordCount ?? 0} keywords, {section.metadata.storySelection.degradedJobDescription?.hasStructuredSignals ? 'structured context present' : 'structured context missing'}
-                              </div>
-                              <div>
-                                Top candidates: {section.metadata.storySelection.topCandidates.map((candidate) => `${candidate.title || candidate.storyId} (${Math.round(candidate.score)})`).join(', ') || 'None'}
-                              </div>
-                            </div>
-                          </details>
-                        ) : null}
                         <GrammarTextarea
                           data-section-id={section.id}
                           value={editedContent}
