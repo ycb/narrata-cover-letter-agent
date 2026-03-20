@@ -323,6 +323,83 @@ describe('CoverLetterDraftService story selection', () => {
   });
 });
 
+describe('CoverLetterDraftService template normalization', () => {
+  it('drops template sections appended after the first closing boundary', () => {
+    const service = new CoverLetterDraftService({ supabaseClient: {} as any, jobDescriptionService: {} as any });
+
+    const normalized = (service as any).normaliseTemplateSections([
+      {
+        id: 'intro-1',
+        type: 'intro',
+        title: 'Introduction',
+        contentType: 'saved',
+        isStatic: true,
+        savedSectionId: 'saved-intro',
+        staticContent: 'Intro',
+        order: 1,
+      },
+      {
+        id: 'body-1',
+        type: 'paragraph',
+        title: 'Body Paragraph 1',
+        contentType: 'saved',
+        isStatic: true,
+        savedSectionId: 'saved-body-1',
+        staticContent: 'Body one',
+        order: 2,
+      },
+      {
+        id: 'body-2',
+        type: 'paragraph',
+        title: 'Body Paragraph 2',
+        contentType: 'work-history',
+        isStatic: false,
+        blurbCriteria: { goals: [] },
+        order: 3,
+      },
+      {
+        id: 'closing-1',
+        type: 'closer',
+        title: 'Closing',
+        contentType: 'saved',
+        isStatic: true,
+        savedSectionId: 'saved-closing',
+        staticContent: 'Closing',
+        order: 4,
+      },
+      {
+        id: 'tail-1',
+        type: 'paragraph',
+        title: 'Section 6',
+        contentType: 'saved',
+        isStatic: true,
+        savedSectionId: 'saved-tail',
+        staticContent: 'Corrupted tail section',
+        order: 5,
+      },
+      {
+        id: 'tail-2',
+        type: 'paragraph',
+        title: 'Section 7',
+        isStatic: true,
+        savedSectionId: 'saved-tail',
+        staticContent: 'Another corrupted tail section',
+        order: 6,
+      },
+    ]);
+
+    expect(normalized.map((section: any) => section.id)).toEqual([
+      'intro-1',
+      'body-1',
+      'body-2',
+      'closing-1',
+    ]);
+    expect(normalized.map((section: any) => section.order)).toEqual([1, 2, 3, 4]);
+    expect(normalized[1].contentType).toBe('saved');
+    expect(normalized[2].contentType).toBe('work-history');
+  });
+});
+
 describe('CoverLetterDraftService Phase B invocation', () => {
   it('invokes the server-side phase B function instead of relying on a browser OpenAI key', async () => {
     const invoke = vi.fn().mockResolvedValue({ data: { ok: true }, error: null });

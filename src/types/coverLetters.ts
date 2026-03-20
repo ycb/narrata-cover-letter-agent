@@ -92,6 +92,7 @@ export interface PhaseBStageRecord {
 }
 
 export interface PhaseBRecord extends PhaseBStageRecord {
+  slotFill?: PhaseBStageRecord;
   basicMetrics?: PhaseBStageRecord;
   requirementAnalysis?: PhaseBStageRecord;
   sectionGaps?: PhaseBStageRecord;

@@ -7,6 +7,7 @@
 import { supabase } from '@/lib/supabase';
 import { parseCoverLetter, convertToSavedSections } from '@/services/coverLetterParser';
 import { SoftDeleteService } from '@/services/softDeleteService';
+import { normalizeTemplateSectionsForDraft } from '@/lib/coverLetterTemplateSections';
 import type {
   CoverLetterGeneratedSection,
   CoverLetterSection,
@@ -566,11 +567,12 @@ export class CoverLetterTemplateService {
 
     return rows.map((row) => {
       const templateSectionsRaw = row.cover_letter_templates?.sections;
-      const templateSections: CoverLetterSection[] = Array.isArray(templateSectionsRaw)
+      const templateSectionsRawArray: CoverLetterSection[] = Array.isArray(templateSectionsRaw)
         ? (templateSectionsRaw as CoverLetterSection[])
         : Array.isArray((templateSectionsRaw as any)?.sections)
           ? ((templateSectionsRaw as any).sections as CoverLetterSection[])
           : [];
+      const templateSections = normalizeTemplateSectionsForDraft(templateSectionsRawArray);
 
       const sectionsRaw = row.sections;
       let sections: CoverLetterGeneratedSection[] = [];
@@ -769,12 +771,16 @@ export class CoverLetterTemplateService {
     templateId: string,
     updates: Partial<CoverLetterTemplateRecord>
   ): Promise<CoverLetterTemplateRecord> {
+    const normalizedSections = updates.sections
+      ? normalizeTemplateSectionsForDraft(updates.sections as unknown as CoverLetterSection[])
+      : undefined;
+
     const client = await this.getClient();
     const { data, error } = await client
       .from('cover_letter_templates')
       .update({
         name: updates.name,
-        sections: updates.sections,
+        sections: normalizedSections,
         updated_at: new Date().toISOString()
       } as any)
       .eq('id', templateId)

@@ -38,6 +38,7 @@ export interface GenerateDraftArgs {
   templateId?: string | null;
   jobDescriptionId?: string | null;
   signal?: AbortSignal;
+  deferPhaseBToServer?: boolean;
 }
 
 export interface UpdateSectionArgs {
@@ -248,7 +249,7 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
 
         // PHASE 2: Kick off metrics + gap detection in the background (caller-managed).
         // This prevents "gap stall" cases where the background run never starts or fails silently.
-        if (phaseBKickDraftIdRef.current !== result.draft.id) {
+        if (!args.deferPhaseBToServer && phaseBKickDraftIdRef.current !== result.draft.id) {
           phaseBKickDraftIdRef.current = result.draft.id;
           phaseBAutoRetryCountRef.current[result.draft.id] = 0;
 

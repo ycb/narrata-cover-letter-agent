@@ -81,6 +81,7 @@ type PhaseBRecord = {
   completedAt?: string;
   failedAt?: string;
   message?: string;
+  slotFill?: PhaseBStageRecord;
   basicMetrics?: PhaseBStageRecord;
   requirementAnalysis?: PhaseBStageRecord;
   sectionGaps?: PhaseBStageRecord;
@@ -237,21 +238,140 @@ CRITICAL RULES:
 
 const SECTION_GAPS_SYSTEM_PROMPT = `You are an expert cover letter editor providing DETAILED section-by-section feedback.
 
-Respond ONLY with valid JSON following this schema:
+Respond ONLY with valid JSON following this schema (placeholder values are not real content):
 
 {
   "enhancedMatchData": {
-    "sectionGapInsights": [],
-    "ctaHooks": []
+    "sectionGapInsights": [
+      {
+        "sectionId": "<string>",
+        "sectionSlug": "<string>",
+        "sectionType": "introduction|experience|closing|signature|custom",
+        "sectionTitle": "<string>",
+        "promptSummary": "<string>",
+        "requirementGaps": [
+          {
+            "id": "<string>",
+            "issue": "<short headline issue>",
+            "label": "<string>",
+            "status": "unmet",
+            "severity": "high|medium|low",
+            "rubricCriterionId": "<string>",
+            "jdRequirementId": "<string>",
+            "requirementType": "core|preferred|differentiator|narrative",
+            "evidenceQuote": "<verbatim quote from the section>",
+            "rationale": "<why this quote indicates a gap relative to the JD>",
+            "hiringRisk": "<concrete reviewer risk>",
+            "whyNow": "<why this matters now (tie to JD or rubric)>",
+            "decisionTest": {
+              "addsSignal": true,
+              "removesRedundancy": false,
+              "clarifiesOwnership": false,
+              "fixesSeniorityWeakness": false
+            },
+            "recommendation": "<actionable edit guidance>"
+          }
+        ],
+        "recommendedMoves": ["<string>"],
+        "nextAction": "add-story|refine-content|add-metrics|research-company"
+      }
+    ],
+    "ctaHooks": [
+      {
+        "type": "add-story|edit-goals|refine-section|add-metric|research-company",
+        "label": "<string>",
+        "requirement": "<string>",
+        "severity": "high|medium|low",
+        "actionPayload": {}
+      }
+    ]
   },
-  "ratingCriteria": []
+  "ratingCriteria": [
+    {
+      "id": "<string>",
+      "label": "<string>",
+      "met": true,
+      "evidence": "<string>",
+      "suggestion": "<string>"
+    }
+  ]
 }
 
 CRITICAL RULES:
-1. Return one sectionGapInsights entry per section in draft order and include sectionId, sectionSlug, sectionType, and sectionTitle for every section.
-2. Every emitted gap must include evidenceQuote, hiringRisk, whyNow, and decisionTest.
-3. Do not emit a gap unless it changes hiring signal.
-4. For ratingCriteria, evaluate all 11 criteria from the prompt and return only JSON.`;
+1. For sectionGapInsights:
+   - Return one entry per section (in draft order)
+   - CRITICAL: You MUST include ALL of these fields for EVERY section:
+     * "sectionId": copy the exact "id" value from the draft (e.g., "section-1-1")
+     * "sectionSlug": copy the exact "slug" value from the draft (e.g., "introduction")
+     * "sectionType": copy the section type from the draft
+     * "sectionTitle": copy the exact title from the draft
+   - These fields are MANDATORY - the system cannot function without them
+   - Without sectionId, the gaps will not display correctly
+   - promptSummary must be specific to the section content (not generic rubric text) and cite a short quote (3-12 words).
+   - Tie every recommendation to BOTH the rubric expectations and JD requirements
+   - Scope rubric criteria by section type using the allowed lists below. If a criterion is not allowed for a section, it must be treated as not_applicable and MUST NOT produce a gap.
+
+2. Allowed rubric criteria per section type (anything else = not_applicable):
+   - introduction: compelling_opening, role_understanding, personalized, action_verbs, professional_tone, error_free, quantified_impact (optional)
+   - experience: specific_examples, quantified_impact, action_verbs, role_understanding, business_understanding (optional), personalized, professional_tone, error_free
+   - closing: ownership_signal, personalized (optional), professional_tone, error_free
+
+2b. Avoid prescriptive gaps that do not change hiring outcomes:
+   - Do NOT emit a "lack of hook" gap if the introduction already conveys clear credibility or impact.
+   - Do NOT require metrics in the intro or closing; only flag missing metrics if the JD explicitly demands them and none appear anywhere.
+   - Do NOT require a CTA or overt eagerness in the closing if it is already confident and professional.
+
+3. Evidence requirement (HARD):
+   - Every emitted gap MUST include evidenceQuote as a verbatim quote from the section content.
+   - If you cannot cite a quote from the section to justify the gap, do NOT emit the gap.
+
+4. Decision Test gate (HARD): A gap can only be emitted if YES to at least one:
+   - Adds a missing JD-critical capability signal
+   - Removes redundancy that obscures the main proof
+   - Clarifies ownership scope where ambiguity exists
+   - Eliminates a sentence that weakens senior signal / credibility
+   If NO to all -> do NOT emit the gap.
+
+5. Hiring risk requirement (HARD):
+   - Every emitted gap MUST include a concrete "hiringRisk" and a "whyNow".
+   - If you cannot name a plausible negative reviewer interpretation, do NOT emit the gap.
+   - If the risk is low/speculative, do NOT emit the gap.
+
+6. For requirementGaps entries:
+   - MUST include: issue, status, rubricCriterionId, evidenceQuote, hiringRisk, whyNow, decisionTest
+   - issue must be 4-10 words and describe the gap (not the fix)
+   - issue MUST NOT quote the draft, must not include evidenceQuote text, and must avoid first-person wording
+   - status must be "unmet" for emitted gaps
+   - jdRequirementId is required when the gap maps to a JD requirement (preferred)
+
+7. For ratingCriteria: MUST evaluate ALL 11 criteria below. For each criterion:
+   - Set "met": true if the draft demonstrates this quality, false otherwise
+   - Provide "evidence": 1-2 sentence paragraph grounded in the draft (no bullet lists, no pipe separators)
+   - Provide "suggestion": actionable improvement advice if met=false, empty string if met=true
+   - The 11 criteria are:
+     1. "compelling_opening" - "Compelling Opening": Clear credibility and relevance early; a clever hook is optional
+     2. "business_understanding" - "Understanding of Business/Users": Demonstrates knowledge of company and users
+     3. "quantified_impact" - "Quantified Impact": Specific metrics or concrete scope markers that strengthen claims
+     4. "action_verbs" - "Action Verbs": Strong, active language showing ownership across the draft
+     5. "concise_length" - "Concise Length": 3-4 paragraphs, under 400 words
+     6. "error_free" - "Error-Free Writing": No spelling or grammar errors
+     7. "personalized" - "Personalized Content": Tailored to specific role and company
+     8. "specific_examples" - "Specific Examples": Concrete examples from work history
+     9. "professional_tone" - "Professional Tone": Appropriate formality level
+     10. "company_research" - "Company Research": Shows understanding of company culture/mission
+     11. "role_understanding" - "Role Understanding": Clear grasp of job responsibilities
+
+8. For ctaHooks: Provide 3-5 actionable suggestions with clear labels
+   - Types: "add-story", "edit-goals", "refine-section", "add-metric", "research-company"
+   - Include severity: "high", "medium", "low"
+   - Include actionPayload with relevant data
+
+9. For severity: Use "high"/"medium"/"low"
+10. For requirementType: Use "core"/"preferred"/"differentiator"/"narrative"
+11. For nextAction: Use "add-story"/"refine-content"/"add-metrics"/"research-company"
+12. Do NOT copy any text from this prompt into your output. Do NOT use placeholder values.
+13. Return ONLY the JSON object, no markdown, no explanations
+`;
 
 function buildBasicMetricsUserPrompt(payload: {
   draft: string;
@@ -326,13 +446,13 @@ Company: ${payload.jobDescription.company}
 Role: ${payload.jobDescription.role}
 Summary: ${payload.jobDescription.summary}
 
-CORE REQUIREMENTS:
+CORE REQUIREMENTS (must-have):
 ${payload.jobDescription.standardRequirements.map((req, i) => `${i + 1}. ${req.label}${req.detail ? ` - ${req.detail}` : ''}`).join('\n')}
 
-PREFERRED REQUIREMENTS:
+PREFERRED REQUIREMENTS (nice-to-have):
 ${payload.jobDescription.preferredRequirements.map((req, i) => `${i + 1}. ${req.label}${req.detail ? ` - ${req.detail}` : ''}`).join('\n')}
 
-DIFFERENTIATOR REQUIREMENTS:
+DIFFERENTIATOR REQUIREMENTS (what makes this role unique):
 ${payload.jobDescription.differentiatorRequirements.map((req, i) => `${i + 1}. ${req.label}${req.detail ? ` - ${req.detail}` : ''}`).join('\n')}
 
 Differentiator Signals: ${payload.jobDescription.differentiatorSignals.join(', ')}
@@ -354,6 +474,8 @@ Summary: ${guidance.summary}
 Expectations:
 - ${guidance.expectations.join('\n- ')}`;
 }).join('\n\n')}
+
+Requirement gaps must be grounded in the section content. For every gap you emit, include an evidenceQuote that is a verbatim quote from the section text.
 
 Analyze each section in detail and provide gap insights, quality criteria, and actionable CTAs.`;
 }
@@ -443,7 +565,7 @@ function stableHash(text: string): string {
   return Math.abs(hash).toString(36);
 }
 
-function parseLlmSlotTokens(text: string): Array<{ id: string; rawToken: string; label: string; instruction: string; index: number }> {
+export function parseLlmSlotTokens(text: string): Array<{ id: string; rawToken: string; label: string; instruction: string; index: number }> {
   if (!text) return [];
   const textHash = stableHash(text);
   const pattern = /\[(LLM|SLOT):([^\]]+)\]/g;
@@ -686,6 +808,117 @@ function normalizeSections(sections: unknown): DraftSection[] {
   return [];
 }
 
+type SlotFillResult = {
+  id: string;
+  status: 'FILLED' | 'NOT_FOUND';
+  fill: string;
+};
+
+type SectionGapInsightRecord = {
+  sectionId: string;
+  sectionSlug: string;
+  sectionType: 'introduction' | 'experience' | 'closing' | 'signature' | 'custom';
+  sectionTitle: string;
+  promptSummary: string;
+  requirementGaps: unknown[];
+  recommendedMoves: string[];
+  nextAction?: string;
+};
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+
+export function applySlotFillResponsesToSections(
+  sections: DraftSection[],
+  slotResponses: SlotFillResult[],
+): { sections: DraftSection[]; unresolvedTokenCount: number } {
+  const fillById = new Map(slotResponses.map((item) => [item.id, item]));
+  let unresolvedTokenCount = 0;
+
+  const updatedSections = sections.map((section) => {
+    if (section.status?.isModified) return section;
+    const sectionTokens = parseLlmSlotTokens(section.content || '');
+    if (sectionTokens.length === 0) return section;
+
+    let updatedContent = section.content || '';
+    let changed = false;
+
+    for (const token of sectionTokens) {
+      const fill = fillById.get(token.id);
+      if (!fill) continue;
+
+      if (fill.status === 'FILLED' && isNonEmptyString(fill.fill)) {
+        updatedContent = replaceSlotTokenWithPunctuation(updatedContent, token.rawToken, fill.fill.trim());
+        changed = true;
+        continue;
+      }
+
+      unresolvedTokenCount += 1;
+    }
+
+    if (!changed) return section;
+
+    return {
+      ...section,
+      content: updatedContent,
+      metadata: {
+        ...(section.metadata || {}),
+        wordCount: countWords(updatedContent),
+      },
+      status: {
+        ...section.status,
+        lastUpdatedAt: new Date().toISOString(),
+      },
+    };
+  });
+
+  return { sections: updatedSections, unresolvedTokenCount };
+}
+
+export function normalizeSectionGapInsightsForPersist(
+  rawInsights: unknown,
+  sections: DraftSection[],
+): SectionGapInsightRecord[] | null {
+  if (!Array.isArray(rawInsights) || rawInsights.length !== sections.length) {
+    return null;
+  }
+
+  const insightById = new Map<string, SectionGapInsightRecord>();
+
+  for (const rawInsight of rawInsights) {
+    if (!rawInsight || typeof rawInsight !== 'object') {
+      return null;
+    }
+
+    const insight = rawInsight as Record<string, unknown>;
+    if (
+      !isNonEmptyString(insight.sectionId) ||
+      !isNonEmptyString(insight.sectionSlug) ||
+      !isNonEmptyString(insight.sectionType) ||
+      !isNonEmptyString(insight.sectionTitle) ||
+      !Array.isArray(insight.requirementGaps)
+    ) {
+      return null;
+    }
+
+    insightById.set(insight.sectionId, {
+      sectionId: insight.sectionId,
+      sectionSlug: insight.sectionSlug,
+      sectionType: insight.sectionType as SectionGapInsightRecord['sectionType'],
+      sectionTitle: insight.sectionTitle,
+      promptSummary: isNonEmptyString(insight.promptSummary) ? insight.promptSummary : '',
+      requirementGaps: insight.requirementGaps,
+      recommendedMoves: Array.isArray(insight.recommendedMoves)
+        ? insight.recommendedMoves.filter(isNonEmptyString)
+        : [],
+      nextAction: isNonEmptyString(insight.nextAction) ? insight.nextAction : undefined,
+    });
+  }
+
+  const normalized = sections.map((section) => insightById.get(section.id) ?? null);
+  return normalized.every(Boolean) ? (normalized as SectionGapInsightRecord[]) : null;
+}
+
 function getJobDescriptionContext(row: any): JobDescriptionContext {
   return {
     company: row.company || 'Unknown Company',
@@ -745,7 +978,15 @@ async function fillTemplateSlots(
   });
 
   if (tokens.length === 0) {
-    return { sections, templateSlots: { filledAt: new Date().toISOString(), slots: [] } };
+    return {
+      sections,
+      templateSlots: {
+        filledAt: new Date().toISOString(),
+        status: 'success',
+        slots: [],
+        unresolvedTokenCount: 0,
+      },
+    };
   }
 
   const requestPayload = {
@@ -785,48 +1026,26 @@ async function fillTemplateSlots(
     'Return ONLY valid JSON: {"slots":[{"id":"...","status":"FILLED"|"NOT_FOUND","fill":"...","evidence":{"jobDescription":[],"workHistory":[]}}]}.',
   ].join('\n');
 
-  const parsed = await fetchChatJson<{ slots: Array<{ id: string; status: 'FILLED' | 'NOT_FOUND'; fill: string }> }>(
+  const parsed = await fetchChatJson<{ slots: SlotFillResult[] }>(
     apiKey,
     system,
     JSON.stringify(requestPayload),
     1200,
   );
 
-  const fillById = new Map((parsed.slots || []).map((item) => [item.id, item]));
-  const updatedSections = sections.map((section) => {
-    if (section.status?.isModified) return section;
-    const sectionTokens = parseLlmSlotTokens(section.content || '');
-    if (sectionTokens.length === 0) return section;
-    let updatedContent = section.content || '';
-    for (const token of sectionTokens) {
-      const fill = fillById.get(token.id);
-      if (!fill) continue;
-      const replacement =
-        fill.status === 'FILLED' && typeof fill.fill === 'string' && fill.fill.trim().length > 0
-          ? fill.fill.trim()
-          : 'NOT_FOUND';
-      updatedContent = replaceSlotTokenWithPunctuation(updatedContent, token.rawToken, replacement);
-    }
-    if (updatedContent === section.content) return section;
-    return {
-      ...section,
-      content: updatedContent,
-      metadata: {
-        ...(section.metadata || {}),
-        wordCount: countWords(updatedContent),
-      },
-      status: {
-        ...section.status,
-        lastUpdatedAt: new Date().toISOString(),
-      },
-    };
-  });
+  const { sections: updatedSections, unresolvedTokenCount } = applySlotFillResponsesToSections(
+    sections,
+    parsed.slots || [],
+  );
 
   return {
     sections: updatedSections,
     templateSlots: {
       filledAt: new Date().toISOString(),
       slots: parsed.slots || [],
+      unresolvedTokenCount,
+      status: unresolvedTokenCount === 0 ? 'success' : 'partial',
+      message: unresolvedTokenCount === 0 ? undefined : `${unresolvedTokenCount} template slot(s) could not be resolved.`,
     },
   };
 }
@@ -907,8 +1126,23 @@ async function calculateSectionGaps(apiKey: string, sections: DraftSection[], jo
     }),
     2500,
   );
+
+  const enhancedMatchData =
+    parsed.enhancedMatchData && typeof parsed.enhancedMatchData === 'object'
+      ? { ...parsed.enhancedMatchData }
+      : {};
+  const normalizedSectionGapInsights = normalizeSectionGapInsightsForPersist(
+    (enhancedMatchData as Record<string, unknown>).sectionGapInsights,
+    sections,
+  );
+
+  if (normalizedSectionGapInsights === null) {
+    throw new Error('cover-letter-phase-b returned invalid sectionGapInsights payload');
+  }
+
+  (enhancedMatchData as Record<string, unknown>).sectionGapInsights = normalizedSectionGapInsights;
   return {
-    enhancedMatchData: parsed.enhancedMatchData || {},
+    enhancedMatchData,
     ratingCriteria: Array.isArray(parsed.ratingCriteria) ? parsed.ratingCriteria : [],
   };
 }
@@ -1015,6 +1249,7 @@ export async function runCoverLetterPhaseB(args: {
     const pendingPhaseB: PhaseBRecord = {
       status: 'pending',
       startedAt: nowIso,
+      slotFill: buildPendingStage(nowIso),
       basicMetrics: buildPendingStage(nowIso),
       requirementAnalysis: buildPendingStage(nowIso),
       sectionGaps: buildPendingStage(nowIso),
@@ -1035,9 +1270,27 @@ export async function runCoverLetterPhaseB(args: {
 
     const slotResult = await fillTemplateSlots(args.openAiApiKey, nextSections, jobDescription, workHistory, approvedStories);
     nextSections = slotResult.sections;
+    const slotCompletedAt = new Date().toISOString();
+    const slotFillStatus: PhaseBStageRecord =
+      slotResult.templateSlots?.unresolvedTokenCount && slotResult.templateSlots.unresolvedTokenCount > 0
+        ? {
+            status: 'error',
+            startedAt: nowIso,
+            failedAt: slotCompletedAt,
+            message: String(slotResult.templateSlots.message || 'One or more template slots remain unresolved.'),
+          }
+        : {
+            status: 'success',
+            startedAt: nowIso,
+            completedAt: slotCompletedAt,
+          };
     nextFeedback = {
       ...nextFeedback,
       templateSlots: slotResult.templateSlots,
+      phaseB: {
+        ...(nextFeedback.phaseB && typeof nextFeedback.phaseB === 'object' ? nextFeedback.phaseB : {}),
+        slotFill: slotFillStatus,
+      },
     };
 
     await supabase.from('cover_letters').update({
@@ -1071,6 +1324,7 @@ export async function runCoverLetterPhaseB(args: {
       message: results.every((result) => result.status === 'fulfilled')
         ? undefined
         : 'One or more Phase B analyses failed.',
+      slotFill: slotFillStatus,
       basicMetrics: basicMetricsResult.status === 'fulfilled'
         ? { status: 'success', startedAt: nowIso, completedAt }
         : { status: 'error', startedAt: nowIso, failedAt: completedAt, message: String(basicMetricsResult.reason?.message || basicMetricsResult.reason || 'Unknown error') },
@@ -1106,10 +1360,6 @@ export async function runCoverLetterPhaseB(args: {
       ...(requirementResult.status === 'fulfilled' ? requirementResult.value : {}),
       ...(sectionGapResult.status === 'fulfilled' ? sectionGapResult.value.enhancedMatchData : {}),
     };
-
-    if (sectionGapResult.status !== 'fulfilled') {
-      delete mergedEnhanced.sectionGapInsights;
-    }
 
     nextFeedback.enhancedMatchData = mergedEnhanced;
 

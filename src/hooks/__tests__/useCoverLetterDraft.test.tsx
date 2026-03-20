@@ -191,6 +191,27 @@ describe('useCoverLetterDraft', () => {
     expect(result.current.error).toBeNull();
   });
 
+  it('defers full Phase B to the server job when requested by the create flow', async () => {
+    const { result } = renderHook(() =>
+      useCoverLetterDraftHook({
+        userId: 'user-1',
+        service: service as any,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.generateDraft({
+        templateId: 'tmpl-1',
+        jobDescriptionId: 'jd-1',
+        deferPhaseBToServer: true,
+      });
+    });
+
+    expect(service.generateDraftFast).toHaveBeenCalled();
+    expect(service.calculateMetricsForDraft).not.toHaveBeenCalled();
+    expect(result.current.metricsLoading).toBe(true);
+  });
+
   it('updates a draft section through the service', async () => {
     const { result } = renderHook(() =>
       useCoverLetterDraftHook({

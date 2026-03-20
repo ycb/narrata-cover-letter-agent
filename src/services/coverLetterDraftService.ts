@@ -33,6 +33,7 @@ import { ENHANCED_METRICS_SYSTEM_PROMPT, SECTION_GUIDANCE, buildEnhancedMetricsU
 import { BASIC_METRICS_SYSTEM_PROMPT, buildBasicMetricsUserPrompt } from '@/prompts/basicMetrics';
 import { REQUIREMENT_ANALYSIS_SYSTEM_PROMPT, buildRequirementAnalysisUserPrompt } from '@/prompts/requirementAnalysis';
 import { SECTION_GAPS_SYSTEM_PROMPT, buildSectionGapsUserPrompt } from '@/prompts/sectionGaps';
+import { normalizeTemplateSectionsForDraft } from '@/lib/coverLetterTemplateSections';
 import { ContentStandardsEvaluationService } from './contentStandardsEvaluationService';
 import { aggregateContentStandards, extractSectionsMeta, mapDraftSectionType } from './contentStandardsService';
 import type { ContentStandardsAnalysis, SectionStandardResult, LetterStandardResult } from '@/types/coverLetters';
@@ -914,6 +915,7 @@ export class CoverLetterDraftService {
       startedAt,
       failedAt,
       message,
+      slotFill: { ...errorStage },
       basicMetrics: { ...errorStage },
       requirementAnalysis: { ...errorStage },
       sectionGaps: { ...errorStage },
@@ -2666,11 +2668,7 @@ export class CoverLetterDraftService {
 
     if (!normalized.length) return [];
 
-    return normalized.map(section => {
-      if (section.contentType) return section;
-      const inferredContentType = section.savedSectionId ? 'saved' : 'work-history';
-      return { ...section, contentType: inferredContentType };
-    });
+    return normalizeTemplateSectionsForDraft(normalized);
   }
 
   private normaliseDraftSections(sections: CoverLetterRow['sections']): CoverLetterDraftSection[] {

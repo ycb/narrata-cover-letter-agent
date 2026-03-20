@@ -2498,6 +2498,7 @@ export const CoverLetterModal = ({
         generateDraft({
           templateId: selectedTemplateId,
           jobDescriptionId: record.id,
+          deferPhaseBToServer: true,
         }).then(result => {
           console.log('[CoverLetterModal] generateDraft resolved with', result.draft.sections.length, 'sections');
           return result;

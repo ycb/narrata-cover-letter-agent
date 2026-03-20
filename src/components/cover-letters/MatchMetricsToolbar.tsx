@@ -127,6 +127,16 @@ const hasGapSignalText = (gap: any): boolean =>
 
 const isActionableGap = (gap: any): boolean => gap?.status === 'unmet' && hasGapSignalText(gap);
 
+const isStructuredSectionGapInsight = (insight: any): boolean =>
+  Boolean(
+    insight &&
+      typeof insight === 'object' &&
+      typeof insight.sectionId === 'string' &&
+      typeof insight.sectionSlug === 'string' &&
+      typeof insight.sectionType === 'string' &&
+      Array.isArray(insight.requirementGaps),
+  );
+
 export function MatchMetricsToolbar(props: MatchMetricsToolbarProps) {
   const {
     isLoading = false,
@@ -446,6 +456,11 @@ function MatchMetricsToolbarContent({
     phaseBStatus?.basicMetrics?.status === 'error';
   const overallScoreValue = overallError ? null : contentStandardsOverallScore ?? metrics.overallScore ?? null;
 
+  const hasMalformedGapPayload = useMemo(() => {
+    const insights = enhancedMatchData?.sectionGapInsights;
+    return Array.isArray(insights) && insights.length > 0 && insights.some((insight) => !isStructuredSectionGapInsight(insight));
+  }, [enhancedMatchData?.sectionGapInsights]);
+
   const contentStandardsCriteria = useMemo(() => {
     if (!contentStandards?.aggregated?.standards) return null;
     return contentStandards.aggregated.standards.map((standard) => {
@@ -617,7 +632,7 @@ function MatchMetricsToolbarContent({
       });
     }
     
-    if (!enhancedMatchData?.sectionGapInsights) return [];
+    if (!enhancedMatchData?.sectionGapInsights || hasMalformedGapPayload) return [];
     
     const gaps: Array<{ sectionId: string; sectionTitle: string; gap: any }> = [];
     
@@ -654,11 +669,11 @@ function MatchMetricsToolbarContent({
     });
     
     return gaps;
-  }, [enhancedMatchData?.sectionGapInsights, sections, dismissedGapSectionIdSet]);
+  }, [enhancedMatchData?.sectionGapInsights, sections, dismissedGapSectionIdSet, hasMalformedGapPayload]);
 
   // Count sections with gaps - directly from sectionGapInsights (don't depend on sections array)
   const gapsCount = useMemo(() => {
-    if (!enhancedMatchData?.sectionGapInsights) return 0;
+    if (!enhancedMatchData?.sectionGapInsights || hasMalformedGapPayload) return 0;
     
     // Count sections that have at least one gap
     return enhancedMatchData.sectionGapInsights.filter(
@@ -667,7 +682,7 @@ function MatchMetricsToolbarContent({
         insight.requirementGaps.filter(isActionableGap).length > 0 &&
         !(insight.sectionId && dismissedGapSectionIdSet.has(insight.sectionId))
     ).length;
-  }, [enhancedMatchData?.sectionGapInsights, dismissedGapSectionIdSet]);
+  }, [enhancedMatchData?.sectionGapInsights, dismissedGapSectionIdSet, hasMalformedGapPayload]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // A-PHASE AVAILABILITY - check data directly (not just stageFlags)
@@ -757,7 +772,7 @@ function MatchMetricsToolbarContent({
       const gapsPending =
         gapStageStatus === 'pending' ||
         (!gapStageStatus && isStagePending(phaseBStatus?.sectionGaps?.completedAt ?? undefined));
-      const gapsError = gapStageStatus === 'error';
+      const gapsError = gapStageStatus === 'error' || hasMalformedGapPayload;
       items.push({
         key: 'gaps',
         label: 'Gaps',
@@ -921,6 +936,7 @@ function MatchMetricsToolbarContent({
     isRefreshLoading,
     refreshStartedAt,
     phaseBStatus,
+    hasMalformedGapPayload,
   ]);
 
   const drawerGoalMatches = goalMatches;

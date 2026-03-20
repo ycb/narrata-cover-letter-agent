@@ -209,4 +209,36 @@ describe('MatchMetricsToolbar', () => {
     expect(screen.getByText('Readiness')).toBeInTheDocument();
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);
   });
+
+  it('treats malformed persisted gap payloads as unavailable instead of zero gaps', () => {
+    render(
+      <MatchMetricsToolbar
+        metrics={baseMetrics}
+        draftId="draft-1"
+        jobDescription={{ role: 'Senior Product Manager' }}
+        enhancedMatchData={{
+          ...enhancedMatchData,
+          sectionGapInsights: [
+            {
+              sectionId: 'body-1',
+              sectionSlug: 'experience',
+              sectionType: 'experience',
+              sectionTitle: 'Body Paragraph 1',
+              evidenceQuote: 'missing nested requirement gaps',
+              hiringRisk: 'A reviewer cannot see what is actually missing.',
+              whyNow: 'The payload contract is malformed.',
+            },
+          ],
+        } as any}
+        phaseBStatus={{
+          status: 'success',
+          sectionGaps: { status: 'success' },
+        } as any}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Gaps/i }));
+
+    expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);
+  });
 });
